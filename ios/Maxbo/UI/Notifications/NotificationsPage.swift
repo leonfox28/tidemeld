@@ -81,6 +81,7 @@ struct NotificationsPage: View {
     @State private var atTop = true
     /// How far the bars reach over the lists; see [notices].
     @State private var barInsets = EdgeInsets()
+    @State private var width: CGFloat = 0
 
     var body: some View {
         Group {
@@ -128,11 +129,17 @@ struct NotificationsPage: View {
         // a little way down.)
         .ignoresSafeArea(.container, edges: .vertical)
         .onGeometryChange(for: EdgeInsets.self) { $0.safeAreaInsets } action: { barInsets = $0 }
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
         // In the navigation bar, in place of the title, which the tab bar
-        // already gives: under it, they made the top bar twice as tall.
+        // already gives: under it, they made the top bar twice as tall. The
+        // bar gives them only what they need unless told how wide to be: the
+        // page's width within its margins, but no wider than a phone's, as
+        // across a wide window they would drift apart.
         .toolbar {
-            ToolbarItem(placement: .principal) { KindBar(kind: $kind) }
-                .sharedBackgroundVisibility(.hidden)
+            ToolbarItem(placement: .principal) {
+                KindBar(kind: $kind).frame(width: min(max(width - 32, 0), 400))
+            }
+            .sharedBackgroundVisibility(.hidden)
         }
         .onChange(of: kind) { withAnimation(.snappy(duration: 0.3)) { tabBarVisible = true } }
         // The user is looking at the open tab: clear its mark, and reload its
@@ -145,16 +152,20 @@ struct NotificationsPage: View {
     }
 }
 
-/// The kinds, as tabs: the open one in the accent colour over a line, which
-/// moves along as the open tab changes; one with something unread has a dot.
+/// The kinds, as tabs spread across the bar, each taking taps a little way
+/// either side of its label: the open one in the accent colour over a line,
+/// which moves along as the open tab changes; one with something unread has a
+/// dot. Even shares of the width would leave the two long labels all but
+/// touching.
 private struct KindBar: View {
     @Binding var kind: NoticeKind
     @Environment(AppGraph.self) private var graph
     @Namespace private var line
 
     var body: some View {
-        HStack(spacing: 24) {
+        HStack(spacing: 0) {
             ForEach(NoticeKind.allCases) { each in
+                if each != NoticeKind.allCases.first { Spacer(minLength: 0) }
                 let open = kind == each
                 let unread = graph.unread.state.has(each)
                 Button {
@@ -178,6 +189,8 @@ private struct KindBar: View {
                                     .matchedGeometryEffect(id: "line", in: line)
                             }
                         }
+                        .padding(.horizontal, 12)
+                        .frame(minWidth: 44)
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
