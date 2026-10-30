@@ -1,6 +1,6 @@
 # maxbo
 
-开源、非商业的第三方微博阅读客户端（Kotlin + Jetpack Compose，只做 Android）。方案、合规边界、接口实测结论和当前进度都在 [docs/PLAN.md](docs/PLAN.md)；**开工前先读第 2 节（合规边界）、第 8 节（实测结论）和第 11 节（进度与交接）**。
+开源、非商业的第三方微博阅读客户端：Android 版（Kotlin + Jetpack Compose，仓库根目录），以及 2026-10-30 起的 iOS 版（SwiftUI，`ios/`，见 [docs/IOS.md](docs/IOS.md)）。方案、合规边界、接口实测结论和当前进度都在 [docs/PLAN.md](docs/PLAN.md)；**开工前先读第 2 节（合规边界）、第 8 节（实测结论）和第 11 节（进度与交接）**。
 
 v0.11.0 及以前是 Flutter 版，2026-10-23 起换成 Kotlin 重写的版本（v0.12.0）。迁移的经过和各处设计的理由记在 [docs/KOTLIN_MIGRATION.md](docs/KOTLIN_MIGRATION.md) 的 §11；Flutter 代码只在 git 历史里（`53b24b0` 及以前）。
 
@@ -16,6 +16,16 @@ ANDROID_SERIAL=<没有真实登录的模拟器> ./gradlew connectedDebugAndroidT
 ./gradlew --stop              # 构建完停掉 Gradle/Kotlin daemon（合计约 5 GB）
 ```
 
+iOS 版（在 `ios/` 下；工程由 xcodegen 生成，不进 git）：
+
+```sh
+xcodegen generate                                                       # 改了 project.yml 或增删文件后
+xcodebuild -project Maxbo.xcodeproj -scheme Maxbo -destination 'generic/platform=iOS Simulator' -derivedDataPath build/dd build
+xcodebuild test -project Maxbo.xcodeproj -scheme Maxbo -destination 'id=<没有真实登录的模拟器>' -derivedDataPath build/dd -collect-test-diagnostics never
+xcrun simctl install <模拟器> build/dd/Build/Products/Debug-iphonesimulator/Maxbo.app   # 覆盖安装，数据保留
+xcrun simctl launch <模拟器> io.github.leonfox28.maxbo.debug -maxbo-open first/status    # 调试版直接打开页面，见 IOS.md §5
+```
+
 工具链：AGP 9.4.1、Gradle 9.8.2（wrapper）、Kotlin 2.4.21、JDK 17（Temurin）；compileSdk 37、targetSdk 36、minSdk 24。版本统一写在 `gradle/libs.versions.toml`。Robolectric 跑 SDK 34（35 以上要 Java 21）。
 
 ## 硬性约束
@@ -28,10 +38,12 @@ ANDROID_SERIAL=<没有真实登录的模拟器> ./gradlew connectedDebugAndroidT
 - **参考项目不能复制代码**：Android_16_Weibo、weiboX 没有 License，只能参考它们的接口形态。
 - **测试数据**：只用手写的合成数据。真实响应放在 `captured/`（已 gitignore），不得提交。
 - **日志**：日志和诊断输出里不得出现 Cookie 值或微博正文。调试日志用 `devLog()`，它只在调试版输出。
-- **保护真实登录态**：真实登录需要短信验证码和人机验证。保存着登录态的设备只能用 `install -r` 更新（调试版包名是 `io.github.leonfox28.maxbo.debug`），不要卸载或清除数据，也不要在上面跑 `connectedDebugAndroidTest`（它会清空 WebView Cookie，跑完还会卸载应用）。设备测试用没有真实登录的 AVD `maxbo_test`。
+- **保护真实登录态**：真实登录需要短信验证码和人机验证。保存着登录态的设备只能用 `install -r` 更新（调试版包名是 `io.github.leonfox28.maxbo.debug`），不要卸载或清除数据，也不要在上面跑 `connectedDebugAndroidTest`（它会清空 WebView Cookie，跑完还会卸载应用）。设备测试用没有真实登录的 AVD `maxbo_test`。iOS 同理：iOS 模拟器 `maxbo iPhone` 上有真实登录，只用 `simctl install` 覆盖安装，不卸载、不 `erase`、不在上面跑测试；测试用 `maxbo test`。
 - **先问用户**：完成人机验证、勾选用户协议、以用户身份对外操作（关注、点赞、评论），都必须先得到用户确认。写操作只在用户指定的测试微博上测，测完恢复原状。
 
 ## 架构速览
+
+下面是 Android 版。iOS 版的结构和与 Android 版的差异见 [docs/IOS.md](docs/IOS.md) §2、§3：分层和名字一一对应，行为以 Kotlin 版为准；改了一边的行为，另一边也要跟着改。
 
 源码在 `app/src/main/java/io/github/leonfox28/maxbo/`，单个 `:app` 模块，按包分层。
 
@@ -62,9 +74,9 @@ ANDROID_SERIAL=<没有真实登录的模拟器> ./gradlew connectedDebugAndroidT
 
 - **语言**：代码注释用英文，界面文案用中文（只有中文，不做多语言）。
 - **数据**：ID 一律用字符串；JSON 手写容错解析，不用代码生成。
-- **测试**（`app/src/test/`，JUnit 4 + Robolectric + Compose UI Test）：
+- **测试**（`app/src/test/`，JUnit 4 + Robolectric + Compose UI Test；iOS 在 `ios/MaxboTests/`，Swift Testing）：
   - `support/TestGraph.kt` 的 `testGraph()` 用假实现（`support/Fakes.kt`）拼出一个 `AppGraph`，`restored = signedIn` 就是已登录（uid 7）。不传 `web` 时请求一律按离线失败，不会碰到真实的微博；
   - `support/FakeWeibo.kt` 是本地的 HTTPS MockWebServer，DNS 全部指向它，用到它的测试类要跑在 Robolectric 下；
   - 页面测试用 `TestHost`，整个应用的流程用 `AppHarness`，合成数据的构造函数在 `support/Statuses.kt`。
-- **版本号**：只在 `app/build.gradle.kts` 里，`versionName` 和 `versionCode` 一起改，`versionCode` 每发一版加 1。
+- **版本号**：在 `app/build.gradle.kts` 里，`versionName` 和 `versionCode` 一起改，`versionCode` 每发一版加 1；iOS 版的 `MARKETING_VERSION`（`ios/project.yml`）跟着 `versionName` 改。
 - **提交**：用英文写提交信息，先一句话概括，再空一行写原因。每完成一个里程碑或一个独立修复就提交一次。

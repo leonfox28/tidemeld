@@ -1,8 +1,8 @@
 # maxbo
 
-一个开源、非商业的第三方微博阅读客户端（Android），使用 Kotlin 和 Jetpack Compose 开发。
+一个开源、非商业的第三方微博阅读客户端。Android 版使用 Kotlin 和 Jetpack Compose 开发；iOS 版使用 SwiftUI 开发，还在测试中。
 
-> **状态：早期测试版，只支持 Android。** 方案与进度见 [docs/PLAN.md](docs/PLAN.md)。
+> **状态：早期测试版。Android 版在 Releases 发布；iOS 版还没有发布，只能从源码构建。** 方案与进度见 [docs/PLAN.md](docs/PLAN.md)。
 
 ## 功能
 
@@ -31,7 +31,7 @@
 
 ### iOS
 
-不再提供。v0.2.0 到 v0.11.0 的 Releases 里附有未签名的 IPA，之后的版本不再提供，已经装上的 iOS 版也不会再更新。
+原生 iOS 版（SwiftUI，需要 iOS 26 及以上）正在测试，还没有发布安装包，可以按下面「从源码构建」自己编译。v0.2.0 到 v0.11.0 的 Releases 里附有旧的 Flutter 版未签名 IPA，那个版本不再更新。
 
 ## 从源码构建
 
@@ -44,10 +44,18 @@
 
 没有 `key.properties` 时，release 包用调试密钥签名，无法覆盖安装 Releases 页面上的正式包。
 
+iOS 版需要 Xcode 27 和 [XcodeGen](https://github.com/yonaskolb/XcodeGen)：
+
+```sh
+cd ios
+xcodegen generate
+xcodebuild -project Maxbo.xcodeproj -scheme Maxbo -destination 'generic/platform=iOS Simulator' build
+```
+
 ## 隐私
 
 - 登录在微博官方网页登录页中完成，应用接触不到你的密码。
-- 登录状态只保存在你自己的设备上（Android Keystore），退出登录时清除。
+- 登录状态只保存在你自己的设备上（Android Keystore 或 iOS 钥匙串），退出登录时清除。
 - 项目**没有任何服务器**，没有统计、埋点或崩溃上报，不收集任何数据；应用只和微博的服务器通信。
 - 只在你操作时请求微博，不在后台轮询或预取，请求频率有上限。遇到验证码时，由你本人在微博的页面里完成。
 

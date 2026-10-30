@@ -43,6 +43,8 @@ v0.1.0 到 v0.11.0 用的是 Flutter（stable 3.47.x）。当初选它是为了�
 
 鸿蒙：HarmonyOS 5/6 用户通过卓易通安装 APK，原生鸿蒙不做。
 
+iOS：2026-10-30 起另有一个原生 SwiftUI 版（`ios/`），功能和交互照 Kotlin 版翻译，只用 Apple 自带的框架。工程、与 Android 版的差异和验收记录见 [IOS.md](IOS.md)。
+
 ### 3.2 依赖
 
 版本统一写在 `gradle/libs.versions.toml`，2026-10-22 时取的是各库的最新稳定版。
@@ -285,7 +287,7 @@ app/src/androidTest/            # 设备测试（读 WebView 的 HttpOnly Cookie
 ## 9. 分发
 
 - **Android**：GitHub Releases 发布一个通用 APK `maxbo-vX.Y.Z.apk`（`./gradlew assembleRelease`；v0.11.0 及以前的 Flutter 版按 ABI 拆成三个）。签名密钥不进 git：本地密钥库是 `~/.config/maxbo/release.jks`（别名 `maxbo`），密码在仓库根目录的 `key.properties`（已 gitignore，Flutter 时期在 `android/key.properties`）；CI 用的副本存在 GitHub 仓库 `release` 环境的 Secrets 里（见下方 CI）。Secrets 写入后读不回来，不能当备份。证书 SHA-256 是 `A1:7A:66:0B:CA:65:D7:BB:89:D6:F3:07:AB:A4:61:06:F3:F8:AF:CB:90:F5:D0:B3:EC:40:EB:28:6D:71:79:E2`。**密钥丢了，已安装的用户就无法覆盖升级**，这两个文件要另外备份。没有 `key.properties` 时 release 包退回调试密钥签名。调试版的包名带 `.debug` 后缀，名称是「maxbo debug」，和 release 版可以同时安装。国行手机通常没有 GMS，暂不受 Google 开发者验证影响；2027 年该政策全球生效后再评估。
-- **iOS**：2026-10-22 起不再提供（§10）。v0.2.0 到 v0.11.0 的 Release 附有无签名 IPA，之后的版本没有。
+- **iOS**：v0.2.0 到 v0.11.0（Flutter 版）的 Release 附有无签名 IPA，v0.12.0 起没有。2026-10-30 起有原生 SwiftUI 版（§10），还没发布，怎么分发待定（IOS.md §6）。
 - **CI**（`.github/workflows/`）：
   - `ci.yml`：push 到 main 和每个 PR 时运行 `./gradlew spotlessCheck lint testDebugUnitTest assembleDebug`。不接触签名密钥。
   - `release.yml`：推送 `v*` tag 时触发，分两个 job。`android`：先核对 tag 和 `app/build.gradle.kts` 的 `versionName` 一致，再跑格式检查、lint 和测试，然后用 Secrets 里的密钥打 release APK，核对签名证书指纹必须等于上面的 SHA-256（防止误用调试密钥），改名为 `maxbo-vX.Y.Z.apk`。`release`：等 `android` 完成，下载产物，生成 `SHA256SUMS.txt`，建一个**草稿** Release。只有 `release` 有写仓库的权限。发布说明手写，确认后手动发布。
@@ -299,9 +301,10 @@ app/src/androidTest/            # 设备测试（读 WebView 的 HttpOnly Cookie
 - **框架**：Kotlin + Jetpack Compose（2026-10-22 用户决定，10-23 切换，v0.12.0 起；§3.1）。工具链：AGP 9.4.1、Gradle 9.8.2、Kotlin 2.4.21、JDK 17；compileSdk 37、targetSdk 36、minSdk 24。v0.11.0 及以前是 Flutter stable 3.47.7。
 - **包名**：`io.github.leonfox28.maxbo`（v0.1.0 起不再改，换成 Kotlin 时也没改）；调试版加后缀 `.debug`。Kotlin 版的 versionCode 从 5022 起（Flutter 版按 ABI 拆分，最大是 4021），每发一版加 1，所以能直接覆盖安装旧版。
 - **平板/折叠屏不做列表加详情的双栏**（2026-10-16 用户决定，10-17 调整）：不做左边列表、右边详情的双栏布局。10-17 改为：导航用悬浮胶囊放在右下角（去掉左侧导航栏）；详情页在 expanded 档把正文和评论/转发左右并排；首页时间线不做瀑布流（会打乱时间顺序），改为卡片加宽、媒体放到正文右侧。
-- **不再支持 iOS**（2026-10-22 用户决定）：第三方微博客户端几乎不可能上架 App Store（审核条款 5.2.2 要求第三方服务的授权，国区还要 ICP 备案），只能发无签名 IPA 让用户自签，用免费 Apple ID 签的每 7 天要重签，门槛很高；而且 iOS 一直只验证过能编译和启动。删掉了 `ios/` 工程、CI 和 `release.yml` 的 iOS 构建、侧载文档，以及只对 iOS 有用的代码（Keychain 残留登录态的清理、选图的 `requestFullMetadata`、iOS 的页面转场配置和对应测试）。v0.11.0 是最后一个带 IPA 的版本。框架仍是 Flutter，是否改用 Kotlin 原生还在讨论。
+- ~~**不再支持 iOS**~~（2026-10-22 用户决定，**2026-10-30 推翻**，见下一条）：第三方微博客户端几乎不可能上架 App Store（审核条款 5.2.2 要求第三方服务的授权，国区还要 ICP 备案），只能发无签名 IPA 让用户自签，用免费 Apple ID 签的每 7 天要重签，门槛很高；而且 iOS 一直只验证过能编译和启动。删掉了 `ios/` 工程、CI 和 `release.yml` 的 iOS 构建、侧载文档，以及只对 iOS 有用的代码（Keychain 残留登录态的清理、选图的 `requestFullMetadata`、iOS 的页面转场配置和对应测试）。v0.11.0 是最后一个带 IPA 的版本。框架仍是 Flutter，是否改用 Kotlin 原生还在讨论。
+- **重新做 iOS，原生 SwiftUI**（2026-10-30 用户决定）：用 SwiftUI 和系统控件，按钮和导航栏用系统的液态玻璃，深浅色用 voytty iOS 版的整套配色，不做预测性返回（用 iOS 的右滑返回）。部署目标 iOS 26，只用 Apple 的框架。代码在 `ios/`，说明在 IOS.md。上面那条里不上架 App Store、自签门槛高的理由依然成立，所以分发方式还没定。
 
-## 11. 进度与交接（更新于 2026-10-25，换成 Kotlin 之后）
+## 11. 进度与交接（更新于 2026-10-30，换成 Kotlin 之后；iOS 版另见 IOS.md）
 
 下表 v0.11.0 及以前的各行写的是 Flutter 版的实现（`lib/` 下的文件名、provider 等），行为在 Kotlin 版里照样保留；Kotlin 版的对应文件见 KOTLIN_MIGRATION.md §4，当前代码的结构见 CLAUDE.md「架构速览」和下方「已有的基础设施」。
 
@@ -347,6 +350,7 @@ app/src/androidTest/            # 设备测试（读 WebView 的 HttpOnly Cookie
 | 预测性返回卡顿 | ✅ 完成（v0.11.0 发布）：Android 上侧滑返回时页面跟手卡顿。profile 版在 Android 16 模拟器上抓 VM timeline 查到两个原因：① 手指拖动期间只有一半帧率：返回进度每帧一条，刚好在 vsync 之后到达，抢在这一帧开始前处理掉时不会再要下一帧，下一条进度就要多等一帧，于是隔一个 vsync 才出一帧（每帧只要约 6 ms，仍是 30 fps）；② 页面缩小时每帧都按新的缩放比例重新栅格化文字，中文字形多，文字多的页面（关于页、长微博）光这一项每帧 20～35 ms。现在 `lib/core/page_transitions.dart` 包了 Flutter 默认的 `PredictiveBackPageTransitionsBuilder`（经 `ThemeData.pageTransitionsTheme`），手势期间用一个 Ticker 保证每个 vsync 都出帧，并用 `SnapshotWidget` 把被拖走的页面和下面露出的页面各画一次、之后当图片缩放（与 Android 自己缩放窗口的做法一致，手势期间页面上的动图、视频暂停不动）。同一时段对比（模拟器内存紧张，绝对数字只能参考）：文字多的详情页每秒实际呈现的帧从 11～14 升到 28～37，关于页从 9～16 升到 25～40；手势期间文字栅格化降为 0。「是否在手势中」监听 navigator 的 `userGestureInProgressNotifier`，不能在构建时读一次：页面已回到原位时取消手势，路由不会再重建（有测试覆盖）。没在真机上测过 | 见 git log |
 | v0.11.0 | ✅ 2026-10-22 发布（Pre-release，APK + 无签名 IPA）：评论和回复带图、Android 侧滑返回更流畅。评论带图是新功能，所以升 minor 版本。下载后核对过校验值、三个 APK 的签名证书、IPA 的版本号（0.11.0，build 21），arm64 APK 能在模拟器上覆盖安装 0.10.2 并启动（未登录状态），关于页显示 0.11.0，release 包里在关于页侧滑时页面跟手缩小、文字清晰，松手返回设置页 | `5a68e34`，见 `v0.11.0` 标签 |
 | 停止支持 iOS | ✅ 完成（未发布）：用户决定只做 Android（§10）。删掉了 `ios/` 工程（含读 Cookie 的 `AppDelegate.swift`）、CI 的 iOS 模拟器构建、`release.yml` 的无签名 IPA（Release 里只剩 APK 和 `SHA256SUMS.txt`）、`docs/ios-sideload.md`；README、CLAUDE.md 和关于页改成只写 Android（关于页和 README 的隐私说明都改为「Android Keystore」）；去掉了只对 iOS 有用的代码：首次启动清理 Keychain 里残留的登录态（Android 上卸载即清除，又关了备份，这一步本来就不起作用）、选图的 `requestFullMetadata: false`（Android 插件不使用它）、iOS 的页面转场配置和 iOS 右滑返回的 Widget 测试。`integration_test` 以后要在一台没有真实登录的 Android 模拟器上跑，本机还没有这样的 AVD | 见 git log |
+| iOS 原生版 | ✅ 完成（未发布，2026-10-30）：用户要求在 Android 版之外做原生 iOS 版（§10）。`ios/` 下的 SwiftUI 工程照 Kotlin 版逐页翻译了全部页面和功能，单元测试 44 个通过。用户在 iOS 模拟器 `maxbo iPhone` 上用测试账号登录后，核对了时间线、详情、楼中楼、看图、视频、主页、通知、热搜、话题搜索、发微博弹层、诊断页的接口核对和模拟登录过期（3.4 秒续期成功）；写操作、翻页、实况照片、iPad 还没在真实会话上看过。差异、验收和待办见 IOS.md | `9340d7c` `1a9748d` |
 | 迁移到 Kotlin | ✅ 完成（v0.12.0 发布，10-23，Pre-release；一个通用 APK `maxbo-v0.12.0.apk`）：用户 10-22 决定把 maxbo 从 Flutter 整体迁移到 Kotlin + Jetpack Compose，功能和交互与 v0.11.0 对齐。分 K0–K7 八个阶段，每个阶段都把对应的 Dart 测试翻译过来（共 345 个测试），并在 emulator-5554 的真实会话上逐项验收（发微博、评论、点赞、转发、删除都在测试微博上做过并恢复原状）。10-23 切换：Kotlin 工程移到仓库根目录，删掉 Flutter 代码；调试版包名换回 `.debug`（覆盖了 Flutter 调试版，WebView 的 Cookie 还在，打开登录页就直接登上了）；CI 只剩 Gradle，`release.yml` 改成出一个通用 APK。不做新旧版本在用户手机上的数据交接：覆盖安装后要重新登录、重新设置。计划、各阶段的备注和验收记录见 [KOTLIN_MIGRATION.md](KOTLIN_MIGRATION.md) | 见 git log |
 | 预测性返回提前消失 | ✅ 完成（v0.12.1 发布）：用户 10-24 反馈，侧滑返回时手指还没松开，页面就不见了。Navigation 3 按手势进度直接拖动整个返回转场（`seekTo(progress)`），松手后再播完剩下的部分；原先的淡出放在进度的 60%～100%，以为手指很少滑到那里，但系统给的进度大致是手指横向移动的距离占屏宽的比例，滑过整个屏幕时页面就完全透明了。现在手势期间页面只缩小、偏移，不淡出；页面离开页面栈（松手确认返回或按返回键）时由 `fadingOnceClosed()` 让它在 112 ms 内淡出，普通返回原来写在转场里的淡出也改由它负责，两种返回只有这一处淡出。手指滑得越远，松手后剩下的转场越短（Navigation 3 按剩余进度算时长），滑到屏幕另一侧再松手时，页面在淡完之前就会被移除。`TransitionsTest` 用两个纯色页面截图核对：滑到底时页面仍完整、松手后才淡出、滑回边缘取消、按返回键也淡出。emulator-5554 上（`input motionevent` 注入手势）核对过：从左缘滑到右缘按住时，设置页完整地缩小、右移，松手回到「我」页签 | 见 git log |
 | 通知页签不刷新 | ✅ 完成（v0.12.1 发布）：发 0.12.1 前 CI 上 `NotificationsPageTest` 偶发超时，查下来是真问题：停在通知页时来了这一类的新通知（或点进带红点、之前加载过的页签），页面去掉红点后要重新加载列表，但去掉红点会改变 `LaunchedEffect` 的 key，效果重启时把正在进行的 `refresh()` 一起取消了。本地假服务器回得快，请求通常已经发出，所以测试大多能过；真实网络下请求比一帧慢得多，列表几乎总是没刷新。现在重新加载放在页面的 `scope` 里，不随效果重启取消。新测试让第二次加载慢 500 ms，修之前必定失败。同时修了 `StatusDetailWritesTest` 里点赞那条的竞态：点赞先显示再发请求，测试改为等请求发出后再断言。没有在真实会话上核对（要有人发来新通知） | 见 git log |
