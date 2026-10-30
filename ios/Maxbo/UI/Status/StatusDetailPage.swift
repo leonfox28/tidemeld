@@ -218,10 +218,11 @@ private struct StatusDetail: View {
                         .plainRow()
                 }
             } header: {
-                DetailTabs(model: model, status: status).readingWidth()
+                DetailTabs(model: model, status: status).readingWidth().listHeader()
             }
         }
         .listStyle(.plain)
+        .listSectionSpacing(0)
         .appListStyle()
         .refreshable {
             do {

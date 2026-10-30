@@ -104,6 +104,12 @@ extension View {
             .alignmentGuide(.listRowSeparatorLeading) { _ in 0 }
     }
 
+    /// A list section's header with no insets of its own: its content lines up
+    /// with the rows under it.
+    func listHeader() -> some View {
+        listRowInsets(EdgeInsets())
+    }
+
     /// At most a reading column wide, centred.
     func readingWidth(_ width: CGFloat = 640) -> some View {
         frame(maxWidth: width).frame(maxWidth: .infinity)

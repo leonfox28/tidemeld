@@ -70,10 +70,12 @@ struct CommentRepliesPage: View {
                         .padding(.vertical, 8)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .readingWidth()
+                        .listHeader()
                 }
             }
         }
         .listStyle(.plain)
+        .listSectionSpacing(0)
         .appListStyle()
         .refreshable {
             do {
