@@ -29,6 +29,7 @@ private struct Timeline: View {
     let uid: String
     @Environment(AppGraph.self) private var graph
     @State private var atTop = true
+    @State private var pull = PullToRefresh()
 
     var body: some View {
         let timeline = graph.timeline
@@ -59,17 +60,18 @@ private struct Timeline: View {
             .listStyle(.plain)
             .appListStyle()
             .refreshable { await refresh() }
+            .pullToRefresh(pull)
             .tabBarHidesOnScroll()
             .onScrollGeometryChange(for: Bool.self) { geometry in
                 geometry.contentOffset.y <= -geometry.contentInsets.top + 4
             } action: { _, top in
                 atTop = top
             }
-            // Tapping the open tab again: back to the top, or a refresh from
-            // there.
+            // Tapping the open tab again: back to the top, or from there a
+            // refresh, shown as on a pull.
             .onChange(of: graph.router.reselects[.home]) {
                 if atTop {
-                    Task { await refresh() }
+                    if !pull.begin() { Task { await refresh() } }
                 } else if let first = timeline.items.first {
                     withAnimation { proxy.scrollTo(first.id, anchor: .top) }
                 }

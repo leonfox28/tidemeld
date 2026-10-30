@@ -4,7 +4,8 @@ import Foundation
 /// Opens a page named by the `-maxbo-open` launch argument, in debug builds
 /// only, so a page can be checked without tapping through to it:
 /// `login`, `compose`, `settings`, `about`, `licenses`,
-/// `tab/<home|search|notifications|me>`,
+/// `tab/<home|search|notifications|me>`, `reselect/<home|search>` (the tab
+/// tapped again a few seconds after it opens),
 /// `status/<id>`, `u/<uid>`, `n/<screen name>`, `results/<query>`, and from
 /// the home timeline once loaded, `first/<status|pic|video|user|thread>`.
 @MainActor
@@ -30,6 +31,13 @@ enum DebugLaunch {
         case "licenses": router.tab = .me; router.push(.about); router.push(.licenses)
         case "tab":
             router.tab = ["search": .search, "notifications": .notifications, "me": .me][rest] ?? .home
+        case "reselect":
+            let tab: AppTab = rest == "search" ? .search : .home
+            router.tab = tab
+            Task {
+                try? await Task.sleep(for: .seconds(4))
+                router.selection.wrappedValue = tab
+            }
         case "status": router.push(.status(id: rest, initial: nil))
         case "u": router.push(.profile(uid: rest, initial: nil))
         case "n": router.push(.profileByName(rest))
