@@ -91,7 +91,7 @@ struct ProfilePage: View {
                 }
                 .listStyle(.plain)
                 .appListStyle()
-                .tabBarFollowsScroll()
+                .tabBarHidesOnScroll()
                 .refreshable {
                     do {
                         try await model.refresh()

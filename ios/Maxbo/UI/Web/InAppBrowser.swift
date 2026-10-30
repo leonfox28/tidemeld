@@ -16,7 +16,7 @@ struct InAppBrowser: View {
     var body: some View {
         WebView(page)
             .webViewBackForwardNavigationGestures(.enabled)
-            .tabBarFollowsScroll(web: true)
+            .tabBarHidesOnScroll(web: true)
             .overlay(alignment: .top) {
                 if page.isLoading {
                     ProgressView(value: page.estimatedProgress).progressViewStyle(.linear)

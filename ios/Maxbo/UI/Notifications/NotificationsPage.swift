@@ -74,6 +74,9 @@ struct NotificationsPage: View {
     @Environment(AppGraph.self) private var graph
     @State private var model = NotificationsModel()
     @State private var kind: NoticeKind = .comments
+    /// The tab bar's, as the list shown scrolls; one for the page, as the
+    /// lists side by side would each set it.
+    @State private var tabBarVisible = true
 
     var body: some View {
         Group {
@@ -86,17 +89,19 @@ struct NotificationsPage: View {
         .appBackground()
         .navigationTitle("通知")
         .toolbarTitleDisplayMode(.inline)
+        .toolbarVisibility(tabBarVisible ? .automatic : .hidden, for: .tabBar)
     }
 
     private var notices: some View {
         let _ = model.attach(graph.api)
         return TabView(selection: $kind) {
             ForEach(NoticeKind.allCases) { kind in
-                NoticeList(model: model, kind: kind, shown: self.kind == kind).tag(kind)
+                NoticeList(model: model, kind: kind, shown: self.kind == kind, tabBarVisible: $tabBarVisible).tag(kind)
             }
         }
         .tabViewStyle(.page(indexDisplayMode: .never))
         .safeAreaBar(edge: .top) { KindBar(kind: $kind) }
+        .onChange(of: kind) { withAnimation(.snappy(duration: 0.3)) { tabBarVisible = true } }
         // The user is looking at the open tab: clear its mark, and reload its
         // list if that came before whatever is new.
         .task(id: "\(kind)\(graph.unread.state.has(kind))") {
@@ -148,6 +153,7 @@ private struct NoticeList: View {
     /// Whether it is the list shown, as only that one may load: loading a list
     /// marks its kind read on Weibo's side.
     let shown: Bool
+    let tabBarVisible: Binding<Bool>
     @Environment(AppGraph.self) private var graph
 
     var body: some View {
@@ -171,7 +177,7 @@ private struct NoticeList: View {
         }
         .listStyle(.plain)
         .appListStyle()
-        .tabBarFollowsScroll()
+        .modifier(HideOnScroll(visible: shown ? tabBarVisible : .constant(true)))
         .refreshable {
             do {
                 try await model.refresh(kind)

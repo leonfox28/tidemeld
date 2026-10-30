@@ -59,7 +59,7 @@ private struct Timeline: View {
             .listStyle(.plain)
             .appListStyle()
             .refreshable { await refresh() }
-            .tabBarFollowsScroll()
+            .tabBarHidesOnScroll()
             .onScrollGeometryChange(for: Bool.self) { geometry in
                 geometry.contentOffset.y <= -geometry.contentInsets.top + 4
             } action: { _, top in

@@ -1,17 +1,28 @@
 import SwiftUI
 import WebKit
 
-/// Whether a page's bottom toolbar shows, as the content scrolls: they go as it
-/// scrolls on (the finger going up) and come back as it scrolls back, once it
-/// has moved [threshold] one way, so a nudge leaves them as they are; at the
-/// top they always show. The Android app's bars do the same.
+/// Whether bars that give way to reading show, as the content scrolls: they go
+/// as it scrolls on (the finger going up) and come back as it scrolls back,
+/// once it has moved [threshold] one way, so a nudge leaves them as they are;
+/// at the top they always show. The Android app's bars do the same.
 struct ScrollHider: Equatable {
     var threshold: CGFloat = 24
     private(set) var visible = true
-    /// Where the content was when the buttons last changed, or the scroll last
+    /// Where the content was when the bars last changed, or the scroll last
     /// turned.
     private var anchor: CGFloat = 0
     private var last: CGFloat = 0
+    /// The insets above and below the content, which bars change.
+    private var top: CGFloat = 0
+    private var bottom: CGFloat = 0
+
+    /// Where the content is: how far it has scrolled from its top
+    /// ([ScrollGeometry.offsetFromTop]), and the insets above and below it.
+    struct Position: Hashable {
+        var offset: CGFloat
+        var top: CGFloat = 0
+        var bottom: CGFloat = 0
+    }
 
     /// Takes the content's new offset from its top.
     mutating func scrolled(to offset: CGFloat) {
@@ -32,29 +43,68 @@ struct ScrollHider: Equatable {
             anchor = offset
         }
     }
+
+    /// Takes the content's new position. A bar coming or going changes the
+    /// insets, which can move the content without the user scrolling it, so
+    /// that doesn't count.
+    mutating func scrolled(to position: Position) {
+        if position.top != top || position.bottom != bottom {
+            (top, bottom) = (position.top, position.bottom)
+            anchor = position.offset
+            last = position.offset
+        }
+        scrolled(to: position.offset)
+    }
+
+    /// Shows the bars, and measures again from where the content is.
+    mutating func show() {
+        visible = true
+        anchor = last
+    }
 }
 
 extension ScrollGeometry {
     /// How far the content has scrolled from its top, for a [ScrollHider], up
-    /// to its end: pulled past the end it only springs back, and a bar going
-    /// away there pulls it back too, and neither is scrolling back.
+    /// to its end: pulled past the end it only springs back, which isn't
+    /// scrolling back.
     var offsetFromTop: CGFloat {
         let end = contentSize.height + contentInsets.top + contentInsets.bottom - containerSize.height
         return min(contentOffset.y + contentInsets.top, max(end, 0))
     }
+
+    /// Where the content is, for a [ScrollHider].
+    var hiderPosition: ScrollHider.Position {
+        ScrollHider.Position(offset: offsetFromTop, top: contentInsets.top, bottom: contentInsets.bottom)
+    }
 }
 
-/// Keeps [visible] as a [ScrollHider] says while the content scrolls.
+/// Keeps [visible] as a [ScrollHider] says while the content scrolls, and shows
+/// the bars again as the page comes back into view (a tab chosen, a page
+/// closed over it), as the Android app does on choosing a tab.
 struct HideOnScroll: ViewModifier {
     @Binding var visible: Bool
+    /// Whether the content is a web view, which tells of its scrolling its own way.
+    var web = false
     @State private var hider = ScrollHider()
 
     func body(content: Content) -> some View {
-        content.onScrollGeometryChange(for: CGFloat.self, of: \.offsetFromTop) { _, offset in
-            hider.scrolled(to: offset)
-            if visible != hider.visible {
-                withAnimation(.snappy(duration: 0.3)) { visible = hider.visible }
+        Group {
+            if web {
+                content.webViewOnScrollGeometryChange(for: ScrollHider.Position.self, of: \.hiderPosition) { scrolled($1) }
+            } else {
+                content.onScrollGeometryChange(for: ScrollHider.Position.self, of: \.hiderPosition) { scrolled($1) }
             }
+        }
+        .onAppear {
+            hider.show()
+            visible = true
+        }
+    }
+
+    private func scrolled(_ position: ScrollHider.Position) {
+        hider.scrolled(to: position)
+        if visible != hider.visible {
+            withAnimation(.snappy(duration: 0.3)) { visible = hider.visible }
         }
     }
 }
@@ -66,32 +116,21 @@ extension View {
         modifier(HideOnScroll(visible: visible))
             .toolbarVisibility(visible.wrappedValue ? .visible : .hidden, for: .bottomBar)
     }
+
+    /// The tab bar under the page, likewise. The system's own way, shrinking it
+    /// to two buttons, brings it back only at the top or the end, and has no
+    /// way to bring it back with an animation.
+    func tabBarHidesOnScroll(web: Bool = false) -> some View { modifier(TabBarHidesOnScroll(web: web)) }
 }
 
-/// Expands the tab bar again as the content scrolls back, once the system has
-/// minimized it for scrolling on; see `Router.expandTabBar`.
-struct TabBarFollowsScroll: ViewModifier {
-    /// Whether the content is a web view, which tells of its scrolling its own way.
+private struct TabBarHidesOnScroll: ViewModifier {
     let web: Bool
-    @Environment(AppGraph.self) private var graph
-    @State private var hider = ScrollHider()
+    @State private var visible = true
 
     func body(content: Content) -> some View {
-        if web {
-            content.webViewOnScrollGeometryChange(for: CGFloat.self, of: \.offsetFromTop) { scrolled(to: $1) }
-        } else {
-            content.onScrollGeometryChange(for: CGFloat.self, of: \.offsetFromTop) { scrolled(to: $1) }
-        }
+        content.modifier(HideOnScroll(visible: $visible, web: web))
+            // Not `.visible`, which from a page further down the stack would
+            // keep the bar up over a page above that hides it.
+            .toolbarVisibility(visible ? .automatic : .hidden, for: .tabBar)
     }
-
-    private func scrolled(to offset: CGFloat) {
-        let shown = hider.visible
-        hider.scrolled(to: offset)
-        if hider.visible, !shown { graph.router.expandTabBar() }
-    }
-}
-
-extension View {
-    /// For the scrolling content of a page with the tab bar under it.
-    func tabBarFollowsScroll(web: Bool = false) -> some View { modifier(TabBarFollowsScroll(web: web)) }
 }

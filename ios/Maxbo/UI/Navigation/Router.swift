@@ -100,10 +100,6 @@ final class Router {
     var deletion: DeleteRequest?
     var commentComposer: CommentComposerRequest?
 
-    /// While set, the tab bar stays expanded; see [expandTabBar].
-    private(set) var tabBarPinned = false
-    @ObservationIgnored private var unpin: Task<Void, Never>?
-
     /// Bumped each time the selected tab is tapped again.
     private(set) var reselects: [AppTab: Int] = [:]
 
@@ -121,18 +117,6 @@ final class Router {
                 }
                 self.tab = tab
             })
-    }
-
-    /// Brings the minimized tab bar back, as the content scrolls back. The
-    /// system minimizes it as the content scrolls on, but only expands it again
-    /// at the top or the end: briefly not letting it minimize does.
-    func expandTabBar() {
-        tabBarPinned = true
-        unpin?.cancel()
-        unpin = Task {
-            try? await Task.sleep(for: .milliseconds(400))
-            if !Task.isCancelled { tabBarPinned = false }
-        }
     }
 
     func push(_ route: Route) {

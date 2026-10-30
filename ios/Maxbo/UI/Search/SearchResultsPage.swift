@@ -66,7 +66,7 @@ struct SearchResultsPage: View {
                 }
                 .listStyle(.plain)
                 .appListStyle()
-                .tabBarFollowsScroll()
+                .tabBarHidesOnScroll()
                 .refreshable {
                     do {
                         try await results.refresh()

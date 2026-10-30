@@ -57,6 +57,30 @@ struct ScrollHiderTests {
         #expect(!after([offset(200), offset(330), offset(400), offset(277, bottom: 77)]).visible)
     }
 
+    @Test func contentMovedByABarDoesNotCount() {
+        // Hidden at the end, where the tab bar going away takes 49 off the
+        // inset below and pulls the content back as far.
+        var hider = ScrollHider()
+        for offset: CGFloat in [100, 300] { hider.scrolled(to: .init(offset: offset, top: 116, bottom: 83)) }
+        #expect(!hider.visible)
+        hider.scrolled(to: .init(offset: 251, top: 116, bottom: 34))
+        #expect(!hider.visible)
+        // Scrolling back from there does count.
+        hider.scrolled(to: .init(offset: 220, top: 116, bottom: 34))
+        #expect(hider.visible)
+    }
+
+    @Test func showingMeasuresAgainFromThere() {
+        var hider = after([100, 300])
+        hider.show()
+        #expect(hider.visible)
+        // Down from 300 hides it again only past the threshold.
+        hider.scrolled(to: 320)
+        #expect(hider.visible)
+        hider.scrolled(to: 330)
+        #expect(!hider.visible)
+    }
+
     @Test func contentShorterThanThePageNeverHidesThem() {
         let offset = ScrollGeometry(
             contentOffset: CGPoint(x: 0, y: 60), contentSize: CGSize(width: 400, height: 300),
