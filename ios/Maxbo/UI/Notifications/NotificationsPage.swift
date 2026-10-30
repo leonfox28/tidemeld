@@ -77,6 +77,8 @@ struct NotificationsPage: View {
     /// The tab bar's, as the list shown scrolls; one for the page, as the
     /// lists side by side would each set it.
     @State private var tabBarVisible = true
+    /// How far the bars reach over the lists; see [notices].
+    @State private var barInsets = EdgeInsets()
 
     var body: some View {
         Group {
@@ -96,10 +98,19 @@ struct NotificationsPage: View {
         let _ = model.attach(graph.api)
         return TabView(selection: $kind) {
             ForEach(NoticeKind.allCases) { kind in
-                NoticeList(model: model, kind: kind, shown: self.kind == kind, tabBarVisible: $tabBarVisible).tag(kind)
+                NoticeList(
+                    model: model, kind: kind, shown: self.kind == kind, tabBarVisible: $tabBarVisible,
+                    barInsets: barInsets
+                )
+                .tag(kind)
             }
         }
         .tabViewStyle(.page(indexDisplayMode: .never))
+        // The paged view keeps its pages clear of the bars, so the lists would
+        // stop short of them rather than scroll on under the glass as they do
+        // elsewhere: it goes under them, and the lists keep clear themselves.
+        .ignoresSafeArea(.container, edges: .vertical)
+        .onGeometryChange(for: EdgeInsets.self) { $0.safeAreaInsets } action: { barInsets = $0 }
         .safeAreaBar(edge: .top) { KindBar(kind: $kind) }
         .onChange(of: kind) { withAnimation(.snappy(duration: 0.3)) { tabBarVisible = true } }
         // The user is looking at the open tab: clear its mark, and reload its
@@ -154,6 +165,7 @@ private struct NoticeList: View {
     /// marks its kind read on Weibo's side.
     let shown: Bool
     let tabBarVisible: Binding<Bool>
+    let barInsets: EdgeInsets
     @Environment(AppGraph.self) private var graph
 
     var body: some View {
@@ -177,6 +189,8 @@ private struct NoticeList: View {
         }
         .listStyle(.plain)
         .appListStyle()
+        .safeAreaPadding(.top, barInsets.top)
+        .safeAreaPadding(.bottom, barInsets.bottom)
         .modifier(HideOnScroll(visible: shown ? tabBarVisible : .constant(true)))
         .refreshable {
             do {

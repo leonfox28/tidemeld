@@ -42,7 +42,7 @@ xcrun simctl launch <模拟器> io.github.leonfox28.maxbo.debug -maxbo-open firs
 - **弹层**：登录、发微博、转发、写评论都是系统 sheet（评论和转发是半屏 `presentationDetents`），确认删除用 `confirmationDialog`，退出登录用 `alert`。看图和视频是全屏页，看图从缩略图放大进入（`navigationTransition(.zoom)`），可以下滑关闭。
 - **提示条**：iOS 没有 snackbar，`Toasts` 在页签栏上方显示一个玻璃胶囊，几秒后自己消失；验证码错误带「去验证」。
 - **详情页**：转发和评论用分段控件切换，排序是旁边的菜单，作为列表的分组头吸顶；写评论、转发、赞在系统底部工具栏里，编成一组（一个玻璃胶囊），前面放弹性空白让它靠右；内容往下滚时工具栏收起、往回滚时出现，回到顶部总是显示（`HideOnScroll.swift`，2026-10-30 用户要求）。滚动位置算到内容末尾为止（`ScrollGeometry.offsetFromTop`），拉过末尾弹回不算往回滚；栏出现或隐藏会改变内容上下的留白（工具栏 3pt，页签栏 49pt）、把内容推开，这样的移动也不算，否则栏会在末尾来回闪。楼中楼页的底部工具栏靠右只有一个回复按钮，行为相同。这两页隐藏页签栏。用户问过位置是否合 iOS 的设计建议：人机界面指南里没有 Android 那种浮动按钮，当前页面的操作放在底部工具栏、相关的编成一组，位置交给系统（和页签栏同高，贴着底部指示条），所以用的是系统工具栏而不是自己画的浮动按钮。删除自己的评论在长按菜单里（菜单里还有回复、复制）。
-- **通知页**：四个分类是一排玻璃按钮（`safeAreaBar` 放在导航栏下面），有未读的带红点，左右滑动切换。**只有正在显示的那个列表会加载**：加载就等于在微博那边标为已读，`TabView` 的翻页样式可能提前建好相邻的页面。
+- **通知页**：四个分类是一排玻璃按钮（`safeAreaBar` 放在导航栏下面），有未读的带红点，左右滑动切换。翻页的 `TabView` 会把页面摆在栏以内，列表就停在页签栏和分类按钮的边上、不像别的页面那样滚到玻璃下面（2026-10-30 用户发现）；所以它忽略上下的安全区，量出栏占的高度，再由各列表用 `safeAreaPadding` 留出来。**只有正在显示的那个列表会加载**：加载就等于在微博那边标为已读，`TabView` 的翻页样式可能提前建好相邻的页面。
 - **字体大小**：在系统的动态字体（Dynamic Type）上加减两档，而不是乘一个倍数；所有文字都用文本样式，弹层和菜单是 SwiftUI 的，会跟着变（系统 alert 不跟）。
 - **正文**：链接用 `AttributedString` 的 link 加 `OpenURLAction` 拦截；表情先下载、按文字大小缩好，用 `Text(Image)` 插在文字中间（SwiftUI 的 `Text` 不认 `NSTextAttachment`）；`Text` 的 `+` 在 iOS 26 已废弃，改用插值拼接。
 - **登录页**：SwiftUI 的 `WebView`。浏览器 UA 和 Android 一样是桌面 Chrome，但要把 `preferredContentMode` 设成 `.mobile`，否则 passport 按桌面布局排成两栏、右边被截掉。http 的页面由 WebKit 升级成 https（`preferredHTTPSNavigationPolicy`），不认识的协议（`sinaweibo://`）一律拦下。
