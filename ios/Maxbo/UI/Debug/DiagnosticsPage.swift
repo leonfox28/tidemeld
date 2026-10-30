@@ -37,6 +37,16 @@ struct DiagnosticsPage: View {
             }
         }
         .appListStyle()
+        #if DEBUG
+        .task {
+            switch DebugLaunch.autorun {
+            case "reads": run { await probeReads($0) }
+            case "renewal": run { await probeRenewal($0) }
+            default: break
+            }
+            DebugLaunch.autorun = nil
+        }
+        #endif
         .navigationTitle("开发者诊断")
         .navigationBarTitleDisplayMode(.inline)
     }

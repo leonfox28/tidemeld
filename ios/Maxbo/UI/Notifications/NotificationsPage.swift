@@ -11,7 +11,10 @@ final class NotificationsModel {
     @ObservationIgnored private(set) var mentionStatuses: PagedList<Status>?
     @ObservationIgnored private(set) var likes: PagedList<LikeNotice>?
 
-    func attach(_ api: WeiboAPI) { self.api = api }
+    /// Gives the model what it loads with; before the lists first draw.
+    func attach(_ api: WeiboAPI) {
+        if self.api == nil { self.api = api }
+    }
 
     func commentList(_ kind: NoticeKind) -> PagedList<CommentNotice> {
         let api = api!
@@ -86,14 +89,14 @@ struct NotificationsPage: View {
     }
 
     private var notices: some View {
-        TabView(selection: $kind) {
+        let _ = model.attach(graph.api)
+        return TabView(selection: $kind) {
             ForEach(NoticeKind.allCases) { kind in
                 NoticeList(model: model, kind: kind, shown: self.kind == kind).tag(kind)
             }
         }
         .tabViewStyle(.page(indexDisplayMode: .never))
         .safeAreaBar(edge: .top) { KindBar(kind: $kind) }
-        .onAppear { model.attach(graph.api) }
         // The user is looking at the open tab: clear its mark, and reload its
         // list if that came before whatever is new.
         .task(id: "\(kind)\(graph.unread.state.has(kind))") {

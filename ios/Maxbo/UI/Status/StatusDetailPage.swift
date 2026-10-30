@@ -37,10 +37,15 @@ final class StatusDetailModel {
 
     init(id: String) { self.id = id }
 
-    func start(_ graph: AppGraph) {
+    /// Gives the model what it loads with; before the page first draws, which
+    /// asks for the comments.
+    func attach(_ graph: AppGraph) {
+        if self.graph == nil { self.graph = graph }
+    }
+
+    func start() {
         guard !started else { return }
         started = true
-        self.graph = graph
         reload()
     }
 
@@ -139,6 +144,7 @@ struct StatusDetailPage: View {
     }
 
     var body: some View {
+        let _ = model.attach(graph)
         Group {
             if let status = model.status ?? initial {
                 StatusDetail(model: model, status: status)
@@ -153,7 +159,7 @@ struct StatusDetailPage: View {
         .navigationTitle("微博正文")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .tabBar)
-        .onAppear { model.start(graph) }
+        .onAppear { model.start() }
     }
 }
 
@@ -261,8 +267,15 @@ private struct StatusDetail: View {
         let target = LikeTarget(kind: .status, id: status.id)
         let shown = graph.likes.shown(target, loaded: status.like)
         ToolbarItem(placement: .bottomBar) {
-            Button("写评论…", systemImage: "square.and.pencil") { comment() }
-                .labelStyle(.titleAndIcon)
+            Button {
+                comment()
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "square.and.pencil")
+                    Text("写评论…")
+                }
+                .padding(.horizontal, 6)
+            }
         }
         ToolbarSpacer(.flexible, placement: .bottomBar)
         ToolbarItem(placement: .bottomBar) {
@@ -275,11 +288,10 @@ private struct StatusDetail: View {
             Button {
                 if !shown.pending { graph.toggleLike(target, loaded: status.like) }
             } label: {
-                Label(
-                    shown.like.count > 0 ? formatCount(shown.like.count) : "赞",
-                    systemImage: shown.like.liked ? "hand.thumbsup.fill" : "hand.thumbsup"
-                )
-                .labelStyle(.titleAndIcon)
+                HStack(spacing: 4) {
+                    Image(systemName: shown.like.liked ? "hand.thumbsup.fill" : "hand.thumbsup")
+                    Text(shown.like.count > 0 ? formatCount(shown.like.count) : "赞").monospacedDigit()
+                }
             }
             .tint(shown.like.liked ? AppTheme.primary : nil)
             .sensoryFeedback(.selection, trigger: shown.like.liked)

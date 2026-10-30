@@ -73,6 +73,8 @@ struct SearchResultsPage: View {
                         graph.toasts.showError(error, router: graph.router)
                     }
                 }
+            } else {
+                ProgressView()
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)

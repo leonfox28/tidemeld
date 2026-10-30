@@ -68,6 +68,7 @@ struct CommentRepliesPage: View {
                         .foregroundStyle(AppTheme.foreground)
                         .padding(.horizontal, 16)
                         .padding(.vertical, 8)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                         .readingWidth()
                 }
             }
@@ -88,10 +89,15 @@ struct CommentRepliesPage: View {
             if root.canReply {
                 ToolbarItem(placement: .bottomBar) {
                     let name = root.user?.screenName
-                    Button(name.map { "回复 @\($0)" } ?? "回复评论…", systemImage: "arrowshape.turn.up.left") {
+                    Button {
                         reply(root)
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "arrowshape.turn.up.left")
+                            Text(name.map { "回复 @\($0)" } ?? "回复评论…").lineLimit(1)
+                        }
+                        .padding(.horizontal, 6)
                     }
-                    .labelStyle(.titleAndIcon)
                 }
                 ToolbarSpacer(.flexible, placement: .bottomBar)
             }

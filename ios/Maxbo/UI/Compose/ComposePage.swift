@@ -57,12 +57,19 @@ struct ComposePage: View {
                     }
                     .disabled(sending || draft.pictures.count >= maxDraftPictures)
                     Spacer()
-                    Picker("可见范围", selection: $drafts.draft.visibility) {
-                        ForEach(StatusVisibility.choices, id: \.self) { visibility in
-                            Label(visibility.label, systemImage: visibility.symbol).tag(visibility)
+                    Menu {
+                        Picker("可见范围", selection: $drafts.draft.visibility) {
+                            ForEach(StatusVisibility.choices, id: \.self) { visibility in
+                                Label(visibility.label, systemImage: visibility.symbol).tag(visibility)
+                            }
                         }
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: draft.visibility.symbol)
+                            Text(draft.visibility.label)
+                        }
+                        .padding(.horizontal, 6)
                     }
-                    .pickerStyle(.menu)
                     .disabled(sending)
                 }
             }
