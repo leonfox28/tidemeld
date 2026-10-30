@@ -88,13 +88,17 @@ struct CommentRepliesPage: View {
         .navigationTitle("评论详情")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .tabBar)
-        .floatingActions(visible: $actionsVisible) {
+        .toolbar {
             if root.canReply {
-                FloatingButton(label: root.user.map { "回复 @\($0.screenName)" } ?? "回复评论", symbol: "arrowshape.turn.up.left") {
-                    reply(root)
+                ToolbarSpacer(.flexible, placement: .bottomBar)
+                ToolbarItem(placement: .bottomBar) {
+                    Button(root.user.map { "回复 @\($0.screenName)" } ?? "回复评论", systemImage: "arrowshape.turn.up.left") {
+                        reply(root)
+                    }
                 }
             }
         }
+        .bottomBarHidesOnScroll($actionsVisible)
         .confirmationDialog(
             "确定删除这条回复吗？", isPresented: deleting, titleVisibility: .visible, presenting: replyToDelete
         ) { reply in
