@@ -91,7 +91,7 @@ struct NotificationsPage: View {
         .appBackground()
         .navigationTitle("通知")
         .toolbarTitleDisplayMode(.inline)
-        .toolbarVisibility(tabBarVisible ? .automatic : .hidden, for: .tabBar)
+        .tabBarVisible(tabBarVisible)
     }
 
     private var notices: some View {
@@ -191,7 +191,7 @@ private struct NoticeList: View {
         .appListStyle()
         .safeAreaPadding(.top, barInsets.top)
         .safeAreaPadding(.bottom, barInsets.bottom)
-        .modifier(HideOnScroll(visible: shown ? tabBarVisible : .constant(true)))
+        .modifier(HideOnScroll(visible: shown ? tabBarVisible : .constant(true), tabBar: true))
         .refreshable {
             do {
                 try await model.refresh(kind)

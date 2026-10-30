@@ -36,4 +36,31 @@ final class ScrollBarsUITests: XCTestCase {
         sleep(1)
         shot("4-flick")
     }
+
+    /// The tab bar hidden on 关于, then 开源许可 opened over it and closed
+    /// again: it should show on both.
+    @MainActor
+    func testBarsOverAPageOpened() throws {
+        let shots = ProcessInfo.processInfo.environment["MAXBO_SHOTS"] ?? NSTemporaryDirectory()
+        let app = XCUIApplication()
+        app.launchArguments = ["-maxbo-open", "about"]
+        app.launch()
+        sleep(2)
+        func shot(_ name: String) {
+            let data = XCUIScreen.main.screenshot().pngRepresentation
+            try? data.write(to: URL(fileURLWithPath: shots).appendingPathComponent("\(name).png"))
+        }
+        let window = app.windows.firstMatch
+        let start = window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.7))
+        let end = window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.4))
+        start.press(forDuration: 0.05, thenDragTo: end, withVelocity: .slow, thenHoldForDuration: 0.3)
+        sleep(1)
+        shot("open-1-hidden")
+        app.staticTexts["开源许可"].firstMatch.tap()
+        sleep(2)
+        shot("open-2-opened")
+        app.navigationBars.buttons.firstMatch.tap()
+        sleep(2)
+        shot("open-3-back")
+    }
 }

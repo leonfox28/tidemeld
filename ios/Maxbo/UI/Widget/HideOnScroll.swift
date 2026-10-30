@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 import WebKit
 
 /// Whether bars that give way to reading show, as the content scrolls: they go
@@ -78,14 +79,22 @@ extension ScrollGeometry {
     }
 }
 
-/// Keeps [visible] as a [ScrollHider] says while the content scrolls, and shows
-/// the bars again as the page comes back into view (a tab chosen, a page
-/// closed over it), as the Android app does on choosing a tab.
+/// Keeps [visible] as a [ScrollHider] says while the content scrolls. The bars
+/// show again as the page comes back into view (a tab chosen, a page closed
+/// over it), as the Android app does on choosing a tab, and as it goes out of
+/// view, so that it doesn't keep them hidden over the page put on top of it.
 struct HideOnScroll: ViewModifier {
     @Binding var visible: Bool
     /// Whether the content is a web view, which tells of its scrolling its own way.
     var web = false
+    /// Whether [visible] is the tab bar's, which fades out before it hides; see
+    /// [TabBarFade].
+    var tabBar = false
     @State private var hider = ScrollHider()
+    @State private var fadingOut = false
+    /// Bumped by each fade out and by stopping one, so that only the latest
+    /// one's end counts.
+    @State private var fades = 0
 
     func body(content: Content) -> some View {
         Group {
@@ -98,14 +107,87 @@ struct HideOnScroll: ViewModifier {
         .onAppear {
             hider.show()
             visible = true
+            if tabBar { TabBarFade.checkShown() }
+        }
+        .onDisappear {
+            stopFading()
+            visible = true
+            if tabBar { TabBarFade.checkShown() }
         }
     }
 
     private func scrolled(_ position: ScrollHider.Position) {
         hider.scrolled(to: position)
-        if visible != hider.visible {
-            withAnimation(.snappy(duration: 0.3)) { visible = hider.visible }
+        if hider.visible {
+            if fadingOut {
+                stopFading()
+            } else if !visible {
+                withAnimation(.snappy(duration: 0.3)) { visible = true }
+            }
+        } else if visible, !fadingOut {
+            guard tabBar else {
+                withAnimation(.snappy(duration: 0.3)) { visible = false }
+                return
+            }
+            fadingOut = true
+            fades += 1
+            let fade = fades
+            TabBarFade.out {
+                guard fade == fades else { return }
+                fadingOut = false
+                withAnimation(.snappy(duration: 0.3)) { visible = false }
+            }
         }
+    }
+
+    private func stopFading() {
+        guard fadingOut else { return }
+        fadingOut = false
+        fades += 1
+        TabBarFade.back()
+    }
+}
+
+/// Fades the tab bar out before it hides, which SwiftUI can't do: hiding it,
+/// the system drops its buttons at once and then fades the empty glass,
+/// whereas showing it fades both in, from the bar's alpha as it is.
+@MainActor
+enum TabBarFade {
+    static func out(then done: @escaping () -> Void) {
+        guard let bar = tabs()?.tabBar else { return done() }
+        UIView.animate(withDuration: 0.2, delay: 0, options: [.beginFromCurrentState, .curveEaseIn]) {
+            bar.alpha = 0
+        } completion: { _ in
+            done()
+        }
+    }
+
+    /// Brings it back from a fade if it is still up. Hidden, it stays faded, as
+    /// showing it fades it in from there.
+    static func back() {
+        guard let tabs = tabs(), !tabs.isTabBarHidden, tabs.tabBar.alpha < 1 else { return }
+        UIView.animate(withDuration: 0.2, delay: 0, options: .beginFromCurrentState) { tabs.tabBar.alpha = 1 }
+    }
+
+    /// Brings it back, after it has had time to show, should it have come back
+    /// some way that left it faded: up but faded, it would still take taps.
+    static func checkShown() {
+        Task {
+            try? await Task.sleep(for: .milliseconds(500))
+            back()
+        }
+    }
+
+    /// The app's `TabView`, from UIKit.
+    private static func tabs() -> UITabBarController? {
+        var controllers = UIApplication.shared.connectedScenes.compactMap {
+            ($0 as? UIWindowScene)?.keyWindow?.rootViewController
+        }
+        while let controller = controllers.popLast() {
+            if let tabs = controller as? UITabBarController { return tabs }
+            controllers += controller.children
+        }
+        return nil
     }
 }
 
@@ -121,6 +203,17 @@ extension View {
     /// to two buttons, brings it back only at the top or the end, and has no
     /// way to bring it back with an animation.
     func tabBarHidesOnScroll(web: Bool = false) -> some View { modifier(TabBarHidesOnScroll(web: web)) }
+
+    /// Shows or hides the tab bar as [visible] says, for a page whose lists set
+    /// it through `HideOnScroll(tabBar: true)`.
+    func tabBarVisible(_ visible: Bool) -> some View {
+        // Not `.visible`, which from a page further down the stack would keep
+        // the bar up over a page above that hides it.
+        toolbarVisibility(visible ? .automatic : .hidden, for: .tabBar)
+            .onChange(of: visible) { _, visible in
+                if visible { TabBarFade.checkShown() }
+            }
+    }
 }
 
 private struct TabBarHidesOnScroll: ViewModifier {
@@ -128,9 +221,7 @@ private struct TabBarHidesOnScroll: ViewModifier {
     @State private var visible = true
 
     func body(content: Content) -> some View {
-        content.modifier(HideOnScroll(visible: $visible, web: web))
-            // Not `.visible`, which from a page further down the stack would
-            // keep the bar up over a page above that hides it.
-            .toolbarVisibility(visible ? .automatic : .hidden, for: .tabBar)
+        content.modifier(HideOnScroll(visible: $visible, web: web, tabBar: true))
+            .tabBarVisible(visible)
     }
 }
