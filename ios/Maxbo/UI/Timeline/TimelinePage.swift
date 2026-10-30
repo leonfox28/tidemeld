@@ -105,6 +105,10 @@ extension View {
             .listRowBackground(AppTheme.background)
             .listRowSeparatorTint(AppTheme.outline)
             .alignmentGuide(.listRowSeparatorLeading) { _ in 0 }
+            // Nor from the top bar: a line over the first row would read as
+            // the bar's edge, and a pull to refresh would bring it down with
+            // the content, the spinner over it as if in the bar.
+            .listSectionSeparator(.hidden, edges: .top)
     }
 
     /// A list section's header with no insets of its own: its content lines up
