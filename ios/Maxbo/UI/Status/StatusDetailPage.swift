@@ -169,6 +169,7 @@ private struct StatusDetail: View {
 
     @Environment(AppGraph.self) private var graph
     @State private var commentToDelete: Comment?
+    @State private var actionsVisible = true
 
     var body: some View {
         @Bindable var model = model
@@ -231,8 +232,8 @@ private struct StatusDetail: View {
                 graph.toasts.showError(error, router: graph.router)
             }
         }
-        .toolbar {
-            if status.user != nil { bottomBar }
+        .floatingActions(visible: $actionsVisible) {
+            if status.user != nil { actionButtons }
         }
         .confirmationDialog(
             "确定删除这条评论吗？", isPresented: deletingComment, titleVisibility: .visible,
@@ -263,40 +264,25 @@ private struct StatusDetail: View {
         return actions
     }
 
-    @ToolbarContentBuilder
-    private var bottomBar: some ToolbarContent {
+    /// Comment, repost and like, at the bottom right; the counts are on the
+    /// tabs above the list, but for likes.
+    @ViewBuilder
+    private var actionButtons: some View {
         let target = LikeTarget(kind: .status, id: status.id)
         let shown = graph.likes.shown(target, loaded: status.like)
-        ToolbarItem(placement: .bottomBar) {
-            Button {
-                comment()
-            } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: "square.and.pencil")
-                    Text("写评论…")
-                }
-                .padding(.horizontal, 6)
-            }
+        FloatingButton(label: "写评论", symbol: "square.and.pencil") { comment() }
+        // The list of reposts, if open, gets the new one from the repost itself.
+        FloatingButton(label: "转发", symbol: "arrow.2.squarepath") {
+            graph.repost(status) { model.count(reposts: 1) }
         }
-        ToolbarSpacer(.flexible, placement: .bottomBar)
-        ToolbarItem(placement: .bottomBar) {
-            // The list of reposts, if open, gets the new one from the repost itself.
-            Button("转发", systemImage: "arrow.2.squarepath") {
-                graph.repost(status) { model.count(reposts: 1) }
-            }
+        FloatingButton(
+            label: "赞", symbol: shown.like.liked ? "hand.thumbsup.fill" : "hand.thumbsup",
+            count: shown.like.count > 0 ? formatCount(shown.like.count) : nil,
+            tint: shown.like.liked ? AppTheme.primary : nil
+        ) {
+            if !shown.pending { graph.toggleLike(target, loaded: status.like) }
         }
-        ToolbarItem(placement: .bottomBar) {
-            Button {
-                if !shown.pending { graph.toggleLike(target, loaded: status.like) }
-            } label: {
-                HStack(spacing: 4) {
-                    Image(systemName: shown.like.liked ? "hand.thumbsup.fill" : "hand.thumbsup")
-                    Text(shown.like.count > 0 ? formatCount(shown.like.count) : "赞").monospacedDigit()
-                }
-            }
-            .tint(shown.like.liked ? AppTheme.primary : nil)
-            .sensoryFeedback(.selection, trigger: shown.like.liked)
-        }
+        .sensoryFeedback(.selection, trigger: shown.like.liked)
     }
 
     private func editComments(_ edit: (PagedList<Comment>) -> Void) {

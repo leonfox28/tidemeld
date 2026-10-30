@@ -35,6 +35,7 @@ struct CommentRepliesPage: View {
     @Environment(AppGraph.self) private var graph
     @State private var model: RepliesModel
     @State private var replyToDelete: Comment?
+    @State private var actionsVisible = true
 
     init(thread: CommentThread) {
         self.thread = thread
@@ -87,21 +88,11 @@ struct CommentRepliesPage: View {
         .navigationTitle("评论详情")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .tabBar)
-        .toolbar {
+        .floatingActions(visible: $actionsVisible) {
             if root.canReply {
-                ToolbarItem(placement: .bottomBar) {
-                    let name = root.user?.screenName
-                    Button {
-                        reply(root)
-                    } label: {
-                        HStack(spacing: 6) {
-                            Image(systemName: "arrowshape.turn.up.left")
-                            Text(name.map { "回复 @\($0)" } ?? "回复评论…").lineLimit(1)
-                        }
-                        .padding(.horizontal, 6)
-                    }
+                FloatingButton(label: root.user.map { "回复 @\($0.screenName)" } ?? "回复评论", symbol: "arrowshape.turn.up.left") {
+                    reply(root)
                 }
-                ToolbarSpacer(.flexible, placement: .bottomBar)
             }
         }
         .confirmationDialog(
