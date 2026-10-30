@@ -25,3 +25,9 @@ cookies*.json
 # Local agent & MCP configs (contain tokens/credentials)
 .mcp.json
 .pi/
+
+# iOS (Xcode project generated from ios/project.yml by xcodegen)
+ios/build/
+ios/Maxbo.xcodeproj/
+xcuserdata/
+*.xcresult
