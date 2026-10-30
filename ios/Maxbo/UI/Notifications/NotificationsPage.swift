@@ -77,6 +77,8 @@ struct NotificationsPage: View {
     /// The tab bar's, as the list shown scrolls; one for the page, as the
     /// lists side by side would each set it.
     @State private var tabBarVisible = true
+    /// Whether the list shown is at its top, with nothing under the top bar.
+    @State private var atTop = true
     /// How far the bars reach over the lists; see [notices].
     @State private var barInsets = EdgeInsets()
 
@@ -96,22 +98,42 @@ struct NotificationsPage: View {
 
     private var notices: some View {
         let _ = model.attach(graph.api)
-        return TabView(selection: $kind) {
-            ForEach(NoticeKind.allCases) { kind in
-                NoticeList(
-                    model: model, kind: kind, shown: self.kind == kind, tabBarVisible: $tabBarVisible,
-                    barInsets: barInsets
-                )
-                .tag(kind)
+        return GeometryReader { screen in
+            ScrollView(.horizontal) {
+                HStack(spacing: 0) {
+                    ForEach(NoticeKind.allCases, id: \.self) { kind in
+                        NoticeList(
+                            model: model, kind: kind, shown: self.kind == kind, tabBarVisible: $tabBarVisible,
+                            atTop: $atTop, barInsets: barInsets
+                        )
+                        .frame(width: screen.size.width, height: screen.size.height)
+                    }
+                }
+                .scrollTargetLayout()
             }
+            .scrollTargetBehavior(.paging)
+            // The page more than half in view, as the Android app's pager has it.
+            .scrollPosition(id: Binding(get: { kind }, set: { if let page = $0 { kind = page } }), anchor: .center)
+            .scrollIndicators(.hidden)
+            // The bars blur what goes under them, as elsewhere. The lists'
+            // own edge effects don't show, so this scroll view's does; and as
+            // its content is always under the top bar, only once the list
+            // shown has gone under it, else it would fade the first row.
+            .scrollEdgeEffectStyle(.soft, for: .all)
+            .scrollEdgeEffectHidden(atTop, for: .top)
         }
-        .tabViewStyle(.page(indexDisplayMode: .never))
-        // The paged view keeps its pages clear of the bars, so the lists would
-        // stop short of them rather than scroll on under the glass as they do
-        // elsewhere: it goes under them, and the lists keep clear themselves.
+        // The lists scroll on under the bars, as elsewhere, keeping clear of
+        // them themselves. (A paged `TabView` kept its pages between the bars,
+        // and the lists, made as tall as the screen, came out centred on that,
+        // a little way down.)
         .ignoresSafeArea(.container, edges: .vertical)
         .onGeometryChange(for: EdgeInsets.self) { $0.safeAreaInsets } action: { barInsets = $0 }
-        .safeAreaBar(edge: .top) { KindBar(kind: $kind) }
+        // In the navigation bar, in place of the title, which the tab bar
+        // already gives: under it, they made the top bar twice as tall.
+        .toolbar {
+            ToolbarItem(placement: .principal) { KindBar(kind: $kind) }
+                .sharedBackgroundVisibility(.hidden)
+        }
         .onChange(of: kind) { withAnimation(.snappy(duration: 0.3)) { tabBarVisible = true } }
         // The user is looking at the open tab: clear its mark, and reload its
         // list if that came before whatever is new.
@@ -123,37 +145,51 @@ struct NotificationsPage: View {
     }
 }
 
-/// The kinds, as glass buttons; one with something unread has a dot.
+/// The kinds, as tabs: the open one in the accent colour over a line, which
+/// moves along as the open tab changes; one with something unread has a dot.
 private struct KindBar: View {
     @Binding var kind: NoticeKind
     @Environment(AppGraph.self) private var graph
+    @Namespace private var line
 
     var body: some View {
-        GlassEffectContainer(spacing: 8) {
-            HStack(spacing: 8) {
-                ForEach(NoticeKind.allCases) { each in
-                    let unread = graph.unread.state.has(each)
-                    Button {
-                        withAnimation(.snappy) { kind = each }
-                    } label: {
-                        Text(each.label)
-                            .font(.subheadline.weight(kind == each ? .semibold : .regular))
-                            .lineLimit(1)
-                            .overlay(alignment: .topTrailing) {
-                                if unread {
-                                    Circle().fill(.red).frame(width: 6, height: 6).offset(x: 8, y: -2)
-                                }
+        HStack(spacing: 24) {
+            ForEach(NoticeKind.allCases) { each in
+                let open = kind == each
+                let unread = graph.unread.state.has(each)
+                Button {
+                    withAnimation(.snappy) { kind = each }
+                } label: {
+                    Text(each.label)
+                        .font(.body.weight(open ? .semibold : .regular))
+                        .foregroundStyle(open ? AppTheme.accent : AppTheme.secondary)
+                        .lineLimit(1)
+                        .overlay(alignment: .topTrailing) {
+                            if unread {
+                                Circle().fill(.red).frame(width: 6, height: 6).offset(x: 8, y: -2)
                             }
-                    }
-                    .buttonStyle(.glass(kind == each ? .regular.tint(AppTheme.primary.opacity(0.35)) : .regular))
-                    .accessibilityLabel(unread ? "\(each.label)，有未读" : each.label)
-                    .accessibilityAddTraits(kind == each ? .isSelected : [])
+                        }
+                        .padding(.vertical, 8)
+                        .overlay(alignment: .bottom) {
+                            if open {
+                                Capsule()
+                                    .fill(AppTheme.accent)
+                                    .frame(width: 20, height: 3)
+                                    .matchedGeometryEffect(id: "line", in: line)
+                            }
+                        }
+                        .contentShape(Rectangle())
                 }
+                .buttonStyle(.plain)
+                .accessibilityLabel(unread ? "\(each.label)，有未读" : each.label)
+                .accessibilityAddTraits(open ? .isSelected : [])
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 6)
         }
-        .frame(maxWidth: .infinity)
+        // A swipe changes the open tab too.
+        .animation(.snappy, value: kind)
+        // As the system's own bars, it doesn't grow with the text size, which
+        // would take it past the bar's width.
+        .dynamicTypeSize(...DynamicTypeSize.large)
     }
 }
 
@@ -165,8 +201,10 @@ private struct NoticeList: View {
     /// marks its kind read on Weibo's side.
     let shown: Bool
     let tabBarVisible: Binding<Bool>
+    let atTop: Binding<Bool>
     let barInsets: EdgeInsets
     @Environment(AppGraph.self) private var graph
+    @State private var top = true
 
     var body: some View {
         List {
@@ -192,6 +230,11 @@ private struct NoticeList: View {
         .safeAreaPadding(.top, barInsets.top)
         .safeAreaPadding(.bottom, barInsets.bottom)
         .modifier(HideOnScroll(visible: shown ? tabBarVisible : .constant(true), tabBar: true))
+        .onScrollGeometryChange(for: Bool.self) { $0.contentOffset.y <= -$0.contentInsets.top } action: { _, top in
+            self.top = top
+            if shown { atTop.wrappedValue = top }
+        }
+        .onChange(of: shown) { if shown { atTop.wrappedValue = top } }
         .refreshable {
             do {
                 try await model.refresh(kind)
