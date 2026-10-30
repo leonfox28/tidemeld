@@ -171,6 +171,7 @@ private struct NoticeList: View {
         }
         .listStyle(.plain)
         .appListStyle()
+        .tabBarFollowsScroll()
         .refreshable {
             do {
                 try await model.refresh(kind)

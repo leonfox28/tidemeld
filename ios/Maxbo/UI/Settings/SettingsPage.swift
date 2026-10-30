@@ -57,6 +57,7 @@ struct SettingsPage: View {
             .listRowBackground(AppTheme.surface)
         }
         .appListStyle()
+        .tabBarFollowsScroll()
         .navigationTitle("设置")
         .navigationBarTitleDisplayMode(.inline)
         .task { measureCache() }
@@ -99,6 +100,7 @@ struct TextSizePage: View {
         }
         .listStyle(.plain)
         .appListStyle()
+        .tabBarFollowsScroll()
         // Samples only: their like buttons and links do nothing.
         .allowsHitTesting(false)
         .safeAreaInset(edge: .bottom) {

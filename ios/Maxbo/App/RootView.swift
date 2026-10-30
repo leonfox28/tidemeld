@@ -56,7 +56,7 @@ struct RootView: View {
                 TabStack(tab: .search) { SearchPage() }
             }
         }
-        .tabBarMinimizeBehavior(.onScrollDown)
+        .tabBarMinimizeBehavior(graph.router.tabBarPinned ? .never : .onScrollDown)
         .overlay { ToastHost() }
     }
 }

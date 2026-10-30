@@ -78,6 +78,7 @@ struct SearchPage: View {
                         graph.toasts.showError(error, router: graph.router)
                     }
                 }
+                .tabBarFollowsScroll()
                 .onScrollGeometryChange(for: Bool.self) { geometry in
                     geometry.contentOffset.y <= -geometry.contentInsets.top + 4
                 } action: { _, top in

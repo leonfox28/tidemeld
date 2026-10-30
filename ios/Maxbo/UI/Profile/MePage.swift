@@ -53,6 +53,7 @@ struct MePage: View {
             }
         }
         .appListStyle()
+        .tabBarFollowsScroll()
         .navigationTitle("我")
         .alert("退出登录", isPresented: $confirmingLogout) {
             Button("退出", role: .destructive) { Task { await graph.session.logout() } }

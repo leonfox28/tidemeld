@@ -37,6 +37,7 @@ struct DiagnosticsPage: View {
             }
         }
         .appListStyle()
+        .tabBarFollowsScroll()
         #if DEBUG
         .task {
             switch DebugLaunch.autorun {

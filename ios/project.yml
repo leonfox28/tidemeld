@@ -56,6 +56,17 @@ targets:
         GENERATE_INFOPLIST_FILE: YES
     dependencies:
       - target: Maxbo
+  MaxboUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - MaxboUITests
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.leonfox28.maxbo.uitests
+        GENERATE_INFOPLIST_FILE: YES
+    dependencies:
+      - target: Maxbo
 schemes:
   Maxbo:
     build:
@@ -68,3 +79,11 @@ schemes:
       targets: [MaxboTests]
     archive:
       config: Release
+  # Drives the app on a simulator with no real login; see docs/IOS.md §5.
+  MaxboUI:
+    build:
+      targets:
+        Maxbo: all
+    test:
+      config: Debug
+      targets: [MaxboUITests]
