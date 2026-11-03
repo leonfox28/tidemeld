@@ -218,8 +218,25 @@ private struct NoticeList: View {
     let barInsets: EdgeInsets
     @Environment(AppGraph.self) private var graph
     @State private var top = true
+    @State private var pull = PullToRefresh()
 
     var body: some View {
+        ScrollViewReader { proxy in
+            list
+                // Tapping the open tab again: back to the top, or from there a
+                // refresh, shown as on a pull. Only the list shown answers it.
+                .onChange(of: graph.router.reselects[.notifications]) {
+                    guard shown else { return }
+                    if top {
+                        if !pull.begin() { Task { await refresh() } }
+                    } else if let first = firstID {
+                        withAnimation { proxy.scrollTo(first, anchor: .top) }
+                    }
+                }
+        }
+    }
+
+    private var list: some View {
         List {
             switch kind {
             case .comments, .mentionComments:
@@ -243,20 +260,32 @@ private struct NoticeList: View {
         .safeAreaPadding(.top, barInsets.top)
         .safeAreaPadding(.bottom, barInsets.bottom)
         .modifier(HideOnScroll(visible: shown ? tabBarVisible : .constant(true), tabBar: true))
-        .onScrollGeometryChange(for: Bool.self) { $0.contentOffset.y <= -$0.contentInsets.top } action: { _, top in
+        .onScrollGeometryChange(for: Bool.self) { $0.contentOffset.y <= -$0.contentInsets.top + 1 } action: { _, top in
             self.top = top
             if shown { atTop.wrappedValue = top }
         }
         .onChange(of: shown) { if shown { atTop.wrappedValue = top } }
-        .refreshable {
-            do {
-                try await model.refresh(kind)
-            } catch {
-                graph.toasts.showError(error, router: graph.router)
-            }
-        }
+        .refreshable { await refresh() }
+        .pullToRefresh(pull)
         .task(id: shown) {
             if shown { start() }
+        }
+    }
+
+    private func refresh() async {
+        do {
+            try await model.refresh(kind)
+        } catch {
+            graph.toasts.showError(error, router: graph.router)
+        }
+    }
+
+    /// The first row's id, to scroll back to.
+    private var firstID: String? {
+        switch kind {
+        case .comments, .mentionComments: model.commentList(kind).items.first?.id
+        case .mentionStatuses: model.statusList().items.first?.id
+        case .likes: model.likeList().items.first?.id
         }
     }
 
