@@ -53,6 +53,15 @@ final class AppGraph {
         composeDraft = ComposeDraftController(api: api, openLists: openLists, session: session)
         repostDrafts = RepostDrafts(session: session)
         settings.onChange = { [images] settings in images.setLimit(mb: settings.imageCacheLimitMB) }
+        // Pages opened for an account go when the user signs out, or another
+        // account signs in after this one lapsed. A lapsed session keeps them,
+        // for the user to carry on once signed back in.
+        var owner = session.state.uid
+        session.onUidChange { [router, weak session] uid in
+            let signedOut = session?.state == .signedOut(expired: false)
+            if signedOut || (uid != nil && uid != owner) { router.paths = [:] }
+            if let uid { owner = uid }
+        }
     }
 
     /// The real thing, reading the saved settings and session before the first

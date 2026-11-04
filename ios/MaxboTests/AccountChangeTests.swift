@@ -20,4 +20,23 @@ struct AccountChangeTests {
         #expect(model.commentList(.comments) !== comments)
         #expect(model.likeList() !== likes)
     }
+
+    @Test func signingOutClosesThePagesOpenInEachTab() async {
+        let graph = testGraph()
+        graph.router.paths = [.home: [.status(id: "1", initial: nil)], .search: [.searchResults("词")]]
+
+        await graph.session.logout()
+
+        let open = graph.router.paths.values.flatMap { $0 }
+        #expect(open.isEmpty)
+    }
+
+    @Test func aLapsedSessionKeepsThemForTheSameAccount() {
+        let graph = testGraph()
+        graph.router.paths = [.home: [.status(id: "1", initial: nil)]]
+
+        graph.session.expire()
+
+        #expect(graph.router.paths[.home]?.count == 1)
+    }
 }

@@ -57,7 +57,25 @@ func testSession(
     return (session, api)
 }
 
-private func offline() -> URLSessionConfiguration {
+final class FakeSettingsStorage: SettingsStorage {
+    var settings = AppSettings()
+    func load() -> AppSettings { settings }
+    func save(_ settings: AppSettings) { self.settings = settings }
+}
+
+/// An [AppGraph] of fakes, signed in as uid 7 unless [restored] says otherwise.
+@MainActor
+func testGraph(restored: StoredSession? = signedIn) -> AppGraph {
+    let (session, api) = testSession(restored: restored)
+    let images = ImageLoader(
+        directory: FileManager.default.temporaryDirectory.appendingPathComponent("test-images-\(UUID())"),
+        limitMB: 1, configuration: offline())
+    return AppGraph(
+        settings: SettingsController(storage: FakeSettingsStorage()), session: session, api: api,
+        webCookies: FakeWebCookies(), images: images)
+}
+
+func offline() -> URLSessionConfiguration {
     let configuration = URLSessionConfiguration.ephemeral
     configuration.protocolClasses = [Offline.self]
     return configuration
