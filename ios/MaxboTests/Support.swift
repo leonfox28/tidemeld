@@ -97,20 +97,29 @@ final class FakeWeibo: URLProtocol {
         var status = 200
         var contentType = "application/json"
         var body = "{}"
+        /// How long Weibo takes to answer.
+        var delay: Duration = .zero
     }
 
     private static let lock = NSLock()
     nonisolated(unsafe) private static var respond: @Sendable (URLRequest) -> Reply = { _ in Reply() }
     nonisolated(unsafe) private static var received: [URLRequest] = []
+    nonisolated(unsafe) private static var stopped = 0
 
     static var requests: [URLRequest] { lock.withLock { received } }
+    /// How many requests were given up before their answer.
+    static var abandoned: Int { lock.withLock { stopped } }
 
     static func reset(_ respond: @escaping @Sendable (URLRequest) -> Reply = { _ in Reply() }) {
         lock.withLock {
             self.respond = respond
             received = []
+            stopped = 0
         }
     }
+
+    private let state = NSLock()
+    nonisolated(unsafe) private var answered = false
 
     static var configuration: URLSessionConfiguration {
         let configuration = URLSessionConfiguration.ephemeral
@@ -127,6 +136,14 @@ final class FakeWeibo: URLProtocol {
             return Self.respond
         }
         let reply = respond(request)
+        guard reply.delay > .zero else { return answer(reply) }
+        let seconds = Double(reply.delay.components.seconds) + Double(reply.delay.components.attoseconds) / 1e18
+        let me = Unchecked(self)
+        DispatchQueue.global().asyncAfter(deadline: .now() + seconds) { me.value.answer(reply) }
+    }
+
+    private func answer(_ reply: Reply) {
+        guard state.withLock({ answered ? false : { answered = true; return true }() }) else { return }
         let response = HTTPURLResponse(
             url: request.url!, statusCode: reply.status, httpVersion: "HTTP/1.1",
             headerFields: ["Content-Type": reply.contentType])!
@@ -135,5 +152,14 @@ final class FakeWeibo: URLProtocol {
         client?.urlProtocolDidFinishLoading(self)
     }
 
-    override func stopLoading() {}
+    override func stopLoading() {
+        let unanswered = state.withLock { answered ? false : { answered = true; return true }() }
+        if unanswered { Self.lock.withLock { Self.stopped += 1 } }
+    }
+}
+
+/// [value], handed across threads where it is known to be safe.
+struct Unchecked<T>: @unchecked Sendable {
+    let value: T
+    init(_ value: T) { self.value = value }
 }

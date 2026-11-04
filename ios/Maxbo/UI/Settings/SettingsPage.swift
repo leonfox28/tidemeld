@@ -61,11 +61,20 @@ struct SettingsPage: View {
         .navigationTitle("设置")
         .navigationBarTitleDisplayMode(.inline)
         .task { measureCache() }
+        // A lower limit drops pictures, which the cache does in its own time,
+        // so looked at again a moment later; the Kotlin page reads it again
+        // too.
+        .task(id: graph.settings.settings.imageCacheLimitMB) {
+            try? await Task.sleep(for: .milliseconds(500))
+            if !Task.isCancelled { measureCache() }
+        }
         .confirmationDialog("清除图片缓存", isPresented: $confirmingClear, titleVisibility: .visible) {
             Button("清除", role: .destructive) {
-                graph.images.clear()
-                measureCache()
-                graph.toasts.show("图片缓存已清除")
+                Task {
+                    await graph.images.clear()
+                    measureCache()
+                    graph.toasts.show("图片缓存已清除")
+                }
             }
         } message: {
             Text("已下载的图片会被删除，之后浏览时重新下载。")

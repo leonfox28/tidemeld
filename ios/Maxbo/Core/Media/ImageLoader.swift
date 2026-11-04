@@ -50,6 +50,8 @@ final class ImageLoader: @unchecked Sendable {
         let key = memoryKey(url, maxPixels)
         if let image = memory.object(forKey: key as NSString) { return image }
         let data = try await self.data(url)
+        // Gone off screen meanwhile: not worth decoding.
+        try Task.checkCancellation()
         guard let image = Self.decode(data, maxPixels: maxPixels) else { throw WeiboError.api("无法显示图片") }
         let frames = max(1, image.images?.count ?? 1)
         let cost = Int(image.size.width * image.size.height * image.scale * image.scale) * 4 * frames
@@ -88,8 +90,10 @@ final class ImageLoader: @unchecked Sendable {
         disk.diskCapacity = mb * 1024 * 1024
     }
 
-    func clear() {
-        disk.removeAllCachedResponses()
+    /// Empties both caches, the disk one off the main thread.
+    func clear() async {
+        let disk = disk
+        await Task.detached { disk.removeAllCachedResponses() }.value
         memory.removeAllObjects()
     }
 
@@ -97,35 +101,55 @@ final class ImageLoader: @unchecked Sendable {
         "\(imageCacheKey(url))#\(maxPixels.map { Int($0) } ?? 0)"
     }
 
-    /// Decodes [data], downsampled to [maxPixels] unless it is animated.
+    /// Decodes [data], downsampled to [maxPixels]; an animated picture all its
+    /// frames, smaller still if they would take more memory than one should.
     static func decode(_ data: Data, maxPixels: CGFloat?) -> UIImage? {
         guard let source = CGImageSourceCreateWithData(data as CFData, nil) else { return nil }
         let count = CGImageSourceGetCount(source)
-        if count > 1, let animated = animatedImage(source, count: count) { return animated }
-        var options: [CFString: Any] = [
+        var longSide = maxPixels
+        if let size = pixelSize(source) {
+            longSide = min(maxPixels ?? .infinity, max(size.width, size.height))
+            if count > 1 { longSide = min(longSide!, animatedSide(size, frames: count, maxPixels: maxPixels)) }
+        }
+        let options: [CFString: Any] = [
             kCGImageSourceCreateThumbnailFromImageAlways: true,
             kCGImageSourceCreateThumbnailWithTransform: true,
             kCGImageSourceShouldCacheImmediately: true,
+            kCGImageSourceThumbnailMaxPixelSize: max(1, longSide ?? 4096),
         ]
-        if let maxPixels {
-            options[kCGImageSourceThumbnailMaxPixelSize] = maxPixels
-        } else if let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
-            let width = properties[kCGImagePropertyPixelWidth] as? CGFloat,
-            let height = properties[kCGImagePropertyPixelHeight] as? CGFloat
-        {
-            options[kCGImageSourceThumbnailMaxPixelSize] = max(width, height)
-        }
+        if count > 1, let animated = animatedImage(source, count: count, options: options) { return animated }
         guard let image = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary)
         else { return nil }
         return UIImage(cgImage: image)
     }
 
-    private static func animatedImage(_ source: CGImageSource, count: Int) -> UIImage? {
+    private static func pixelSize(_ source: CGImageSource) -> CGSize? {
+        guard let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+            let width = properties[kCGImagePropertyPixelWidth] as? CGFloat,
+            let height = properties[kCGImagePropertyPixelHeight] as? CGFloat, width > 0, height > 0
+        else { return nil }
+        return CGSize(width: width, height: height)
+    }
+
+    /// The longer side an animated picture of [size] can be decoded to, all
+    /// [frames] of it held at once (UIKit plays frames decoded beforehand): 16
+    /// MB in a list, which a grid of nine can take, 64 MB in the viewer.
+    static func animatedSide(_ size: CGSize, frames: Int, maxPixels: CGFloat?) -> CGFloat {
+        let budget: CGFloat = (maxPixels ?? .infinity) <= 1024 ? 16 * 1024 * 1024 : 64 * 1024 * 1024
+        let shape = min(size.width, size.height) / max(size.width, size.height)
+        // frames × 4 bytes × side × (side × shape) ≤ budget
+        return (budget / (CGFloat(min(frames, maxFrames)) * 4 * shape)).squareRoot().rounded(.down)
+    }
+
+    /// Long GIFs are cut short rather than shrunk to nothing.
+    private static let maxFrames = 300
+
+    private static func animatedImage(_ source: CGImageSource, count: Int, options: [CFString: Any]) -> UIImage? {
         var frames: [UIImage] = []
         var duration = 0.0
-        // Long GIFs are cut short rather than filling memory.
-        for index in 0..<min(count, 300) {
-            guard let image = CGImageSourceCreateImageAtIndex(source, index, nil) else { continue }
+        for index in 0..<min(count, maxFrames) {
+            guard let image = CGImageSourceCreateThumbnailAtIndex(source, index, options as CFDictionary)
+            else { continue }
             frames.append(UIImage(cgImage: image))
             let properties = CGImageSourceCopyPropertiesAtIndex(source, index, nil) as? [CFString: Any]
             let gif = properties?[kCGImagePropertyGIFDictionary] as? [CFString: Any]
@@ -139,15 +163,42 @@ final class ImageLoader: @unchecked Sendable {
     }
 }
 
-/// Requests for the same key share one download.
+/// Requests for the same key share one download, which stops once none of
+/// them wants it any more: a picture scrolled past isn't downloaded on, as Coil
+/// cancels a request as its image leaves the screen.
 private actor Inflight {
-    private var tasks: [String: Task<Data, Error>] = [:]
+    private struct Download {
+        let task: Task<Data, Error>
+        var waiting: Set<UUID>
+    }
+
+    private var downloads: [String: Download] = [:]
 
     func run(_ key: String, _ work: @escaping @Sendable () async throws -> Data) async throws -> Data {
-        if let task = tasks[key] { return try await task.value }
-        let task = Task { try await work() }
-        tasks[key] = task
-        defer { tasks[key] = nil }
-        return try await task.value
+        let waiter = UUID()
+        let task: Task<Data, Error>
+        if let download = downloads[key] {
+            task = download.task
+            downloads[key]?.waiting.insert(waiter)
+        } else {
+            task = Task { try await work() }
+            downloads[key] = Download(task: task, waiting: [waiter])
+        }
+        defer { leave(key, waiter) }
+        return try await withTaskCancellationHandler {
+            try await task.value
+        } onCancel: {
+            Task { await self.leave(key, waiter) }
+        }
+    }
+
+    private func leave(_ key: String, _ waiter: UUID) {
+        guard var download = downloads[key], download.waiting.remove(waiter) != nil else { return }
+        if download.waiting.isEmpty {
+            download.task.cancel()
+            downloads[key] = nil
+        } else {
+            downloads[key] = download
+        }
     }
 }
