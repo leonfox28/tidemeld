@@ -31,6 +31,7 @@ final class LivePhotoPlayer {
     @ObservationIgnored private var observers: [NSObjectProtocol] = []
     @ObservationIgnored private var statusObservation: NSKeyValueObservation?
     @ObservationIgnored private var rateObservation: NSKeyValueObservation?
+    @ObservationIgnored private var released = false
 
     init(api: WeiboAPI, statusId: String?) {
         self.api = api
@@ -59,6 +60,7 @@ final class LivePhotoPlayer {
     /// Plays [pic]'s motion from the start, with sound unless [muted]; with
     /// [refresh], from a URL fetched afresh.
     func play(_ pic: PicInfo, refresh: Bool = false, muted: Bool = false) {
+        guard !released else { return }
         stop()
         current = pic
         failed = nil
@@ -84,17 +86,22 @@ final class LivePhotoPlayer {
             guard !Task.isCancelled, let url = URL(string: source.url) else { return }
             loaded = pic.id
             fetched = source.fetched
-            let item = AVPlayerItem(asset: weiboVideoAsset(url))
-            statusObservation = item.observe(\.status) { [weak self] item, _ in
-                guard item.status == .failed else { return }
-                Task { @MainActor in self?.itemFailed(pic) }
-            }
-            player.replaceCurrentItem(with: item)
-            player.play()
+            start(pic, from: url)
         }
     }
 
+    private func start(_ pic: PicInfo, from url: URL) {
+        let item = AVPlayerItem(asset: weiboVideoAsset(url))
+        statusObservation = item.observe(\.status) { [weak self] item, _ in
+            guard item.status == .failed else { return }
+            Task { @MainActor in self?.itemFailed(pic) }
+        }
+        player.replaceCurrentItem(with: item)
+        player.play()
+    }
+
     private func itemFailed(_ pic: PicInfo) {
+        guard !released else { return }
         devLog("live photo failed")
         // Nothing to play again: the next play loads it anew.
         loaded = nil
@@ -121,8 +128,11 @@ final class LivePhotoPlayer {
         moving = false
     }
 
+    /// Lets go of the motion as the viewer closes; nothing plays after.
     func release() {
+        released = true
         stop()
+        statusObservation = nil
         player.replaceCurrentItem(with: nil)
         for observer in observers { NotificationCenter.default.removeObserver(observer) }
         observers = []

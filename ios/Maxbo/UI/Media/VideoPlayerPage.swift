@@ -27,7 +27,8 @@ final class VideoModel {
         load(refresh: false, at: .zero)
     }
 
-    func retry() { load(refresh: fetched, at: player.currentTime()) }
+    /// After a failure: from a URL fetched afresh, as the Kotlin app does.
+    func retry() { load(refresh: true, at: player.currentTime()) }
 
     private func load(refresh: Bool, at time: CMTime) {
         guard !stopped, let api else { return }

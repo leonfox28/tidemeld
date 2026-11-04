@@ -12,7 +12,7 @@
 |---|---|---|---|
 | A1 | 打开带红点的通知页签，红点清了但列表不刷新：`markRead` 改了 `.task` 的 id，进行中的刷新被取消，错误被 `try?` 吞掉。Kotlin v0.12.1 修过同一个问题（PLAN §11），刷新放在页面的 scope 里 | `UI/Notifications/NotificationsPage.swift:147-151`；Kotlin `NotificationsPage.kt:164-176` | 已修 |
 | A2 | 视频还在加载（例如地址过期正在重新请求）时关掉页面，之后会在后台开始播放，停不下来：加载的 `Task` 没有取消 | `UI/Media/VideoPlayerPage.swift:31-66`；Kotlin `VideoPlayerPage.kt:95,151-154` | 已修 |
-| A3 | 看图打开后 0.4 秒内关掉，实况照片的自动播放仍会在后台下载并静音播放：延时的 `Task` 没有取消 | `UI/Media/ImageViewer.swift:83-87`；Kotlin `ImageViewerPage.kt:94-97` | 待修 |
+| A3 | 看图打开后 0.4 秒内关掉，实况照片的自动播放仍会在后台下载并静音播放：延时的 `Task` 没有取消 | `UI/Media/ImageViewer.swift:83-87`；Kotlin `ImageViewerPage.kt:94-97` | 已修 |
 | A4 | 看图打开长图时铺满宽度，`scrollViewDidZoom` 把这当成放大，翻页被禁用，左右滑不到下一张 | `UI/Media/ZoomableImage.swift:84-100`、`ImageViewer.swift:36`；Kotlin `ImageViewerPage.kt:182-191` | 待修 |
 | A5 | 发微博、写评论选图后，图片在后台读入，期间没有提示、「发送」可点：这时发出去会少图，或者图片落进下一条草稿 | `UI/Compose/ComposePage.swift:78-82,106-117`、`UI/Interactions/CommentComposer.swift:106-117` | 待修 |
 | A6 | Cookie 和 XSRF 在进限流队列之前就写进请求头，Kotlin 是轮到发送时才读：退出后排队的请求仍带旧 `SUB`；续期后排队的读请求多发一次，写请求失败；排队期间换了的 `XSRF-TOKEN` 用不上 | `Core/Net/WeiboHTTP.swift:57-60`；Kotlin `WeiboHttp.kt:82-86,157-172` | 待修 |
@@ -51,7 +51,7 @@
 | D7 | 正在删除时再点删除，还会弹确认，确认后什么也不做。Kotlin 先查 `deleting` | `StatusActions.swift:110-116`；Kotlin `StatusWrites.kt:121-125` | 待修 |
 | D8 | 视频加载时没有封面，只有转圈 | `UI/Media/VideoPlayerPage.swift:85-90`；Kotlin `VideoPlayerPage.kt:183-191` | 待修 |
 | D9 | 看图没有 GIF 标 | `ImageViewer.swift:59-63`；Kotlin `ImageViewerPage.kt:123-150` | 待修 |
-| D10 | 实况照片点重试不换新地址（Kotlin `refresh = true`） | `ImageViewer.swift:157`；Kotlin `LivePhoto.kt:248` | 待修 |
+| D10 | 实况照片点重试不换新地址（Kotlin `refresh = true`） | `ImageViewer.swift:157`；Kotlin `LivePhoto.kt:248` | 已修 |
 | D11 | 实况照片的动态是固定居中的一层，不跟缩放；Kotlin 开始播放时把缩放复原 | `ImageViewer.swift:121-126`；Kotlin `ImageViewerPage.kt:176-178` | 待修 |
 | D12 | 图片加载失败只能点小图标重试，Kotlin 整块可点 | `UI/Widget/WeiboImage.swift:48-53`；Kotlin `WeiboImage.kt:136` | 待修 |
 | D13 | 链接前的图标点不了（画在链接外面），Kotlin 点图标也打开链接 | `UI/Widget/Text/StatusText.swift:126`；Kotlin `StatusText.kt:97` | 待修 |
@@ -73,7 +73,7 @@
 | 编号 | 问题 | 状态 |
 |---|---|---|
 | E1 | 关于页的声明和 README 不一致（**两个平台都是**）：隐私第 4 条缺「请求频率有上限。遇到验证码时，由你本人在微博的页面里完成。」，免责第 2、4 条措辞不同。CLAUDE.md 要求两者一致 | 待修 |
-| E2 | 2 个编译警告：`Task` 已经强持有 `self`，里面的 `[weak self]` 没有作用（`LivePhotoPlayer.swift:88`、`VideoPlayerPage.swift:39`） | 待修 |
+| E2 | 2 个编译警告：`Task` 已经强持有 `self`，里面的 `[weak self]` 没有作用（`LivePhotoPlayer.swift:88`、`VideoPlayerPage.swift:39`） | 已修 |
 | E3 | IOS.md 里写的是 Xcode 27.1，2026-11-04 已更新到 27.2 | 已改（随本文件提交） |
 | E4 | 测试：iOS 52 个，Android 约 373 个；iOS 没有页面测试 | 待定 |
 | E5 | CI 不跑 iOS，`release.yml` 不出 IPA，分发方式没定（IOS.md §6） | 待用户决定 |

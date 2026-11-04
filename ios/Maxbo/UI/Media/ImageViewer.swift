@@ -65,26 +65,19 @@ struct ImageViewer: View {
         .statusBarHidden()
         .onAppear {
             if live == nil { live = LivePhotoPlayer(api: graph.api, statusId: request.statusId) }
-            autoplay()
         }
-        .onChange(of: index) {
-            live?.stop()
-            autoplay()
+        .onChange(of: index) { live?.stop() }
+        // With the setting on, plays the motion of the live photo the viewer
+        // settles on, muted: not those swiped past on the way, nor one closed
+        // meanwhile, as either cancels the wait.
+        .task(id: index) {
+            guard graph.settings.settings.autoplayLivePhotos, pics.indices.contains(index) else { return }
+            let pic = pics[index]
+            guard pic.liveVideo != nil else { return }
+            try? await Task.sleep(for: .milliseconds(400))
+            if !Task.isCancelled { live?.autoplay(pic) }
         }
         .onDisappear { live?.release() }
-    }
-
-    /// With the setting on, plays the motion of the live photo the viewer
-    /// settles on, muted.
-    private func autoplay() {
-        guard graph.settings.settings.autoplayLivePhotos, request.pics.indices.contains(index) else { return }
-        let pic = request.pics[index]
-        guard pic.liveVideo != nil else { return }
-        Task {
-            // Settled on it, not swiped past.
-            try? await Task.sleep(for: .milliseconds(400))
-            if request.pics.indices.contains(index), request.pics[index].id == pic.id { live?.autoplay(pic) }
-        }
     }
 }
 
@@ -154,7 +147,12 @@ private struct LiveButton: View {
         } else {
             let playing = live.current?.id == pic.id
             Button {
-                if playing { live.stop() } else { live.play(pic) }
+                if playing {
+                    live.stop()
+                } else {
+                    // As a video's 重试, from a URL fetched afresh.
+                    live.play(pic, refresh: live.failed == pic.id)
+                }
             } label: {
                 HStack(spacing: 6) {
                     if playing, !live.moving {
