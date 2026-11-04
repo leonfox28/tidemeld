@@ -70,3 +70,52 @@ private final class Offline: URLProtocol {
     override func startLoading() { client?.urlProtocol(self, didFailWithError: URLError(.notConnectedToInternet)) }
     override func stopLoading() {}
 }
+
+/// Weibo as far as the tests' requests go: records each request and answers it
+/// with [respond]. One for the whole test run, as URL loading makes its own
+/// instances; suites that use it run serialized, and [reset] it first.
+final class FakeWeibo: URLProtocol, @unchecked Sendable {
+    struct Reply: Sendable {
+        var status = 200
+        var contentType = "application/json"
+        var body = "{}"
+    }
+
+    private static let lock = NSLock()
+    nonisolated(unsafe) private static var respond: @Sendable (URLRequest) -> Reply = { _ in Reply() }
+    nonisolated(unsafe) private static var received: [URLRequest] = []
+
+    static var requests: [URLRequest] { lock.withLock { received } }
+
+    static func reset(_ respond: @escaping @Sendable (URLRequest) -> Reply = { _ in Reply() }) {
+        lock.withLock {
+            self.respond = respond
+            received = []
+        }
+    }
+
+    static var configuration: URLSessionConfiguration {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [FakeWeibo.self]
+        return configuration
+    }
+
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+
+    override func startLoading() {
+        let respond = Self.lock.withLock {
+            Self.received.append(request)
+            return Self.respond
+        }
+        let reply = respond(request)
+        let response = HTTPURLResponse(
+            url: request.url!, statusCode: reply.status, httpVersion: "HTTP/1.1",
+            headerFields: ["Content-Type": reply.contentType])!
+        client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: Data(reply.body.utf8))
+        client?.urlProtocolDidFinishLoading(self)
+    }
+
+    override func stopLoading() {}
+}

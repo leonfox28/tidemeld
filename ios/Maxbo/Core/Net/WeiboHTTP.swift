@@ -54,11 +54,13 @@ final class WeiboHTTP: Sendable {
         if request.value(forHTTPHeaderField: "Accept-Language") == nil {
             request.setValue("zh-CN,zh;q=0.9", forHTTPHeaderField: "Accept-Language")
         }
-        let delegate = HopHeaders(jar: jar, plainCrossOrigin: plainCrossOrigin)
-        request = delegate.prepare(request, explicitReferer: request.value(forHTTPHeaderField: "Referer"))
-
         await throttle.acquire()
         defer { Task { await throttle.release() } }
+        // The cookies as they are now, not as they were when the request
+        // joined the queue: the user may have signed out, or the session been
+        // renewed, meanwhile (as OkHttp reads its jar as it sends).
+        let delegate = HopHeaders(jar: jar, plainCrossOrigin: plainCrossOrigin)
+        request = delegate.prepare(request, explicitReferer: request.value(forHTTPHeaderField: "Referer"))
         let data: Data
         let response: URLResponse
         do {
