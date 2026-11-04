@@ -61,7 +61,7 @@
 | D17 | 改缓存上限后「已用」不重新统计 | `SettingsPage.swift:40-47`；Kotlin `SettingsPage.kt:184` | 已修 |
 | D18 | 看图铺满宽度的长图阈值是 3 倍屏幕比例，Kotlin 只要比屏幕高就铺满 | `UI/Media/ZoomableImage.swift:84`；Kotlin `ImageViewerPage.kt:182-183` | 已修 |
 | D19 | 时间线总是 1000 宽，Kotlin 在 840 以下用 640 | `UI/Timeline/TimelinePage.swift:127`；Kotlin `AdaptiveLayout.kt:62` | 已修 |
-| D20 | 放大转场的 id 是 `statusId/picId`，同一条微博出现两次（两条转发同一原微博、详情页下面的时间线）时 id 重复，动画可能从别的缩略图开始或回到别的缩略图 | `StatusCard.swift:292`、`PicGrid.swift:38`、`App/RootView.swift:137` | 待修 |
+| D20 | 放大转场的 id 是 `statusId/picId`，同一条微博出现两次（两条转发同一原微博、详情页下面的时间线）时 id 重复，动画可能从别的缩略图开始或回到别的缩略图 | `StatusCard.swift:292`、`PicGrid.swift:38`、`App/RootView.swift:137` | 已修 |
 | D21 | 被取消的请求报成「网络连接失败」；其他意外错误也都是网络错误。Kotlin 取消不算错误，意外错误显示「加载失败」 | `Core/Net/WeiboHTTP.swift:66-67`、`WeiboError.swift:32-34`；Kotlin `WeiboHttp.kt:85-89`、`LoadState.kt:40` | 待修 |
 | D22 | JSON 里 ≥ 2^63 的数字用 `Int64(d)` 会崩溃，Kotlin `toLong()` 截断 | `Core/Util/JSON.swift:71`；Kotlin `JsonRead.kt:24` | 待修 |
 | D23 | 没有 `pic_ids` 时 `pic_infos` 按 key 字母排序，Kotlin 保持微博给的顺序 | `Data/Model/PicInfo.swift:119`；Kotlin `PicInfo.kt:162` | 待修 |

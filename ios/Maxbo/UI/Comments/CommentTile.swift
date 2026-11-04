@@ -124,6 +124,8 @@ private struct CommentPictures: View {
     @Environment(AppGraph.self) private var graph
     @Environment(\.displayScale) private var scale
     @Environment(\.mediaNamespace) private var namespace
+    /// What its tiles' ids start with; see `StatusMedia`.
+    @State private var owner = UUID().uuidString
 
     private let size: CGFloat = 96
 
@@ -131,7 +133,7 @@ private struct CommentPictures: View {
         let pixels = graph.settings.settings.imageQuality.listPixels(size, scale: scale)
         HStack(spacing: 4) {
             ForEach(Array(comment.pics.enumerated()), id: \.offset) { i, pic in
-                let source = picSourceID(comment.id, pic)
+                let source = picSourceID(owner, pic)
                 WeiboImage(url: pic.variant(for: pixels).url, maxPixels: size * scale)
                     .frame(width: size, height: size)
                     .clipShape(RoundedRectangle(cornerRadius: 4))

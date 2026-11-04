@@ -243,6 +243,10 @@ private struct Selectable: ViewModifier {
 struct StatusMedia: View {
     let status: Status
     let actions: StatusCardActions
+    /// What its tiles' ids start with: this card's own, as the same post can
+    /// show twice at once (two reposts of it, or a card under its own detail
+    /// page), and the viewer should zoom out of the tile tapped.
+    @State private var owner = UUID().uuidString
 
     var body: some View {
         // A retweet carries a copy of its source's page_info; show it only
@@ -252,9 +256,9 @@ struct StatusMedia: View {
             PicGrid(
                 items: status.pics.map(MixedMedia.pic), total: status.picCount,
                 onTap: { i in
-                    actions.onPicture?(status.pics, i, status, picSourceID(status.id, status.pics[i]))
+                    actions.onPicture?(status.pics, i, status, picSourceID(owner, status.pics[i]))
                 },
-                sourceID: { i in picSourceID(status.id, status.pics[i]) })
+                sourceID: { i in picSourceID(owner, status.pics[i]) })
         } else if !status.mixedMedia.isEmpty {
             mixedGrid
         } else if !isRetweet, let video = status.video {
@@ -277,13 +281,13 @@ struct StatusMedia: View {
                 let before = items.prefix(i)
                 switch items[i] {
                 case .pic(let pic):
-                    actions.onPicture?(status.mixedPics, picIndex(i), status, picSourceID(status.id, pic))
+                    actions.onPicture?(status.mixedPics, picIndex(i), status, picSourceID(owner, pic))
                 case .video:
                     actions.onVideo?(status, before.filter { if case .video = $0 { true } else { false } }.count)
                 }
             },
             sourceID: { i in
-                if case .pic(let pic) = items[i] { picSourceID(status.id, pic) } else { "\(status.id)/v\(i)" }
+                if case .pic(let pic) = items[i] { picSourceID(owner, pic) } else { "\(owner)/v\(i)" }
             })
     }
 }
