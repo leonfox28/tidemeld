@@ -69,3 +69,39 @@ struct ImageDownloadTests {
     }
 }
 }
+
+extension FakeWeiboTests {
+@MainActor @Suite
+struct StatusWriteTests {
+    /// A repost of a long post, cut short as lists have it.
+    private let cutRepost = Status.from(
+        json(#"{"id":"2","text":"转发理由","user":{"id":"8","screen_name":"转发的人"},"retweeted_status":{"id":"1","text":"原文","user":{"id":"9","screen_name":"原作者"}}}"#))!
+
+    @Test func aRepostSheetWaitingOnTheFullTextIsDroppedOnceThePageIsLeft() async throws {
+        FakeWeibo.reset { _ in
+            .init(body: #"{"id":"2","text":"转发理由","longText":{"content":"转发理由全文"},"user":{"id":"8","screen_name":"转发的人"},"retweeted_status":{"id":"1","text":"原文"}}"#, delay: .milliseconds(500))
+        }
+        let graph = testGraph(configuration: FakeWeibo.configuration)
+        graph.router.push(.status(id: "2", initial: nil))
+
+        graph.repost(cutRepost)
+        graph.router.pop()
+        try await Task.sleep(for: .seconds(1))
+
+        #expect(FakeWeibo.requests.count == 1)
+        #expect(graph.router.repost == nil)
+    }
+
+    @Test func onThePageItOpens() async throws {
+        FakeWeibo.reset { _ in
+            .init(body: #"{"id":"2","text":"转发理由","longText":{"content":"转发理由全文"},"user":{"id":"8","screen_name":"转发的人"},"retweeted_status":{"id":"1","text":"原文"}}"#)
+        }
+        let graph = testGraph(configuration: FakeWeibo.configuration)
+
+        graph.repost(cutRepost)
+        try await Task.sleep(for: .milliseconds(500))
+
+        #expect(graph.router.repost?.quote == "//@转发的人:转发理由全文")
+    }
+}
+}

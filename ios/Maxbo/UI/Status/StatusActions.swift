@@ -79,6 +79,10 @@ extension AppGraph {
     /// Reposting a repost starts the text with the chain it carries on, as
     /// weibo.com does: `//@author:their text`.
     func repost(_ status: Status, onReposted: (() -> Void)? = nil) {
+        // Where the user asked from: the sheet is for that page, as the Kotlin
+        // sheet is in the page's scope.
+        let tab = router.tab
+        let pages = router.paths[tab] ?? []
         Task {
             var quoted = status
             // Lists cut long posts short, and the chain quotes all of it.
@@ -89,6 +93,8 @@ extension AppGraph {
                     toasts.showError(error, router: router)
                     return
                 }
+                // Left meanwhile: no sheet over whatever page is up now.
+                guard router.tab == tab, (router.paths[tab] ?? []) == pages else { return }
             }
             router.repost = RepostRequest(status: status, quote: quoteOf(quoted), onReposted: onReposted)
         }
@@ -108,6 +114,8 @@ extension AppGraph {
     /// it goes. Once deleted it leaves the open lists of the user's posts, and
     /// [onDeleted] is called, e.g. to leave its detail page.
     func delete(_ status: Status, onDeleted: (() -> Void)? = nil) {
+        // Already going: not asked again.
+        guard !deletingStatuses.contains(status.id) else { return }
         router.deletion = DeleteRequest(status: status, onDeleted: onDeleted)
     }
 

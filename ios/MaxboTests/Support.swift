@@ -65,8 +65,10 @@ final class FakeSettingsStorage: SettingsStorage {
 
 /// An [AppGraph] of fakes, signed in as uid 7 unless [restored] says otherwise.
 @MainActor
-func testGraph(restored: StoredSession? = signedIn) -> AppGraph {
-    let (session, api) = testSession(restored: restored)
+func testGraph(
+    restored: StoredSession? = signedIn, configuration: URLSessionConfiguration? = nil
+) -> AppGraph {
+    let (session, api) = testSession(restored: restored, configuration: configuration)
     let images = ImageLoader(
         directory: FileManager.default.temporaryDirectory.appendingPathComponent("test-images-\(UUID())"),
         limitMB: 1, configuration: offline())

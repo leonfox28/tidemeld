@@ -46,9 +46,9 @@
 | D2 | 转发一条转发时光标在 `//@…` 后面，Kotlin 放在最前（`TextRange(0)`） | `UI/Compose/ComposePage.swift:157,192-194`；Kotlin `StatusWrites.kt:170-178` | 已修 |
 | D3 | 发微博弹层里点「去验证」会关掉弹层（`SendError` 调 `dismiss()`），回来要重新打开。Kotlin 发微博是页面，验证完回到原处 | `ComposePage.swift:27`、`CommentComposer.swift:188-192`；Kotlin `ComposePage.kt:198-201` | 已修 |
 | D4 | 评论的图片读文件失败时提示「网络连接失败」，Kotlin 是「图片读取失败」 | `CommentComposer.swift:161,172`；Kotlin `PicturePicker.kt:88-101` | 已修 |
-| D5 | 转发被截断的转发时，取全文的 `Task` 不跟页面走，离开页面后转发弹层仍会弹出 | `UI/Status/StatusActions.swift:81-95`；Kotlin `StatusWrites.kt:91-114` | 待修 |
+| D5 | 转发被截断的转发时，取全文的 `Task` 不跟页面走，离开页面后转发弹层仍会弹出 | `UI/Status/StatusActions.swift:81-95`；Kotlin `StatusWrites.kt:91-114` | 已修 |
 | D6 | 发送时没有「正在上传图片 i/n」 | `ComposePage.swift:27-31`；Kotlin `ComposePage.kt:189-197` | 已修 |
-| D7 | 正在删除时再点删除，还会弹确认，确认后什么也不做。Kotlin 先查 `deleting` | `StatusActions.swift:110-116`；Kotlin `StatusWrites.kt:121-125` | 待修 |
+| D7 | 正在删除时再点删除，还会弹确认，确认后什么也不做。Kotlin 先查 `deleting` | `StatusActions.swift:110-116`；Kotlin `StatusWrites.kt:121-125` | 已修 |
 | D8 | 视频加载时没有封面，只有转圈 | `UI/Media/VideoPlayerPage.swift:85-90`；Kotlin `VideoPlayerPage.kt:183-191` | 待修 |
 | D9 | 看图没有 GIF 标 | `ImageViewer.swift:59-63`；Kotlin `ImageViewerPage.kt:123-150` | 待修 |
 | D10 | 实况照片点重试不换新地址（Kotlin `refresh = true`） | `ImageViewer.swift:157`；Kotlin `LivePhoto.kt:248` | 已修 |
