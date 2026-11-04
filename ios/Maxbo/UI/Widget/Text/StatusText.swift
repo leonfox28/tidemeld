@@ -3,22 +3,31 @@ import SwiftUI
 import UIKit
 
 /// Emoticons and link icons, drawn at the size of the text they sit in.
-@MainActor @Observable
+///
+/// Each is watched on its own: one loading redraws only the texts that have it,
+/// not every text on screen with an emoticon.
+@MainActor
 final class InlineImages {
     @MainActor static let shared = InlineImages()
 
-    private var images: [String: UIImage] = [:]
-    @ObservationIgnored private var loading: Set<String> = []
+    @MainActor @Observable
+    final class Slot {
+        var image: UIImage?
+    }
+
+    private var slots: [String: Slot] = [:]
+    private var loading: Set<String> = []
 
     func image(_ url: String, height: CGFloat) -> UIImage? {
-        images["\(url)#\(height)"]
+        slot("\(url)#\(height)").image
     }
 
     /// Loads [url] for text whose glyphs are [height] high, unless it is
     /// loaded or loading.
     func load(_ url: String, height: CGFloat, scale: CGFloat) {
         let key = "\(url)#\(height)"
-        guard images[key] == nil, loading.insert(key).inserted else { return }
+        let slot = slot(key)
+        guard slot.image == nil, loading.insert(key).inserted else { return }
         Task {
             defer { loading.remove(key) }
             guard let source = try? await ImageLoader.shared.image(url, maxPixels: height * scale * 2)
@@ -27,10 +36,41 @@ final class InlineImages {
                 width: height * source.size.width / max(source.size.height, 1), height: height)
             let format = UIGraphicsImageRendererFormat()
             format.scale = scale
-            images[key] = UIGraphicsImageRenderer(size: size, format: format).image { _ in
+            slot.image = UIGraphicsImageRenderer(size: size, format: format).image { _ in
                 source.draw(in: CGRect(origin: .zero, size: size))
             }
         }
+    }
+
+    private func slot(_ key: String) -> Slot {
+        if let slot = slots[key] { return slot }
+        let slot = Slot()
+        slots[key] = slot
+        return slot
+    }
+}
+
+/// Status texts as parsed, so a text drawn again (as an emoticon in it loads,
+/// or as its row comes back on screen) isn't parsed again; the Kotlin app keeps
+/// them with `remember`.
+@MainActor
+private enum ParsedTexts {
+    struct Key: Hashable {
+        let html: String
+        let urls: [URLEntity]
+        let hiddenPictures: Set<String>
+    }
+
+    private static var parsed: [Key: [TextSegment]] = [:]
+
+    static func segments(_ html: String, urls: [URLEntity], hiddenPictures: Set<String>) -> [TextSegment] {
+        let key = Key(html: html, urls: urls, hiddenPictures: hiddenPictures)
+        if let segments = parsed[key] { return segments }
+        let segments = parseStatusText(html, urls: urls, hiddenPictures: hiddenPictures)
+        // A few screens' worth; past that, started over.
+        if parsed.count >= 500 { parsed.removeAll(keepingCapacity: true) }
+        parsed[key] = segments
+        return segments
     }
 }
 
@@ -91,7 +131,7 @@ struct StatusText: View {
             segments.append(.link("@\(author)", .mention(author)))
             segments.append(.plain("："))
         }
-        return segments + parseStatusText(html, urls: urls, hiddenPictures: hiddenPictures)
+        return segments + ParsedTexts.segments(html, urls: urls, hiddenPictures: hiddenPictures)
     }
 
     /// How high an emoticon is: a little above the text's cap height, as on

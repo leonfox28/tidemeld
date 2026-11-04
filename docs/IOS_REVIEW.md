@@ -33,7 +33,7 @@
 |---|---|---|---|
 | C1 | 图片滚出屏幕后下载和解码不取消（共享下载的 `Task` 不接调用方的取消），快速滑动时把经过的图都下载一遍。Coil 会取消 | `Core/Media/ImageLoader.swift:66,146-151` | 待修 |
 | C2 | GIF 不降采样，按原尺寸逐帧解码（最多 300 帧）；看图最大 8192 px 的图和列表缩略图挤同一个 96 MB 内存缓存 | `ImageLoader.swift:104,123-139`、`UI/Media/ImageViewer.swift:133` | 待修 |
-| C3 | 每加载完一个表情，屏幕上所有带表情的正文都重绘、重新解析 HTML（共用一个被观察的字典，解析没缓存）。Kotlin 每段正文只解析一次 | `UI/Widget/Text/StatusText.swift:7-34,56,88-95` | 待修 |
+| C3 | 每加载完一个表情，屏幕上所有带表情的正文都重绘、重新解析 HTML（共用一个被观察的字典，解析没缓存）。Kotlin 每段正文只解析一次 | `UI/Widget/Text/StatusText.swift:7-34,56,88-95` | 已修 |
 | C4 | 清除图片缓存在主线程同步执行 | `UI/Settings/SettingsPage.swift:66`、`ImageLoader.swift:91-94` | 待修 |
 | C5 | 选图时复制到 `tmp/drafts/` 的文件从不删除（移除图片、发送后、换账号） | `UI/Compose/ComposeDraft.swift:25-33` | 已修 |
 | C6 | 看图的占位图加载 `pic.variants.first`（最小的那张），列表一般没加载过它，等于多一个请求，放大时还比缩略图糊。Kotlin 显示转圈 | `UI/Media/ImageViewer.swift:116`；Kotlin `ImageViewerPage.kt:207-208` | 待修 |
@@ -54,7 +54,7 @@
 | D10 | 实况照片点重试不换新地址（Kotlin `refresh = true`） | `ImageViewer.swift:157`；Kotlin `LivePhoto.kt:248` | 已修 |
 | D11 | 实况照片的动态是固定居中的一层，不跟缩放；Kotlin 开始播放时把缩放复原 | `ImageViewer.swift:121-126`；Kotlin `ImageViewerPage.kt:176-178` | 已修 |
 | D12 | 图片加载失败只能点小图标重试，Kotlin 整块可点 | `UI/Widget/WeiboImage.swift:48-53`；Kotlin `WeiboImage.kt:136` | 待修 |
-| D13 | 链接前的图标点不了（画在链接外面），Kotlin 点图标也打开链接 | `UI/Widget/Text/StatusText.swift:126`；Kotlin `StatusText.kt:97` | 待修 |
+| D13 | 链接前的图标点不了（画在链接外面），Kotlin 点图标也打开链接 | `UI/Widget/Text/StatusText.swift:126`；Kotlin `StatusText.kt:97` | 不修：SwiftUI 的 `Text` 里插的图片带不了链接，只能做成 `NSAdaptiveImageGlyph` 之类的变通，不值得 |
 | D14 | 未登录也显示搜索框，提交后用没有会话的状态发搜索请求。Kotlin 登录后才显示 | `UI/Search/SearchPage.swift:54-57`；Kotlin `SearchPage.kt:134-136` | 待修 |
 | D15 | 再点「搜索」页签刷新时不防重复、失败没提示 | `SearchPage.swift:89-95`；Kotlin `SearchPage.kt:217-233` | 待修 |
 | D16 | 字体大小页的示例 `allowsHitTesting(false)` 连滚动也挡了，大字号或横屏时看不全。Kotlin 的 `inert()` 放过拖动 | `UI/Settings/SettingsPage.swift:105`；Kotlin `TextSizePage.kt:68,103-105` | 待修 |
