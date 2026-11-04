@@ -143,11 +143,16 @@ struct NotificationsPage: View {
         }
         .onChange(of: kind) { withAnimation(.snappy(duration: 0.3)) { tabBarVisible = true } }
         // The user is looking at the open tab: clear its mark, and reload its
-        // list if that came before whatever is new.
+        // list if that came before whatever is new. The reload goes on in a
+        // task of its own: clearing the mark changes this task's id, which
+        // cancels it, and would cancel the request along with it.
         .task(id: "\(kind)\(graph.unread.state.has(kind))") {
             guard graph.unread.state.has(kind) else { return }
             graph.unread.markRead(kind)
-            if model.loaded(kind) { try? await model.refresh(kind) }
+            if model.loaded(kind) {
+                let kind = kind
+                Task { try? await model.refresh(kind) }
+            }
         }
     }
 }

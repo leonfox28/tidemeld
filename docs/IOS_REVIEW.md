@@ -10,7 +10,7 @@
 
 | 编号 | 问题 | 位置 | 状态 |
 |---|---|---|---|
-| A1 | 打开带红点的通知页签，红点清了但列表不刷新：`markRead` 改了 `.task` 的 id，进行中的刷新被取消，错误被 `try?` 吞掉。Kotlin v0.12.1 修过同一个问题（PLAN §11），刷新放在页面的 scope 里 | `UI/Notifications/NotificationsPage.swift:147-151`；Kotlin `NotificationsPage.kt:164-176` | 待修 |
+| A1 | 打开带红点的通知页签，红点清了但列表不刷新：`markRead` 改了 `.task` 的 id，进行中的刷新被取消，错误被 `try?` 吞掉。Kotlin v0.12.1 修过同一个问题（PLAN §11），刷新放在页面的 scope 里 | `UI/Notifications/NotificationsPage.swift:147-151`；Kotlin `NotificationsPage.kt:164-176` | 已修 |
 | A2 | 视频还在加载（例如地址过期正在重新请求）时关掉页面，之后会在后台开始播放，停不下来：加载的 `Task` 没有取消 | `UI/Media/VideoPlayerPage.swift:31-66`；Kotlin `VideoPlayerPage.kt:95,151-154` | 待修 |
 | A3 | 看图打开后 0.4 秒内关掉，实况照片的自动播放仍会在后台下载并静音播放：延时的 `Task` 没有取消 | `UI/Media/ImageViewer.swift:83-87`；Kotlin `ImageViewerPage.kt:94-97` | 待修 |
 | A4 | 看图打开长图时铺满宽度，`scrollViewDidZoom` 把这当成放大，翻页被禁用，左右滑不到下一张 | `UI/Media/ZoomableImage.swift:84-100`、`ImageViewer.swift:36`；Kotlin `ImageViewerPage.kt:182-191` | 待修 |
