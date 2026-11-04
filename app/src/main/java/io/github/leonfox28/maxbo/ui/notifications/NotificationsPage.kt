@@ -68,6 +68,7 @@ import io.github.leonfox28.maxbo.core.media.WeiboImage
 import io.github.leonfox28.maxbo.core.net.WeiboException
 import io.github.leonfox28.maxbo.core.paging.ListLoad
 import io.github.leonfox28.maxbo.core.paging.PagedController
+import io.github.leonfox28.maxbo.core.session.SessionController
 import io.github.leonfox28.maxbo.core.session.SessionState
 import io.github.leonfox28.maxbo.core.util.formatPostTime
 import io.github.leonfox28.maxbo.data.api.WeiboApi
@@ -95,6 +96,7 @@ import io.github.leonfox28.maxbo.ui.widget.status.StatusCard
 import io.github.leonfox28.maxbo.ui.widget.status.StatusCardActions
 import io.github.leonfox28.maxbo.ui.widget.text.plainStatusText
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 
 private val Tabs =
@@ -105,9 +107,17 @@ private val Tabs =
         NoticeKind.Likes to "赞",
     )
 
-/** The notification lists, each made when its tab is first shown and kept while the app runs. */
-class NotificationsViewModel(private val api: WeiboApi) : ViewModel() {
+/**
+ * The notification lists, each made when its tab is first shown and kept while the app runs.
+ * Another account, or none, starts them over.
+ */
+class NotificationsViewModel(private val api: WeiboApi, session: SessionController) : ViewModel() {
     private val lists = mutableMapOf<NoticeKind, PagedController<*>>()
+
+    init {
+        // The next account's lists are made and loaded afresh as their tabs are shown.
+        viewModelScope.launch { session.uid.drop(1).collect { lists.clear() } }
+    }
 
     /** [kind]'s list, loading its first page if it wasn't open. */
     fun list(kind: NoticeKind): PagedController<*> =
@@ -140,7 +150,8 @@ fun NotificationsPage(padding: PaddingValues) {
             )
     when (val state = session) {
         is SessionState.SignedOut -> LoginPrompt(state.expired, area)
-        is SessionState.SignedIn -> Notices(padding, area)
+        // Another account's lists start over, with its own tabs and scrolling.
+        is SessionState.SignedIn -> key(state.account.uid) { Notices(padding, area) }
     }
 }
 
@@ -149,7 +160,7 @@ fun NotificationsPage(padding: PaddingValues) {
 private fun Notices(padding: PaddingValues, modifier: Modifier) {
     val graph = LocalAppGraph.current
     val api = graph.api
-    val model = viewModel { NotificationsViewModel(api) }
+    val model = viewModel { NotificationsViewModel(api, graph.session) }
     val unread by graph.unread.state.collectAsStateWithLifecycle()
     val pager = rememberPagerState { Tabs.size }
     val scope = rememberCoroutineScope()

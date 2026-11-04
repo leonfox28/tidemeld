@@ -2,7 +2,7 @@ import Observation
 import SwiftUI
 
 /// The notification lists, each made when its tab is first shown and kept while
-/// the app runs.
+/// the app runs. Another account, or none, starts them over.
 @MainActor @Observable
 final class NotificationsModel {
     @ObservationIgnored private var api: WeiboAPI?
@@ -12,8 +12,19 @@ final class NotificationsModel {
     @ObservationIgnored private(set) var likes: PagedList<LikeNotice>?
 
     /// Gives the model what it loads with; before the lists first draw.
-    func attach(_ api: WeiboAPI) {
-        if self.api == nil { self.api = api }
+    func attach(_ api: WeiboAPI, session: SessionController) {
+        guard self.api == nil else { return }
+        self.api = api
+        session.onUidChange { [weak self] _ in self?.forget() }
+    }
+
+    /// Drops the lists, so the next account's are made and loaded afresh as
+    /// their tabs are shown.
+    private func forget() {
+        comments = nil
+        mentionComments = nil
+        mentionStatuses = nil
+        likes = nil
     }
 
     func commentList(_ kind: NoticeKind) -> PagedList<CommentNotice> {
@@ -98,7 +109,7 @@ struct NotificationsPage: View {
     }
 
     private var notices: some View {
-        let _ = model.attach(graph.api)
+        let _ = model.attach(graph.api, session: graph.session)
         return GeometryReader { screen in
             ScrollView(.horizontal) {
                 HStack(spacing: 0) {

@@ -3,11 +3,13 @@ package io.github.leonfox28.maxbo.ui.notifications
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.performClick
+import io.github.leonfox28.maxbo.core.net.WeiboCookieJar
 import io.github.leonfox28.maxbo.data.model.NoticeKind
 import io.github.leonfox28.maxbo.support.AppHarness
 import io.github.leonfox28.maxbo.support.FakeWeibo
 import io.github.leonfox28.maxbo.support.commentJson
 import io.github.leonfox28.maxbo.support.commentNoticeJson
+import io.github.leonfox28.maxbo.support.homePage
 import io.github.leonfox28.maxbo.support.json
 import io.github.leonfox28.maxbo.support.likeNoticeJson
 import io.github.leonfox28.maxbo.support.noticePageJson
@@ -43,6 +45,7 @@ class NotificationsPageTest {
         web.respond = {
             when (it.url.encodedPath) {
                 "/2/remind/push_count.json" -> json(unreadCounts)
+                "/" -> homePage(uid = 8)
                 "/ajax/message/cmt" -> {
                     Thread.sleep(commentsDelay)
                     json(
@@ -152,6 +155,27 @@ class NotificationsPageTest {
         checkUnread()
 
         app.waitFor("新收到的评论")
+    }
+
+    @Test
+    fun `another account sees its own notifications`() {
+        open()
+        tab("赞").performClick()
+        app.waitFor("点赞的人 赞了你的微博")
+        tab("评论").performClick()
+        compose.waitForIdle()
+
+        runBlocking { app.graph.session.logout() }
+        compose.waitForIdle()
+        newestComment = "另一个账号收到的评论"
+        runBlocking {
+            app.graph.session.completeLogin(mapOf(WeiboCookieJar.WEB to mapOf("SUB" to "y")))
+        }
+
+        app.waitFor("另一个账号收到的评论")
+        assertEquals(2, loads("/ajax/message/cmt"))
+        // The other lists wait for their tabs again.
+        assertEquals(1, loads("/ajax/message/attitudes"))
     }
 
     @Test

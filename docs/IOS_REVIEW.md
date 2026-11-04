@@ -19,7 +19,7 @@
 | A7 | 没有设置 `AVAudioSession`：静音键打开时视频和带声音的实况照片没有声音；画中画要 `.playback` 类别和后台音频模式，现在用不了（IOS.md §3 写了支持）。模拟器没有静音键，要真机确认 | 全局；`UI/Media/VideoPlayerPage.swift:112` | 待修 |
 | A8 | 登录页的错误提示看不见：提示条挂在 `TabView` 上，被登录弹层盖住。Kotlin 在登录页自己的提示条里显示 | `UI/Auth/LoginPage.swift:91-93`、`App/RootView.swift:59`；Kotlin `LoginPage.kt:93,203` | 待修 |
 | A9 | 退出登录时不清各页签的页面栈，换账号后在别的页签还能返回到上一个账号打开的微博或主页 | `UI/Navigation/Router.swift:92`、`UI/Profile/MePage.swift:59` | 待修 |
-| A10 | 换账号后通知列表还是上一个账号的：列表放在 `.id(account.uid)` 外面，登录后 `start()` 见已加载过就不再加载。**Kotlin 也有**（`NotificationsPage.kt:114,152`，ViewModel 在首页的 store 里），两边一起改 | `UI/Notifications/NotificationsPage.swift:75,90,293` | 待修 |
+| A10 | 换账号后通知列表还是上一个账号的：列表放在 `.id(account.uid)` 外面，登录后 `start()` 见已加载过就不再加载。**Kotlin 也有**（`NotificationsPage.kt:114,152`，ViewModel 在首页的 store 里），两边一起改 | `UI/Notifications/NotificationsPage.swift:75,90,293` | 已修 |
 
 ## B. 违反「请求只在用户操作时发起」
 
