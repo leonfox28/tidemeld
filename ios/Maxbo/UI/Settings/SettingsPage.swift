@@ -104,14 +104,14 @@ struct TextSizePage: View {
         let sizes = TextSize.allCases
         let index = sizes.firstIndex(of: size)!
         List {
-            StatusCard(status: samples.0).readingWidth().statusRow()
-            CommentTile(comment: samples.1).readingWidth().responseRow()
+            // Samples only: their like buttons and links do nothing. The list
+            // still scrolls, so the largest sizes can be seen in full.
+            StatusCard(status: samples.0).allowsHitTesting(false).readingWidth().statusRow()
+            CommentTile(comment: samples.1).allowsHitTesting(false).readingWidth().responseRow()
         }
         .listStyle(.plain)
         .appListStyle()
         .tabBarHidesOnScroll()
-        // Samples only: their like buttons and links do nothing.
-        .allowsHitTesting(false)
         .safeAreaInset(edge: .bottom) {
             VStack(spacing: 8) {
                 Text(size.label).font(.headline)

@@ -55,9 +55,9 @@
 | D11 | 实况照片的动态是固定居中的一层，不跟缩放；Kotlin 开始播放时把缩放复原 | `ImageViewer.swift:121-126`；Kotlin `ImageViewerPage.kt:176-178` | 已修 |
 | D12 | 图片加载失败只能点小图标重试，Kotlin 整块可点 | `UI/Widget/WeiboImage.swift:48-53`；Kotlin `WeiboImage.kt:136` | 已修 |
 | D13 | 链接前的图标点不了（画在链接外面），Kotlin 点图标也打开链接 | `UI/Widget/Text/StatusText.swift:126`；Kotlin `StatusText.kt:97` | 不修：SwiftUI 的 `Text` 里插的图片带不了链接，只能做成 `NSAdaptiveImageGlyph` 之类的变通，不值得 |
-| D14 | 未登录也显示搜索框，提交后用没有会话的状态发搜索请求。Kotlin 登录后才显示 | `UI/Search/SearchPage.swift:54-57`；Kotlin `SearchPage.kt:134-136` | 待修 |
-| D15 | 再点「搜索」页签刷新时不防重复、失败没提示 | `SearchPage.swift:89-95`；Kotlin `SearchPage.kt:217-233` | 待修 |
-| D16 | 字体大小页的示例 `allowsHitTesting(false)` 连滚动也挡了，大字号或横屏时看不全。Kotlin 的 `inert()` 放过拖动 | `UI/Settings/SettingsPage.swift:105`；Kotlin `TextSizePage.kt:68,103-105` | 待修 |
+| D14 | 未登录也显示搜索框，提交后用没有会话的状态发搜索请求。Kotlin 登录后才显示 | `UI/Search/SearchPage.swift:54-57`；Kotlin `SearchPage.kt:134-136` | 已修 |
+| D15 | 再点「搜索」页签刷新时不防重复、失败没提示 | `SearchPage.swift:89-95`；Kotlin `SearchPage.kt:217-233` | 已修 |
+| D16 | 字体大小页的示例 `allowsHitTesting(false)` 连滚动也挡了，大字号或横屏时看不全。Kotlin 的 `inert()` 放过拖动 | `UI/Settings/SettingsPage.swift:105`；Kotlin `TextSizePage.kt:68,103-105` | 已修 |
 | D17 | 改缓存上限后「已用」不重新统计 | `SettingsPage.swift:40-47`；Kotlin `SettingsPage.kt:184` | 已修 |
 | D18 | 看图铺满宽度的长图阈值是 3 倍屏幕比例，Kotlin 只要比屏幕高就铺满 | `UI/Media/ZoomableImage.swift:84`；Kotlin `ImageViewerPage.kt:182-183` | 已修 |
 | D19 | 时间线总是 1000 宽，Kotlin 在 840 以下用 640 | `UI/Timeline/TimelinePage.swift:127`；Kotlin `AdaptiveLayout.kt:62` | 待修 |

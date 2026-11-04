@@ -40,20 +40,36 @@ struct SearchPage: View {
     @State private var model = HotSearchModel()
     @State private var query = ""
     @State private var atTop = true
+    @State private var refreshing = false
 
     var body: some View {
         Group {
             switch graph.session.state {
             case .signedOut(let expired): LoginPrompt(expired: expired)
-            case .signedIn: hotList
+            // Only then: searching needs a session, as in the Kotlin app.
+            case .signedIn:
+                hotList
+                    .searchable(text: $query, prompt: "搜索微博")
+                    .onSubmit(of: .search) {
+                        graph.router.openSearch(query)
+                    }
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .appBackground()
         .navigationTitle("搜索")
-        .searchable(text: $query, prompt: "搜索微博")
-        .onSubmit(of: .search) {
-            graph.router.openSearch(query)
+    }
+
+    /// Loads the list again, keeping it meanwhile; one at a time, a failure
+    /// in a toast.
+    private func refresh() async {
+        guard !refreshing else { return }
+        refreshing = true
+        defer { refreshing = false }
+        do {
+            try await model.refresh()
+        } catch {
+            graph.toasts.showError(error, router: graph.router)
         }
     }
 
@@ -71,13 +87,7 @@ struct SearchPage: View {
                     .listRowBackground(AppTheme.surface)
                 }
                 .appListStyle()
-                .refreshable {
-                    do {
-                        try await model.refresh()
-                    } catch {
-                        graph.toasts.showError(error, router: graph.router)
-                    }
-                }
+                .refreshable { await refresh() }
                 .tabBarHidesOnScroll()
                 .onScrollGeometryChange(for: Bool.self) { geometry in
                     geometry.contentOffset.y <= -geometry.contentInsets.top + 4
@@ -88,7 +98,7 @@ struct SearchPage: View {
                 // from there.
                 .onChange(of: graph.router.reselects[.search]) {
                     if atTop {
-                        Task { try? await model.refresh() }
+                        Task { await refresh() }
                     } else {
                         withAnimation { proxy.scrollTo("top", anchor: .top) }
                     }
