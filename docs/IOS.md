@@ -67,7 +67,7 @@ TEST_RUNNER_MAXBO_SHOTS=<截图目录> TEST_RUNNER_MAXBO_PAGE=<-maxbo-open 的�
 - **`maxbo iPhone`**（iPhone 18 Pro，iOS 27.0，UDID `7EB56B5A-6B0D-470C-B479-5BA60B102864`）：2026-10-30 用户在上面登录了测试账号。**只能用 `simctl install` 覆盖安装**（数据保留），不要卸载、抹掉（`simctl erase`）或在上面跑测试。登录态在它的 Keychain 和 WebKit Cookie 里。
 - **`maxbo test`**（同型号，没有登录）：跑单元测试、看未登录的页面。本机其他模拟器（iPhone 18 Pro、iPad Pro、iPhone Duo 等）属于 voytty，不要用。
 - 本机没有独立的 Simulator.app，模拟器由用户在 Xcode 里打开；截图用 `xcrun simctl io <UDID> screenshot`。点按和滑动只能在 `maxbo test` 上经 UI 测试（§4），所以要登录才有内容的页面滑不了。
-- 调试版的启动参数 `-maxbo-open <路径>` 直接打开页面：`login`、`compose`、`settings`、`about`、`licenses`、`tab/<search|notifications|me>`、`reselect/<home|search|notifications>`（打开页签约 4 秒后再点一次）、`status/<id>`、`u/<uid>`、`n/<昵称>`、`results/<词>`（中文和 `#` 要 URL 编码），时间线加载后的 `first/<status|user|pic|live|video|thread>`，以及诊断页的 `diag/<reads|renewal>`。
+- 调试版的启动参数 `-maxbo-open <路径>` 直接打开页面：`login`、`compose`、`settings`、`about`、`licenses`、`tab/<search|notifications|me>`、`reselect/<home|search|notifications>`（打开页签约 4 秒后再点一次）、`status/<id>`、`u/<uid>`、`n/<昵称>`、`results/<词>`（中文和 `#` 要 URL 编码）、`web/<网址>`（应用内浏览器），时间线加载后的 `first/<status|user|pic|live|video|thread>`，以及诊断页的 `diag/<reads|renewal>`。
 - **2026-10-30 在 `maxbo iPhone` 的真实会话上看过**：登录（官方页面，登录后自动关闭）、首页时间线（表情、链接图标、转发框、九宫格、认证、来源和地区；浅色和深色）、详情页（转发/评论切换、排序、评论、底部工具栏）、楼中楼、看图（翻页、页码）、视频播放、用户主页（封面、关注关系、置顶、展开）、通知（评论列表、带图评论、原微博引用）、热搜（置顶、前三名配色、标签、热度）、话题搜索结果（话题头和计数）、发微博弹层、诊断页「核对接口」全部正常、「模拟登录过期」3.4 秒续期成功（网页里的会话仍有效的那条路径）。
 - **2026-10-30 在 `maxbo test` 上用 UI 测试滑过**：开源许可（`ScrollView`）和关于（`List`）两页的页签栏往下滚隐藏、往回滚一点就出现、再往下又隐藏，关于页拉到末尾不闪，录屏逐帧看过出现和隐藏都是玻璃和按钮一起淡入淡出；隐藏后打开新页面、返回都有页签栏；给关于页临时加上详情页那样的底部工具栏，收起和出现也对，拉过末尾不再闪。
 - **2026-10-30 在 `maxbo iPhone` 上用 `reselect/home` 录屏逐帧看过**：首页在顶部时再点一次，内容平滑下移、圈在空出来的地方转，刷新完弹回，圈不压在内容上。

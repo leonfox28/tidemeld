@@ -42,7 +42,7 @@
 
 | 编号 | 问题 | 位置 | 状态 |
 |---|---|---|---|
-| D1 | 应用内浏览器：返回按钮直接关页，不是网页后退；有历史时没有「关闭」按钮 | `UI/Web/InAppBrowser.swift:17-34`；Kotlin `WebPage.kt:83-90,102` | 待修 |
+| D1 | 应用内浏览器：返回按钮直接关页，不是网页后退；有历史时没有「关闭」按钮 | `UI/Web/InAppBrowser.swift:17-34`；Kotlin `WebPage.kt:83-90,102` | 已修 |
 | D2 | 转发一条转发时光标在 `//@…` 后面，Kotlin 放在最前（`TextRange(0)`） | `UI/Compose/ComposePage.swift:157,192-194`；Kotlin `StatusWrites.kt:170-178` | 已修 |
 | D3 | 发微博弹层里点「去验证」会关掉弹层（`SendError` 调 `dismiss()`），回来要重新打开。Kotlin 发微博是页面，验证完回到原处 | `ComposePage.swift:27`、`CommentComposer.swift:188-192`；Kotlin `ComposePage.kt:198-201` | 已修 |
 | D4 | 评论的图片读文件失败时提示「网络连接失败」，Kotlin 是「图片读取失败」 | `CommentComposer.swift:161,172`；Kotlin `PicturePicker.kt:88-101` | 已修 |

@@ -6,7 +6,8 @@ import Foundation
 /// `login`, `compose`, `settings`, `about`, `licenses`,
 /// `tab/<home|search|notifications|me>`, `reselect/<home|search|notifications>`
 /// (the tab tapped again a few seconds after it opens),
-/// `status/<id>`, `u/<uid>`, `n/<screen name>`, `results/<query>`, and from
+/// `status/<id>`, `u/<uid>`, `n/<screen name>`, `results/<query>`,
+/// `web/<url>` (the in-app browser), and from
 /// the home timeline once loaded, `first/<status|pic|video|user|thread>`.
 @MainActor
 enum DebugLaunch {
@@ -42,6 +43,7 @@ enum DebugLaunch {
         case "u": router.push(.profile(uid: rest, initial: nil))
         case "n": router.push(.profileByName(rest))
         case "results": router.push(.searchResults(rest))
+        case "web": if let url = URL(string: rest) { router.push(.web(url)) }
         case "first": Task { await openFirst(rest, graph) }
         case "diag":
             // Runs a check of the diagnostics page: `reads` or `renewal`.

@@ -6,14 +6,21 @@ import WebKit
 ///
 /// It shares the web views' cookie store with the login page and sends the same
 /// browser identity, so Weibo sees the signed-in user in the same browser.
-/// Swiping back steps back through the pages visited here.
+/// Back, by button or swipe, steps back through the pages visited here before
+/// leaving; once there are any, a close button leaves at once (as the Kotlin
+/// page has them).
 struct InAppBrowser: View {
     let url: URL
+    /// Whether to offer the close button; not where the page is in a sheet
+    /// with its own.
+    var closable = true
 
     @Environment(AppGraph.self) private var graph
+    @Environment(\.dismiss) private var dismiss
     @State private var page = WebPage(navigationDecider: WebOnlyNavigation())
 
     var body: some View {
+        let previous = page.backForwardList.backList.last
         WebView(page)
             .webViewBackForwardNavigationGestures(.enabled)
             .tabBarHidesOnScroll(web: true)
@@ -24,7 +31,17 @@ struct InAppBrowser: View {
             }
             .navigationTitle(page.title)
             .navigationBarTitleDisplayMode(.inline)
+            // In place of the system's, which would leave the page.
+            .navigationBarBackButtonHidden(previous != nil)
             .toolbar {
+                if let previous {
+                    ToolbarItemGroup(placement: .topBarLeading) {
+                        Button("返回", systemImage: "chevron.backward") { _ = page.load(previous) }
+                        if closable {
+                            Button("关闭", systemImage: "xmark") { dismiss() }
+                        }
+                    }
+                }
                 ToolbarItem(placement: .primaryAction) {
                     Menu("更多", systemImage: "ellipsis") {
                         Button("刷新", systemImage: "arrow.clockwise") { page.reload() }
@@ -48,7 +65,7 @@ struct WebSheet: View {
 
     var body: some View {
         NavigationStack {
-            InAppBrowser(url: request.url)
+            InAppBrowser(url: request.url, closable: false)
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) {
                         Button(role: .close) { dismiss() }
