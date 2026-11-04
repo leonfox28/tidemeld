@@ -59,6 +59,7 @@ private struct Timeline: View {
             }
             .listStyle(.plain)
             .appListStyle()
+            .loadsMoreAsScrolled()
             .refreshable { await refresh() }
             .pullToRefresh(pull)
             .tabBarHidesOnScroll()

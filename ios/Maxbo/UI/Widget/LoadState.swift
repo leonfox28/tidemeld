@@ -23,11 +23,18 @@ struct ErrorRetry: View {
 
 /// The end of a paged list: a spinner while the next page loads, the error and
 /// a retry button when it failed, or a note that nothing is left.
+///
+/// The next page loads as the user scrolls on to the footer (in a list with
+/// `loadsMoreAsScrolled()`), or scrolls on with it in view; nothing else loads
+/// it, so a list too short to scroll waits for its button, as in the Kotlin app
+/// (PLAN §2). After a failure, loading more waits for the retry button.
 struct LoadMoreFooter<T>: View {
     let list: PagedState<T>
     let onLoadMore: () -> Void
     var endText = "没有更多了"
     @Environment(AppGraph.self) private var graph
+    @Environment(\.scrollingTowardEnd) private var scrolling
+    @State private var onScreen = false
 
     var body: some View {
         Group {
@@ -44,7 +51,7 @@ struct LoadMoreFooter<T>: View {
                 }
             } else if list.hasMore {
                 // Normally replaced by the spinner before it scrolls into view;
-                // kept for lists too short to scroll.
+                // for lists too short to scroll.
                 Button("加载更多", action: onLoadMore)
             } else {
                 Text(endText).font(.footnote).foregroundStyle(AppTheme.secondary)
@@ -53,12 +60,55 @@ struct LoadMoreFooter<T>: View {
         .font(.subheadline)
         .frame(maxWidth: .infinity)
         .padding(.vertical, 20)
-        // Loads the next page as the footer comes near: only scrolling brings
-        // it, so a list too short to scroll waits for its button. After a
-        // failure, loading more waits for the retry button.
         .onAppear {
-            if list.hasMore, list.loadMoreError == nil { onLoadMore() }
+            onScreen = true
+            loadIfScrolled()
         }
+        .onDisappear { onScreen = false }
+        .onChange(of: scrolling) { if onScreen { loadIfScrolled() } }
+    }
+
+    private func loadIfScrolled() {
+        if scrolling, list.hasMore, !list.loadingMore, list.loadMoreError == nil { onLoadMore() }
+    }
+}
+
+extension EnvironmentValues {
+    /// Whether the user is scrolling the list on toward its end; see
+    /// `loadsMoreAsScrolled()`.
+    @Entry var scrollingTowardEnd = false
+}
+
+extension View {
+    /// Lets the footer of this list load the next page as the user scrolls to
+    /// it (see [LoadMoreFooter]); without it, only its button does.
+    func loadsMoreAsScrolled() -> some View { modifier(LoadsMoreAsScrolled()) }
+}
+
+private struct LoadsMoreAsScrolled: ViewModifier {
+    @State private var forward = false
+    @State private var settling: Task<Void, Never>?
+
+    func body(content: Content) -> some View {
+        content
+            // From the offset alone: the scroll phase doesn't change on a
+            // `List` as it is dragged.
+            .onScrollGeometryChange(for: CGFloat.self) { $0.contentOffset.y + $0.contentInsets.top } action: {
+                old, new in
+                // On toward the end, from below the top: springing back from a
+                // pull to refresh doesn't count.
+                let forward = new > old && new > 0
+                if forward != self.forward { self.forward = forward }
+                // Until the list has come to rest.
+                settling?.cancel()
+                settling =
+                    forward
+                    ? Task {
+                        try? await Task.sleep(for: .milliseconds(300))
+                        if !Task.isCancelled { self.forward = false }
+                    } : nil
+            }
+            .environment(\.scrollingTowardEnd, forward)
     }
 }
 

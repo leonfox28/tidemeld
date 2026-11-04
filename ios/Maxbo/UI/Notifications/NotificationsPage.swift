@@ -273,6 +273,7 @@ private struct NoticeList: View {
         }
         .listStyle(.plain)
         .appListStyle()
+        .loadsMoreAsScrolled()
         .safeAreaPadding(.top, barInsets.top)
         .safeAreaPadding(.bottom, barInsets.bottom)
         .modifier(HideOnScroll(visible: shown ? tabBarVisible : .constant(true), tabBar: true))

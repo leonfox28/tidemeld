@@ -91,6 +91,7 @@ struct ProfilePage: View {
                 }
                 .listStyle(.plain)
                 .appListStyle()
+                .loadsMoreAsScrolled()
                 .tabBarHidesOnScroll()
                 .refreshable {
                     do {

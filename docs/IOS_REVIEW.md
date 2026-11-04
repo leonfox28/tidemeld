@@ -25,7 +25,7 @@
 
 | 编号 | 问题 | 位置 | 状态 |
 |---|---|---|---|
-| B1 | `LoadMoreFooter` 在 `.onAppear` 里加载下一页：第一页不满一屏时不用滑动就请求第 2 页（楼中楼、按热度的评论常见）。Kotlin 只在滚动位置变化时触发，短列表等按钮；iOS 的注释也是这么写的 | `UI/Widget/LoadState.swift:56-61`；Kotlin `LoadState.kt:42-62` | 待修 |
+| B1 | `LoadMoreFooter` 在 `.onAppear` 里加载下一页：第一页不满一屏时不用滑动就请求第 2 页（楼中楼、按热度的评论常见）。Kotlin 只在滚动位置变化时触发，短列表等按钮；iOS 的注释也是这么写的 | `UI/Widget/LoadState.swift:56-61`；Kotlin `LoadState.kt:42-62` | 已修 |
 
 ## C. 性能和内存
 

@@ -78,6 +78,7 @@ struct CommentRepliesPage: View {
         .listStyle(.plain)
         .listSectionSpacing(0)
         .appListStyle()
+        .loadsMoreAsScrolled()
         .refreshable {
             do {
                 try await model.replies?.refresh()
