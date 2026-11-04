@@ -14,6 +14,10 @@ final class VideoModel {
     @ObservationIgnored private var api: WeiboAPI?
     @ObservationIgnored private var fetched = false
     @ObservationIgnored private var observation: NSKeyValueObservation?
+    /// Finding a URL and starting on it; cancelled as the page closes, so a
+    /// video still loading doesn't start playing unseen.
+    @ObservationIgnored private var loading: Task<Void, Never>?
+    @ObservationIgnored private var stopped = false
 
     init(request: VideoRequest) { self.request = request }
 
@@ -26,32 +30,42 @@ final class VideoModel {
     func retry() { load(refresh: fetched, at: player.currentTime()) }
 
     private func load(refresh: Bool, at time: CMTime) {
+        guard !stopped, let api else { return }
         error = nil
         ready = false
-        Task {
+        loading?.cancel()
+        let request = request
+        loading = Task {
             do {
                 let known = request.initial?.video(at: request.index)
                 let source = try await resolveVideoURL(
-                    api!, id: request.statusId, index: request.index, known: known, refresh: refresh)
+                    api, id: request.statusId, index: request.index, known: known, refresh: refresh)
+                guard !Task.isCancelled else { return }
                 guard let url = URL(string: source.url) else { throw WeiboError.api("视频地址无效") }
                 fetched = source.fetched
-                let item = AVPlayerItem(asset: weiboVideoAsset(url))
-                observation = item.observe(\.status) { [weak self] item, _ in
-                    guard item.status == .failed else { return }
-                    Task { @MainActor in self?.failed() }
-                }
-                player.replaceCurrentItem(with: item)
-                if time > .zero { await player.seek(to: time) }
-                ready = true
-                player.play()
+                await play(url, at: time)
             } catch {
-                self.error = WeiboError.of(error)
+                if !Task.isCancelled { self.error = WeiboError.of(error) }
             }
         }
     }
 
+    private func play(_ url: URL, at time: CMTime) async {
+        let item = AVPlayerItem(asset: weiboVideoAsset(url))
+        observation = item.observe(\.status) { [weak self] item, _ in
+            guard item.status == .failed else { return }
+            Task { @MainActor in self?.failed() }
+        }
+        player.replaceCurrentItem(with: item)
+        if time > .zero { await player.seek(to: time) }
+        guard !Task.isCancelled else { return }
+        ready = true
+        player.play()
+    }
+
     // The CDN refused the URL: once from a fetched one, else it's over.
     private func failed() {
+        guard !stopped else { return }
         devLog("video failed, fetched=\(fetched)")
         if fetched {
             error = .api("视频播放失败")
@@ -61,6 +75,9 @@ final class VideoModel {
     }
 
     func stop() {
+        stopped = true
+        loading?.cancel()
+        observation = nil
         player.pause()
         player.replaceCurrentItem(with: nil)
     }
