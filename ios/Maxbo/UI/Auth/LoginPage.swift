@@ -57,6 +57,9 @@ struct LoginPage: View {
                 }
             }
         }
+        // The app's own is under the sheet, where a failed check would go
+        // unseen; the Kotlin page shows them as well.
+        .overlay { ToastHost() }
         .onAppear {
             guard page.url == nil else { return }
             page.customUserAgent = browserUserAgent
