@@ -26,6 +26,10 @@ final class ImageLoader: @unchecked Sendable {
     private let session: URLSession
     private let disk: URLCache
     private let memory = NSCache<NSString, UIImage>()
+    /// The memory key each picture was last decoded under, by cache key, to
+    /// find it at whatever size it was.
+    private var lastDecoded: [String: String] = [:]
+    private let lastDecodedLock = NSLock()
     private let inflight = Inflight()
 
     init(directory: URL, limitMB: Int, configuration: URLSessionConfiguration = .default) {
@@ -44,6 +48,12 @@ final class ImageLoader: @unchecked Sendable {
         memory.object(forKey: memoryKey(url, maxPixels) as NSString)
     }
 
+    /// The picture at [url] if in memory at any size, as a list showed it.
+    func cachedAtAnySize(_ url: String) -> UIImage? {
+        guard let key = lastDecodedLock.withLock({ lastDecoded[imageCacheKey(url)] }) else { return nil }
+        return memory.object(forKey: key as NSString)
+    }
+
     /// The picture at [url], decoded to at most [maxPixels] on its longer side
     /// (nil for full size). Animated GIFs come out animated.
     func image(_ url: String, maxPixels: CGFloat?) async throws -> UIImage {
@@ -56,6 +66,7 @@ final class ImageLoader: @unchecked Sendable {
         let frames = max(1, image.images?.count ?? 1)
         let cost = Int(image.size.width * image.size.height * image.scale * image.scale) * 4 * frames
         memory.setObject(image, forKey: key as NSString, cost: cost)
+        lastDecodedLock.withLock { lastDecoded[imageCacheKey(url)] = key }
         return image
     }
 

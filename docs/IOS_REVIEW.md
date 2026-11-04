@@ -36,7 +36,7 @@
 | C3 | 每加载完一个表情，屏幕上所有带表情的正文都重绘、重新解析 HTML（共用一个被观察的字典，解析没缓存）。Kotlin 每段正文只解析一次 | `UI/Widget/Text/StatusText.swift:7-34,56,88-95` | 已修 |
 | C4 | 清除图片缓存在主线程同步执行 | `UI/Settings/SettingsPage.swift:66`、`ImageLoader.swift:91-94` | 已修 |
 | C5 | 选图时复制到 `tmp/drafts/` 的文件从不删除（移除图片、发送后、换账号） | `UI/Compose/ComposeDraft.swift:25-33` | 已修 |
-| C6 | 看图的占位图加载 `pic.variants.first`（最小的那张），列表一般没加载过它，等于多一个请求，放大时还比缩略图糊。Kotlin 显示转圈 | `UI/Media/ImageViewer.swift:116`；Kotlin `ImageViewerPage.kt:207-208` | 待修 |
+| C6 | 看图的占位图加载 `pic.variants.first`（最小的那张），列表一般没加载过它，等于多一个请求，放大时还比缩略图糊。Kotlin 显示转圈 | `UI/Media/ImageViewer.swift:116`；Kotlin `ImageViewerPage.kt:207-208` | 已修 |
 
 ## D. 和 Android 不一致或缺少的
 

@@ -107,8 +107,16 @@ private struct ViewerPage: View {
                 }
                 .foregroundStyle(.white)
             } else {
-                // The list's rendition, while the larger one loads.
-                WeiboImage(url: pic.variants.first?.url, contentMode: .fit, placeholder: false)
+                // The rendition the list showed, while the larger one loads,
+                // if it is still in memory: nothing more is downloaded for it.
+                Color.clear
+                    .overlay {
+                        if let shown = pic.variants.reversed().lazy.compactMap({
+                            ImageLoader.shared.cachedAtAnySize($0.url)
+                        }).first {
+                            Image(uiImage: shown).resizable().aspectRatio(contentMode: .fit)
+                        }
+                    }
                     .overlay { ProgressView().tint(.white) }
                     .contentShape(Rectangle())
                     .onTapGesture(perform: onTap)
