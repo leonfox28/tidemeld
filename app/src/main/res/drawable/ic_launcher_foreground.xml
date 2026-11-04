@@ -1,15 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- maxbo's mark: a lowercase m of two arches. The PNG icons in mipmap-*
-     are renders of the same shape. -->
+<!-- maxbo's mark: a hand-drawn capital M. Written by tools/render-icons.swift,
+     which also draws the mipmap PNGs and the iOS icons; edit the script, not
+     this file. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
     <path
-        android:pathData="M33,70 L33,48 A10.5,10.5 0 0 1 54,48 L54,70 M54,48 A10.5,10.5 0 0 1 75,48 L75,70"
-        android:strokeColor="#FFFFFF"
-        android:strokeWidth="9"
-        android:strokeLineCap="round"
+        android:fillColor="#9F6561"
+        android:pathData="M40.13,69.81C39.84,61.8 40.23,53.84 41.31,45.92C44.57,51.34 48.07,56.61 51.8,61.71C52.24,62.35 52.97,62.72 53.74,62.69C54.52,62.66 55.22,62.23 55.6,61.55C58.93,55.81 62.11,49.98 65.13,44.06C67.24,52.07 68.46,60.23 68.79,68.53C69.02,69.87 70.28,70.77 71.61,70.55C72.94,70.32 73.85,69.06 73.62,67.73C72.18,57.66 70.34,47.66 68.11,37.73C67.98,36.91 67.34,36.28 66.53,36.13C65.72,35.99 64.9,36.38 64.5,37.1C61.3,43.76 57.62,50.15 53.48,56.28C48.81,50.78 44.74,44.88 41.27,38.57C40.78,37.85 39.9,37.53 39.06,37.75C38.23,37.98 37.64,38.71 37.58,39.57C36.67,49.54 35.94,59.52 35.39,69.51C35.31,70.82 36.31,71.95 37.62,72.03C38.93,72.11 40.05,71.12 40.13,69.81Z"
+        android:strokeColor="#9F6561"
+        android:strokeWidth="1.44"
         android:strokeLineJoin="round" />
 </vector>

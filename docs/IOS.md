@@ -9,7 +9,7 @@
 - 目录 `ios/`，工程由 xcodegen 从 `ios/project.yml` 生成（`Maxbo.xcodeproj` 已 gitignore）。Xcode 27.2（2026-11-04 从 27.1 更新），Swift 6 语言模式（完整并发检查），部署目标 iOS 26.0（液态玻璃、SwiftUI 的 `WebView`/`WebPage` 都要 26）。
 - 包名 `io.github.leonfox28.maxbo`，调试版 `io.github.leonfox28.maxbo.debug`（名称「maxbo debug」）。版本号 `MARKETING_VERSION` 跟 `app/build.gradle.kts` 的 `versionName` 一致，改版本时两处一起改。
 - **只用 Apple 自带的框架**，没有第三方依赖：网络 URLSession，网页 WebKit（SwiftUI 的 `WebView` + `WebPage`），视频 AVKit，选图 PhotosUI，图片解码 ImageIO，登录态 Keychain，设置 UserDefaults。开源许可页因此只列 maxbo 自己的 GPL-3.0（`LICENSE` 打包进应用）。
-- 图标是 Android 的同一个图形（`ic_launcher_foreground.xml` 的两段圆弧，底色 `#3F51B5`），取 108 画布中间的 84 渲染成 1024 px（`Resources/Assets.xcassets/AppIcon.appiconset/AppIcon.png`）。
+- 图标与 Android 版是同一个手写的 M，由 `tools/render-icons.swift` 画成 1024 px 的满幅方图（`Resources/Assets.xcassets/AppIcon.appiconset/`），圆角由系统加。配色照 voytty 的 iOS 图标：浅色 `AppIcon.png` 米白底豆沙红，深色 `AppIconDark.png` 是 `#191613` 底 `#C69891`，着色 `AppIconTinted.png` 是灰度图（见 PLAN §11「应用图标」）。
 
 ```sh
 cd ios && xcodegen generate

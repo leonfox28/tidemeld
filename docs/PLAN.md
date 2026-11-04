@@ -423,7 +423,7 @@ app/src/androidTest/            # 设备测试（读 WebView 的 HttpOnly Cookie
 - **测试写操作**：测试目标由用户指定。2026-10-13 指定的是测试账号关注的用户大号主页上的第一条微博（2025-08-29 发布），昵称问用户，诊断页里用 `@昵称` 定位。每次真实点赞或评论前仍要先问用户；测试完把它恢复成未赞、无测试评论。2026-10-21 时那条微博已不在主页列表里，只出现在用户 10-15 为测试通知发的一条转发的转发链里。转发测试经用户同意，改用主页当前的第一条，即这条 10-15 的测试转发。10-22 起主页第一条换成了一条真实的转发，所以测试微博要按发布时间「10-15 17:24」找，不要再按「第一条」找。
 - **测试里的线程**：`createComposeRule()`（v1 的 API）给组合用的是 `UnconfinedTestDispatcher`，`testGraph()` 的 `appScope` 也是 `Dispatchers.Unconfined`，所以测试里 `LaunchedEffect`、`rememberCoroutineScope()` 和应用级的协程等到网络回复后，会在 OkHttp 的线程上接着跑（真实应用里它们回到主线程）。10-24 CI 上 `AppFlowsTest` 偶发的 `CalledFromWrongThreadException` 推测就是这样来的，但没拿到完整调用栈，本地也没复现。测试失败时现在会打印完整调用栈，再出现时据此定位。可能的修法是改用 `androidx.compose.ui.test.junit4.v2` 的规则（`StandardTestDispatcher`），以及 `testGraph()` 在 Robolectric 下改用 `Dispatchers.Main.immediate`，两者都会改变所有页面测试的时序。
 - **平板/折叠屏**：WebView（登录页、应用内网页）、图片查看器、视频播放仍占满窗口。
-- **应用图标**：图标是代码画的（两段圆弧组成的小写 m，底色是主题色 `#3F51B5`）。Android 的前景是矢量图 `app/src/main/res/drawable/ic_launcher_foreground.xml`；`mipmap-*` 的 PNG 是同一图形的渲染结果，改图形时要一起重新生成。
+- **应用图标**：图标是代码画的：手写体的大写 M，底色和 M 的颜色照 voytty 的 iOS 图标（米白 `#F5F0E8` 上豆沙红 `#9F6561`；iOS 另有深色和着色两版）。2026-11-04 用户要求换掉原来靛蓝底 `#3F51B5` 上两段圆弧的小写 m。所有副本都由 `swift tools/render-icons.swift` 从脚本里同一支笔的轨迹（几个点、各处粗细、弯曲、收细、倾斜）生成：Android 的矢量前景 `drawable/ic_launcher_foreground.xml`（也是主题图标的单色层）、`mipmap-*` 的旧版 PNG、iOS 的三张 `AppIcon*.png`。改图形时改脚本再重跑，不要手改生成的文件；自适应图标的底色 `ic_launcher_background` 在 `values/colors.xml` 里，要和脚本一致。
 
 ### 开发环境注意
 
