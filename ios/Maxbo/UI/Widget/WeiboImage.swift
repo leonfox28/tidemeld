@@ -45,11 +45,16 @@ struct WeiboImage: View {
             }
             .background(placeholder && image == nil ? AppTheme.elevated : .clear)
             .overlay {
+                // Anywhere on it tries again, rather than doing what a tap on
+                // the picture does, as in the Kotlin app.
                 if failed, placeholder {
                     Image(systemName: "photo.badge.exclamationmark")
                         .foregroundStyle(AppTheme.secondary)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .contentShape(Rectangle())
                         .onTapGesture { attempt += 1 }
+                        .accessibilityAddTraits(.isButton)
+                        .accessibilityLabel("加载失败，点击重试")
                 }
             }
             .clipped()

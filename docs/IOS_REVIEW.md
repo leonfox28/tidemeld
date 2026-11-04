@@ -49,11 +49,11 @@
 | D5 | 转发被截断的转发时，取全文的 `Task` 不跟页面走，离开页面后转发弹层仍会弹出 | `UI/Status/StatusActions.swift:81-95`；Kotlin `StatusWrites.kt:91-114` | 已修 |
 | D6 | 发送时没有「正在上传图片 i/n」 | `ComposePage.swift:27-31`；Kotlin `ComposePage.kt:189-197` | 已修 |
 | D7 | 正在删除时再点删除，还会弹确认，确认后什么也不做。Kotlin 先查 `deleting` | `StatusActions.swift:110-116`；Kotlin `StatusWrites.kt:121-125` | 已修 |
-| D8 | 视频加载时没有封面，只有转圈 | `UI/Media/VideoPlayerPage.swift:85-90`；Kotlin `VideoPlayerPage.kt:183-191` | 待修 |
-| D9 | 看图没有 GIF 标 | `ImageViewer.swift:59-63`；Kotlin `ImageViewerPage.kt:123-150` | 待修 |
+| D8 | 视频加载时没有封面，只有转圈 | `UI/Media/VideoPlayerPage.swift:85-90`；Kotlin `VideoPlayerPage.kt:183-191` | 已修 |
+| D9 | 看图没有 GIF 标 | `ImageViewer.swift:59-63`；Kotlin `ImageViewerPage.kt:123-150` | 已修 |
 | D10 | 实况照片点重试不换新地址（Kotlin `refresh = true`） | `ImageViewer.swift:157`；Kotlin `LivePhoto.kt:248` | 已修 |
 | D11 | 实况照片的动态是固定居中的一层，不跟缩放；Kotlin 开始播放时把缩放复原 | `ImageViewer.swift:121-126`；Kotlin `ImageViewerPage.kt:176-178` | 已修 |
-| D12 | 图片加载失败只能点小图标重试，Kotlin 整块可点 | `UI/Widget/WeiboImage.swift:48-53`；Kotlin `WeiboImage.kt:136` | 待修 |
+| D12 | 图片加载失败只能点小图标重试，Kotlin 整块可点 | `UI/Widget/WeiboImage.swift:48-53`；Kotlin `WeiboImage.kt:136` | 已修 |
 | D13 | 链接前的图标点不了（画在链接外面），Kotlin 点图标也打开链接 | `UI/Widget/Text/StatusText.swift:126`；Kotlin `StatusText.kt:97` | 不修：SwiftUI 的 `Text` 里插的图片带不了链接，只能做成 `NSAdaptiveImageGlyph` 之类的变通，不值得 |
 | D14 | 未登录也显示搜索框，提交后用没有会话的状态发搜索请求。Kotlin 登录后才显示 | `UI/Search/SearchPage.swift:54-57`；Kotlin `SearchPage.kt:134-136` | 待修 |
 | D15 | 再点「搜索」页签刷新时不防重复、失败没提示 | `SearchPage.swift:89-95`；Kotlin `SearchPage.kt:217-233` | 待修 |

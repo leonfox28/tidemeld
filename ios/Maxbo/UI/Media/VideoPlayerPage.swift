@@ -106,7 +106,15 @@ struct VideoPlayerPage: View {
                     ErrorRetry(error: error) { model.retry() }
                 } else {
                     SystemPlayer(player: model.player).ignoresSafeArea()
-                    if !model.ready { ProgressView().controlSize(.large).tint(.white) }
+                    if !model.ready {
+                        // The cover the card showed, until the video plays.
+                        if let cover = request.initial?.video(at: request.index)?.coverURL {
+                            WeiboImage(url: cover, contentMode: .fit, placeholder: false)
+                                .background(.black)
+                                .ignoresSafeArea()
+                        }
+                        ProgressView().controlSize(.large).tint(.white)
+                    }
                 }
             }
             .toolbar {

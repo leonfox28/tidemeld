@@ -57,8 +57,17 @@ struct ImageViewer: View {
             .padding(.horizontal, 16)
         }
         .overlay(alignment: .bottom) {
-            if let live, pics.indices.contains(index), pics[index].type == .livePhoto {
-                LiveButton(live: live, pic: pics[index]).padding(.bottom, 24)
+            if pics.indices.contains(index) {
+                if let live, pics[index].type == .livePhoto {
+                    LiveButton(live: live, pic: pics[index]).padding(.bottom, 24)
+                } else if pics[index].type == .gif {
+                    Text(verbatim: "GIF")
+                        .font(.subheadline.weight(.semibold))
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
+                        .glassEffect(.regular, in: .capsule)
+                        .padding(.bottom, 24)
+                }
             }
         }
         .environment(\.colorScheme, .dark)
