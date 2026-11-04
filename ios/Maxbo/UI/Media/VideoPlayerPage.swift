@@ -14,12 +14,19 @@ final class VideoModel {
     @ObservationIgnored private var api: WeiboAPI?
     @ObservationIgnored private var fetched = false
     @ObservationIgnored private var observation: NSKeyValueObservation?
+    @ObservationIgnored private var videoAsset: WeiboVideoAsset?
     /// Finding a URL and starting on it; cancelled as the page closes, so a
     /// video still loading doesn't start playing unseen.
     @ObservationIgnored private var loading: Task<Void, Never>?
     @ObservationIgnored private var stopped = false
 
-    init(request: VideoRequest) { self.request = request }
+    init(request: VideoRequest) {
+        self.request = request
+        // AVFoundation cannot predict download speed for a custom loader.
+        player.automaticallyWaitsToMinimizeStalling = false
+        // An AirPlay receiver cannot use our in-process resource loader.
+        player.allowsExternalPlayback = false
+    }
 
     func start(_ api: WeiboAPI) {
         guard self.api == nil else { return }
@@ -52,12 +59,14 @@ final class VideoModel {
     }
 
     private func play(_ url: URL, at time: CMTime) async {
-        let item = AVPlayerItem(asset: weiboVideoAsset(url))
+        let videoAsset = WeiboVideoAsset(url)
+        let item = AVPlayerItem(asset: videoAsset.asset)
         observation = item.observe(\.status) { [weak self] item, _ in
             guard item.status == .failed else { return }
             Task { @MainActor in self?.failed() }
         }
         player.replaceCurrentItem(with: item)
+        self.videoAsset = videoAsset
         if time > .zero { await player.seek(to: time) }
         guard !Task.isCancelled else { return }
         ready = true
@@ -82,6 +91,7 @@ final class VideoModel {
         observation = nil
         player.pause()
         player.replaceCurrentItem(with: nil)
+        videoAsset = nil
         MediaAudio.done()
     }
 }
@@ -130,7 +140,7 @@ struct VideoPlayerPage: View {
     }
 }
 
-/// The system's player, with its own controls, picture in picture and AirPlay.
+/// The system's player, with its own controls and picture in picture.
 private struct SystemPlayer: UIViewControllerRepresentable {
     let player: AVPlayer
 

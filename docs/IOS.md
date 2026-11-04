@@ -28,7 +28,7 @@ xcrun simctl launch <模拟器> io.github.leonfox28.maxbo.debug -maxbo-open firs
 - `App/`：`MaxboApp`（入口）、`AppGraph`（手写的依赖容器，经 `@Environment(AppGraph.self)` 取用；路由 `Router` 和提示 `Toasts` 也在里面，应用只有一个窗口）、`RootView`（`TabView` 四个页签、各页签自己的 `NavigationStack`、整个应用上方的弹层和全屏页、主题和字体大小、未读检查）、`DebugLaunch`（见 §5）。
 - `Core/Net/`：`WeiboHTTP`（OkHttp 的拦截器 → 每一跳由 `HopHeaders` 重新放 Cookie、Referer、XSRF 等请求头，重定向的 `Set-Cookie` 也存下）、`WeiboCookieJar`、`WeiboError`（`WeiboException.kt` 的几种异常合成一个 enum，`unwrapResponse` 照搬）、`RequestThrottle`（actor，并发 2、间隔 500 ms、432/418/429 退避）。URLSession 关掉了自己的 Cookie 和缓存。
 - `Core/Session/`：`SessionController`、`WebCookies`（`WKHTTPCookieStore`，读得到 HttpOnly 的 `SUB`）、`SessionRenewer`（不挂到界面上的 `WebPage` 打开 weibo.com；每次 `isLoading` 变回 false 就读一次 Cookie，等于 Android 的 `onPageFinished`/`onReceivedError`）、`SessionStorage`（Keychain，`AfterFirstUnlockThisDeviceOnly`，不进备份）。
-- `Core/Media/`：`ImageLoader`（代替 Coil：带 Referer、http 改 https、缓存 key 去掉签名参数；磁盘缓存是自己管的 `URLCache`，上限跟设置走；ImageIO 按显示尺寸降采样，GIF 解成动图）、`VideoSource`（选地址、判断过期、重新请求 `statuses/show`；AVFoundation 用 `AVURLAssetHTTPHeaderFieldsKey` 带 Referer，这个键没有公开的名字）。
+- `Core/Media/`：`ImageLoader`（代替 Coil：带 Referer、http 改 https、缓存 key 去掉签名参数；磁盘缓存是自己管的 `URLCache`，上限跟设置走；ImageIO 按显示尺寸降采样，GIF 解成动图）、`VideoSource`（选地址、判断过期、重新请求 `statuses/show`）、`VideoAsset`（公开的 `AVAssetResourceLoader` + `URLSession` 加载 MP4/MOV，带 Referer 和浏览器 UA；流式提供所需字节，支持 Range、重定向和取消；播放器持有它，保证弱引用的 loader delegate 不提前释放）。
 - `Core/Util/`：`JSON`（容错读取，代替 kotlinx-serialization 的 `JsonElement` 树；`JSONSerialization` 读出的布尔值和数字分开，ID 读成字符串）、`HTML`（代替 jsoup 的小解析器，只认微博正文那几种写法：不带引号的属性、没闭合的标签、字符实体）、`Format`（时间、计数、`devLog`）。
 - `Data/`：`WeiboAPI`（端点、续期后读请求重发一次、写请求不重发）和各个模型，解析逻辑逐行照 Kotlin 版。
 - `UI/`：按功能分目录，名字和 Android 的 `ui/` 对应。
@@ -49,7 +49,7 @@ xcrun simctl launch <模拟器> io.github.leonfox28.maxbo.debug -maxbo-open firs
 - **登录页**：SwiftUI 的 `WebView`。浏览器 UA 和 Android 一样是桌面 Chrome，但要把 `preferredContentMode` 设成 `.mobile`，否则 passport 按桌面布局排成两栏、右边被截掉。http 的页面由 WebKit 升级成 https（`preferredHTTPSNavigationPolicy`），不认识的协议（`sinaweibo://`）一律拦下。
 - **退出登录**：清 WebKit 的 Cookie（`WKWebsiteDataStore.removeData`）。**Keychain 在卸载应用后还在**，所以第一次启动时（UserDefaults 里没有 `installed` 标记）先清掉旧的登录态，免得重装后用上一次的会话。
 - **宽屏**：时间线卡片在宽度 ≥ 840 时把媒体放到正文右侧（自定义 `Layout`，和 Android 的 `CardLayout` 同一套尺寸），各页正文限宽 640、首页 1000。**详情页在宽屏上不分左右两栏**，Android 的 `ReadingPanes` 没有移植。
-- **视频**：系统的 `AVPlayerViewController`（自带控件、画中画、AirPlay）。有声音的播放（视频、点开的实况照片）用 `.playback` 音频类别：静音键打开也有声音，播放时其他应用的声音暂停，关掉后恢复；画中画还要 `Info.plist` 里的后台音频（`ios/Maxbo/Info.plist`，和 `project.yml` 里的 `INFOPLIST_KEY_*` 合并）。实况照片自己动的时候没声音，用 `.ambient`，不打断其他应用。退到后台时系统会暂停连着画面的播放器（和 Android 退到后台暂停一样），除非开着画中画。Android 版不申请音频焦点，和音乐一起放；iOS 照系统的习惯。实况照片用一个 `AVPlayer` 叠在静图上播放，行为同 Android（点「实况」或长按，带声音；设置打开后停在一张上时静音自动播一次）。
+- **视频**：系统的 `AVPlayerViewController`（自带控件、画中画）。2026-11-04 核实[苹果官方回复](https://developer.apple.com/forums/thread/671139)后移除了不受支持的 HTTP 请求头选项，改用 `VideoAsset` 的公开资源加载接口；按 SDK 要求关闭 `automaticallyWaitsToMinimizeStalling`，避免自定义加载时起播或恢复等待过久。AirPlay 接收端不能使用应用内的资源加载器（[苹果说明](https://developer.apple.com/forums/thread/83560)），因此关闭外部视频播放，不再宣称支持 AirPlay 视频投放。有声音的播放（视频、点开的实况照片）用 `.playback` 音频类别：静音键打开也有声音，播放时其他应用的声音暂停，关掉后恢复；画中画还要 `Info.plist` 里的后台音频（`ios/Maxbo/Info.plist`，和 `project.yml` 里的 `INFOPLIST_KEY_*` 合并）。实况照片自己动的时候没声音，用 `.ambient`，不打断其他应用。退到后台时系统会暂停连着画面的播放器（和 Android 退到后台暂停一样），除非开着画中画。Android 版不申请音频焦点，和音乐一起放；iOS 照系统的习惯。实况照片用一个 `AVPlayer` 叠在静图上播放，行为同 Android（点「实况」或长按，带声音；设置打开后停在一张上时静音自动播一次）。
 
 ## 4. 测试
 
@@ -61,6 +61,8 @@ xcrun simctl launch <模拟器> io.github.leonfox28.maxbo.debug -maxbo-open firs
 TEST_RUNNER_MAXBO_SHOTS=<截图目录> TEST_RUNNER_MAXBO_PAGE=<-maxbo-open 的路径，默认 licenses> \
   xcodebuild test -project Maxbo.xcodeproj -scheme MaxboUI -destination 'id=<maxbo test>' -derivedDataPath build/dd -collect-test-diagnostics never
 ```
+
+视频加载回归在 `VideoAssetTests.swift`：本地生成的合成 MP4/MOV 验证加载和定位、Referer/UA/Range 与签名 URL 保留、200 忽略 Range、403、截断响应、释放播放器资源时取消请求，以及 206 总长度和 MOV 类型识别。另用本地 HTTP 服务验证过跨主机 302 后请求头和 Range 保留；真实 CDN、真机画中画仍需验证。
 
 ## 5. 模拟器与验收
 

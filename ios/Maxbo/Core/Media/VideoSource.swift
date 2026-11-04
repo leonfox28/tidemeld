@@ -1,15 +1,4 @@
-import AVFoundation
 import Foundation
-
-/// Headers for Weibo's video CDN, which like its image hosts expects a
-/// weibo.com Referer.
-let videoHTTPHeaders = ["Referer": "https://weibo.com/", "User-Agent": browserUserAgent]
-
-/// An asset for [url] that asks Weibo's CDN with [videoHTTPHeaders].
-func weiboVideoAsset(_ url: URL) -> AVURLAsset {
-    // The key AVFoundation reads request headers from; it has no public name.
-    AVURLAsset(url: url, options: ["AVURLAssetHTTPHeaderFieldsKey": videoHTTPHeaders])
-}
 
 /// When a signed media URL stops working, from its `Expires` parameter; nil
 /// for unsigned URLs.

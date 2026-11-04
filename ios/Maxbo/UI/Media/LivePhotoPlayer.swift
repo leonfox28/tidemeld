@@ -30,6 +30,7 @@ final class LivePhotoPlayer {
     @ObservationIgnored private var resolving: Task<Void, Never>?
     @ObservationIgnored private var observers: [NSObjectProtocol] = []
     @ObservationIgnored private var statusObservation: NSKeyValueObservation?
+    @ObservationIgnored private var videoAsset: WeiboVideoAsset?
     @ObservationIgnored private var rateObservation: NSKeyValueObservation?
     @ObservationIgnored private var released = false
 
@@ -37,6 +38,8 @@ final class LivePhotoPlayer {
         self.api = api
         self.statusId = statusId
         player.actionAtItemEnd = .pause
+        player.automaticallyWaitsToMinimizeStalling = false
+        player.allowsExternalPlayback = false
         rateObservation = player.observe(\.timeControlStatus) { [weak self] player, _ in
             let playing = player.timeControlStatus == .playing
             Task { @MainActor in
@@ -92,12 +95,14 @@ final class LivePhotoPlayer {
     }
 
     private func start(_ pic: PicInfo, from url: URL) {
-        let item = AVPlayerItem(asset: weiboVideoAsset(url))
+        let videoAsset = WeiboVideoAsset(url)
+        let item = AVPlayerItem(asset: videoAsset.asset)
         statusObservation = item.observe(\.status) { [weak self] item, _ in
             guard item.status == .failed else { return }
             Task { @MainActor in self?.itemFailed(pic) }
         }
         player.replaceCurrentItem(with: item)
+        self.videoAsset = videoAsset
         player.play()
     }
 
@@ -135,6 +140,7 @@ final class LivePhotoPlayer {
         stop()
         statusObservation = nil
         player.replaceCurrentItem(with: nil)
+        videoAsset = nil
         MediaAudio.done()
         for observer in observers { NotificationCenter.default.removeObserver(observer) }
         observers = []
