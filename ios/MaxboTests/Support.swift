@@ -92,7 +92,7 @@ private final class Offline: URLProtocol {
 /// Weibo as far as the tests' requests go: records each request and answers it
 /// with [respond]. One for the whole test run, as URL loading makes its own
 /// instances; suites that use it run serialized, and [reset] it first.
-final class FakeWeibo: URLProtocol, @unchecked Sendable {
+final class FakeWeibo: URLProtocol {
     struct Reply: Sendable {
         var status = 200
         var contentType = "application/json"
