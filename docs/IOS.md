@@ -6,7 +6,7 @@
 
 ## 1. 工程
 
-- 目录 `ios/`，工程由 xcodegen 从 `ios/project.yml` 生成（`Maxbo.xcodeproj` 已 gitignore）。Xcode 27.1，Swift 6 语言模式（完整并发检查），部署目标 iOS 26.0（液态玻璃、SwiftUI 的 `WebView`/`WebPage` 都要 26）。
+- 目录 `ios/`，工程由 xcodegen 从 `ios/project.yml` 生成（`Maxbo.xcodeproj` 已 gitignore）。Xcode 27.2（2026-11-04 从 27.1 更新），Swift 6 语言模式（完整并发检查），部署目标 iOS 26.0（液态玻璃、SwiftUI 的 `WebView`/`WebPage` 都要 26）。
 - 包名 `io.github.leonfox28.maxbo`，调试版 `io.github.leonfox28.maxbo.debug`（名称「maxbo debug」）。版本号 `MARKETING_VERSION` 跟 `app/build.gradle.kts` 的 `versionName` 一致，改版本时两处一起改。
 - **只用 Apple 自带的框架**，没有第三方依赖：网络 URLSession，网页 WebKit（SwiftUI 的 `WebView` + `WebPage`），视频 AVKit，选图 PhotosUI，图片解码 ImageIO，登录态 Keychain，设置 UserDefaults。开源许可页因此只列 maxbo 自己的 GPL-3.0（`LICENSE` 打包进应用）。
 - 图标是 Android 的同一个图形（`ic_launcher_foreground.xml` 的两段圆弧，底色 `#3F51B5`），取 108 画布中间的 84 渲染成 1024 px（`Resources/Assets.xcassets/AppIcon.appiconset/AppIcon.png`）。
@@ -77,6 +77,8 @@ TEST_RUNNER_MAXBO_SHOTS=<截图目录> TEST_RUNNER_MAXBO_PAGE=<-maxbo-open 的�
 - **还没验证**：详情页和楼中楼真实页面上的底部工具栏随滚动收起和出现（要登录，只在关于页上模拟过）、要登录的列表页（首页、通知、热搜、用户主页、搜索结果）和网页里页签栏的隐藏和出现、换页签和返回时页签栏重新出现、真实列表上真的点页签时的再点一次和不在顶部时回到顶部（启动参数只模拟了 `Router.selection` 的设置；首页和通知页的合成列表上 UI 测试真的点过，见上）、从缩略图放大进入看图和下滑关闭（启动参数打开的看图没有缩略图）、写操作（点赞、评论、回复、删除、转发、发微博，按约定要用户同意并用指定的测试微博）、滚动翻页（要登录才有内容可滑，只看了代码路径）、实况照片（那一页时间线里没有）、视频地址过期后换新、真正的 `SUB` 自然过期（要用 `ALC` 换新的那条续期路径）、验证码、iPad 和横屏、字体大小调到最大时的排版。
 
 ## 6. 还没定的
+
+2026-11-04 的审查结果（bug、和 Android 的差异、修复进度）在 [IOS_REVIEW.md](IOS_REVIEW.md)。
 
 - **分发**：PLAN §10 当初不做 iOS 的理由（App Store 基本上不了架，只能发无签名 IPA 自签，免费 Apple ID 每 7 天要重签）依然成立。要不要发、怎么发（无签名 IPA 进 Release、CI 构建），等用户决定。
 - **CI**：`ci.yml` 还只跑 Android；iOS 的构建和测试要 macOS runner。
