@@ -2,13 +2,17 @@ import SwiftUI
 import UIKit
 
 /// A picture that zooms by pinching or double-tapping, and pans when zoomed. A
-/// long picture starts across the screen's width, at its top.
+/// picture taller than the screen's shape fills its width, from the top, and
+/// scrolls; that is its unzoomed size, from which the pages swipe on.
 struct ZoomableImage: UIViewRepresentable {
     let image: UIImage
     var onTap: () -> Void = {}
     var onLongPress: (() -> Void)? = nil
     /// Whether the picture is zoomed in, when the pages shouldn't move.
     var onZoomed: ((Bool) -> Void)? = nil
+    /// Whether a live photo's motion is showing, which plays over the picture
+    /// at its unzoomed size: zooming back out as it starts.
+    var moving = false
 
     func makeUIView(context: Context) -> ZoomView {
         let view = ZoomView()
@@ -17,14 +21,18 @@ struct ZoomableImage: UIViewRepresentable {
     }
 
     func updateUIView(_ view: ZoomView, context: Context) {
-        context.coordinator.parent = self
+        let coordinator = context.coordinator
+        coordinator.parent = self
         view.show(image)
+        if moving, !coordinator.moving { view.unzoom() }
+        coordinator.moving = moving
     }
 
     func makeCoordinator() -> Coordinator { Coordinator(parent: self) }
 
     final class Coordinator {
         var parent: ZoomableImage
+        var moving = false
         init(parent: ZoomableImage) { self.parent = parent }
     }
 
@@ -72,24 +80,30 @@ struct ZoomableImage: UIViewRepresentable {
             else { return }
             shownSize = bounds.size
             zoomScale = 1
-            // The picture fitted in the screen; zooming in goes up to filling
-            // its width (a long picture) or past it.
-            let fit = min(bounds.width / image.size.width, bounds.height / image.size.height)
-            let size = CGSize(width: image.size.width * fit, height: image.size.height * fit)
+            // Fitted in the screen, or across its width if taller than its
+            // shape, rather than a thin strip (as the Kotlin viewer does).
+            // Zooming goes past that, and up to filling the height of a wide
+            // picture.
+            let tall = image.size.height / image.size.width > bounds.height / bounds.width
+            let scale =
+                tall
+                ? bounds.width / image.size.width
+                : min(bounds.width / image.size.width, bounds.height / image.size.height)
+            let size = CGSize(width: image.size.width * scale, height: image.size.height * scale)
             imageView.frame = CGRect(origin: .zero, size: size)
             contentSize = size
-            let fillWidth = bounds.width / size.width
             minimumZoomScale = 1
-            maximumZoomScale = max(3, fillWidth * 2)
-            let long = image.size.height / image.size.width > 3 * bounds.height / bounds.width
-            if long {
-                zoomScale = fillWidth
-                contentOffset = .zero
-            }
+            maximumZoomScale = max(3, bounds.height / size.height * 2)
             center()
+            contentOffset = CGPoint(x: -contentInset.left, y: -contentInset.top)
         }
 
         func viewForZooming(in scrollView: UIScrollView) -> UIView? { imageView }
+
+        func unzoom() {
+            guard zoomScale > minimumZoomScale + 0.01 else { return }
+            setZoomScale(minimumZoomScale, animated: true)
+        }
 
         func scrollViewDidZoom(_ scrollView: UIScrollView) {
             center()

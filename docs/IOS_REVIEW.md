@@ -13,7 +13,7 @@
 | A1 | 打开带红点的通知页签，红点清了但列表不刷新：`markRead` 改了 `.task` 的 id，进行中的刷新被取消，错误被 `try?` 吞掉。Kotlin v0.12.1 修过同一个问题（PLAN §11），刷新放在页面的 scope 里 | `UI/Notifications/NotificationsPage.swift:147-151`；Kotlin `NotificationsPage.kt:164-176` | 已修 |
 | A2 | 视频还在加载（例如地址过期正在重新请求）时关掉页面，之后会在后台开始播放，停不下来：加载的 `Task` 没有取消 | `UI/Media/VideoPlayerPage.swift:31-66`；Kotlin `VideoPlayerPage.kt:95,151-154` | 已修 |
 | A3 | 看图打开后 0.4 秒内关掉，实况照片的自动播放仍会在后台下载并静音播放：延时的 `Task` 没有取消 | `UI/Media/ImageViewer.swift:83-87`；Kotlin `ImageViewerPage.kt:94-97` | 已修 |
-| A4 | 看图打开长图时铺满宽度，`scrollViewDidZoom` 把这当成放大，翻页被禁用，左右滑不到下一张 | `UI/Media/ZoomableImage.swift:84-100`、`ImageViewer.swift:36`；Kotlin `ImageViewerPage.kt:182-191` | 待修 |
+| A4 | 看图打开长图时铺满宽度，`scrollViewDidZoom` 把这当成放大，翻页被禁用，左右滑不到下一张 | `UI/Media/ZoomableImage.swift:84-100`、`ImageViewer.swift:36`；Kotlin `ImageViewerPage.kt:182-191` | 已修 |
 | A5 | 发微博、写评论选图后，图片在后台读入，期间没有提示、「发送」可点：这时发出去会少图，或者图片落进下一条草稿 | `UI/Compose/ComposePage.swift:78-82,106-117`、`UI/Interactions/CommentComposer.swift:106-117` | 待修 |
 | A6 | Cookie 和 XSRF 在进限流队列之前就写进请求头，Kotlin 是轮到发送时才读：退出后排队的请求仍带旧 `SUB`；续期后排队的读请求多发一次，写请求失败；排队期间换了的 `XSRF-TOKEN` 用不上 | `Core/Net/WeiboHTTP.swift:57-60`；Kotlin `WeiboHttp.kt:82-86,157-172` | 待修 |
 | A7 | 没有设置 `AVAudioSession`：静音键打开时视频和带声音的实况照片没有声音；画中画要 `.playback` 类别和后台音频模式，现在用不了（IOS.md §3 写了支持）。模拟器没有静音键，要真机确认 | 全局；`UI/Media/VideoPlayerPage.swift:112` | 待修 |
@@ -52,14 +52,14 @@
 | D8 | 视频加载时没有封面，只有转圈 | `UI/Media/VideoPlayerPage.swift:85-90`；Kotlin `VideoPlayerPage.kt:183-191` | 待修 |
 | D9 | 看图没有 GIF 标 | `ImageViewer.swift:59-63`；Kotlin `ImageViewerPage.kt:123-150` | 待修 |
 | D10 | 实况照片点重试不换新地址（Kotlin `refresh = true`） | `ImageViewer.swift:157`；Kotlin `LivePhoto.kt:248` | 已修 |
-| D11 | 实况照片的动态是固定居中的一层，不跟缩放；Kotlin 开始播放时把缩放复原 | `ImageViewer.swift:121-126`；Kotlin `ImageViewerPage.kt:176-178` | 待修 |
+| D11 | 实况照片的动态是固定居中的一层，不跟缩放；Kotlin 开始播放时把缩放复原 | `ImageViewer.swift:121-126`；Kotlin `ImageViewerPage.kt:176-178` | 已修 |
 | D12 | 图片加载失败只能点小图标重试，Kotlin 整块可点 | `UI/Widget/WeiboImage.swift:48-53`；Kotlin `WeiboImage.kt:136` | 待修 |
 | D13 | 链接前的图标点不了（画在链接外面），Kotlin 点图标也打开链接 | `UI/Widget/Text/StatusText.swift:126`；Kotlin `StatusText.kt:97` | 待修 |
 | D14 | 未登录也显示搜索框，提交后用没有会话的状态发搜索请求。Kotlin 登录后才显示 | `UI/Search/SearchPage.swift:54-57`；Kotlin `SearchPage.kt:134-136` | 待修 |
 | D15 | 再点「搜索」页签刷新时不防重复、失败没提示 | `SearchPage.swift:89-95`；Kotlin `SearchPage.kt:217-233` | 待修 |
 | D16 | 字体大小页的示例 `allowsHitTesting(false)` 连滚动也挡了，大字号或横屏时看不全。Kotlin 的 `inert()` 放过拖动 | `UI/Settings/SettingsPage.swift:105`；Kotlin `TextSizePage.kt:68,103-105` | 待修 |
 | D17 | 改缓存上限后「已用」不重新统计 | `SettingsPage.swift:40-47`；Kotlin `SettingsPage.kt:184` | 待修 |
-| D18 | 看图铺满宽度的长图阈值是 3 倍屏幕比例，Kotlin 只要比屏幕高就铺满 | `UI/Media/ZoomableImage.swift:84`；Kotlin `ImageViewerPage.kt:182-183` | 待修 |
+| D18 | 看图铺满宽度的长图阈值是 3 倍屏幕比例，Kotlin 只要比屏幕高就铺满 | `UI/Media/ZoomableImage.swift:84`；Kotlin `ImageViewerPage.kt:182-183` | 已修 |
 | D19 | 时间线总是 1000 宽，Kotlin 在 840 以下用 640 | `UI/Timeline/TimelinePage.swift:127`；Kotlin `AdaptiveLayout.kt:62` | 待修 |
 | D20 | 放大转场的 id 是 `statusId/picId`，同一条微博出现两次（两条转发同一原微博、详情页下面的时间线）时 id 重复，动画可能从别的缩略图开始或回到别的缩略图 | `StatusCard.swift:292`、`PicGrid.swift:38`、`App/RootView.swift:137` | 待修 |
 | D21 | 被取消的请求报成「网络连接失败」；其他意外错误也都是网络错误。Kotlin 取消不算错误，意外错误显示「加载失败」 | `Core/Net/WeiboHTTP.swift:66-67`、`WeiboError.swift:32-34`；Kotlin `WeiboHttp.kt:85-89`、`LoadState.kt:40` | 待修 |

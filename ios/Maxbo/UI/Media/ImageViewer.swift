@@ -97,7 +97,9 @@ private struct ViewerPage: View {
         let variant = graph.settings.settings.imageQuality.viewerVariant(pic)
         ZStack {
             if let image {
-                ZoomableImage(image: image, onTap: onTap, onLongPress: onLongPress, onZoomed: onZoomed)
+                ZoomableImage(
+                    image: image, onTap: onTap, onLongPress: onLongPress, onZoomed: onZoomed,
+                    moving: live?.current?.id == pic.id)
             } else if failed {
                 VStack(spacing: 12) {
                     Image(systemName: "photo.badge.exclamationmark").font(.largeTitle)
