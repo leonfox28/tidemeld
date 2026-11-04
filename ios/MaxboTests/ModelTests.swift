@@ -34,6 +34,13 @@ struct ModelTests {
         #expect(status?.pics.isEmpty == true)
     }
 
+    @Test func hugeNumbersAreCappedNotACrash() {
+        let read = json(#"{"big":1e19,"small":-1e19,"half":2.5}"#)
+        #expect(read["big"]?.int == .max)
+        #expect(read["small"]?.int == .min)
+        #expect(read["half"]?.int == 2)
+    }
+
     @Test func ordersPicturesByPicIdsAndReadsLivePhotos() throws {
         let status = try #require(
             Status.from(

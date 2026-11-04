@@ -68,7 +68,9 @@ enum JSON: Sendable, Hashable {
     var int: Int64? {
         switch self {
         case .int(let i): i
-        case .double(let d): d.isFinite ? Int64(d) : nil
+        // Capped rather than trapping past Int64's range, as Kotlin's toLong().
+        case .double(let d):
+            !d.isFinite ? nil : d >= 0x1p63 ? .max : d < -0x1p63 ? .min : Int64(d)
         case .string(let s): Int64(s)
         default: nil
         }
