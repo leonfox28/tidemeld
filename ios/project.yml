@@ -30,6 +30,8 @@ targets:
         PRODUCT_NAME: Maxbo
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         GENERATE_INFOPLIST_FILE: YES
+        # What the keys below can't say; merged with them.
+        INFOPLIST_FILE: Maxbo/Info.plist
         INFOPLIST_KEY_CFBundleDisplayName: maxbo
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
         INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES

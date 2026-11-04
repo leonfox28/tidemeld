@@ -61,6 +61,7 @@ final class VideoModel {
         if time > .zero { await player.seek(to: time) }
         guard !Task.isCancelled else { return }
         ready = true
+        MediaAudio.withSound()
         player.play()
     }
 
@@ -81,6 +82,7 @@ final class VideoModel {
         observation = nil
         player.pause()
         player.replaceCurrentItem(with: nil)
+        MediaAudio.done()
     }
 }
 

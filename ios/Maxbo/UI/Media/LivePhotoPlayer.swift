@@ -66,6 +66,7 @@ final class LivePhotoPlayer {
         failed = nil
         self.muted = muted
         player.isMuted = muted
+        if muted { MediaAudio.muted() } else { MediaAudio.withSound() }
         if pic.id == loaded, !refresh, player.currentItem?.status == .readyToPlay {
             player.seek(to: .zero)
             player.play()
@@ -134,6 +135,7 @@ final class LivePhotoPlayer {
         stop()
         statusObservation = nil
         player.replaceCurrentItem(with: nil)
+        MediaAudio.done()
         for observer in observers { NotificationCenter.default.removeObserver(observer) }
         observers = []
     }

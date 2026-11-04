@@ -48,7 +48,7 @@ xcrun simctl launch <模拟器> io.github.leonfox28.maxbo.debug -maxbo-open firs
 - **登录页**：SwiftUI 的 `WebView`。浏览器 UA 和 Android 一样是桌面 Chrome，但要把 `preferredContentMode` 设成 `.mobile`，否则 passport 按桌面布局排成两栏、右边被截掉。http 的页面由 WebKit 升级成 https（`preferredHTTPSNavigationPolicy`），不认识的协议（`sinaweibo://`）一律拦下。
 - **退出登录**：清 WebKit 的 Cookie（`WKWebsiteDataStore.removeData`）。**Keychain 在卸载应用后还在**，所以第一次启动时（UserDefaults 里没有 `installed` 标记）先清掉旧的登录态，免得重装后用上一次的会话。
 - **宽屏**：时间线卡片在宽度 ≥ 840 时把媒体放到正文右侧（自定义 `Layout`，和 Android 的 `CardLayout` 同一套尺寸），各页正文限宽 640、首页 1000。**详情页在宽屏上不分左右两栏**，Android 的 `ReadingPanes` 没有移植。
-- **视频**：系统的 `AVPlayerViewController`（自带控件、画中画、AirPlay）。实况照片用一个 `AVPlayer` 叠在静图上播放，行为同 Android（点「实况」或长按，带声音；设置打开后停在一张上时静音自动播一次）。
+- **视频**：系统的 `AVPlayerViewController`（自带控件、画中画、AirPlay）。有声音的播放（视频、点开的实况照片）用 `.playback` 音频类别：静音键打开也有声音，播放时其他应用的声音暂停，关掉后恢复；画中画还要 `Info.plist` 里的后台音频（`ios/Maxbo/Info.plist`，和 `project.yml` 里的 `INFOPLIST_KEY_*` 合并）。实况照片自己动的时候没声音，用 `.ambient`，不打断其他应用。退到后台时系统会暂停连着画面的播放器（和 Android 退到后台暂停一样），除非开着画中画。Android 版不申请音频焦点，和音乐一起放；iOS 照系统的习惯。实况照片用一个 `AVPlayer` 叠在静图上播放，行为同 Android（点「实况」或长按，带声音；设置打开后停在一张上时静音自动播一次）。
 
 ## 4. 测试
 
