@@ -62,6 +62,8 @@ final class AppGraph {
         let settings = SettingsController(storage: DefaultsSettingsStorage())
         let sessionStorage = KeychainSessionStorage()
         sessionStorage.dropLeftovers()
+        // Pictures picked for drafts, which went with the last run.
+        try? FileManager.default.removeItem(at: draftPicturesDirectory)
         let throttle = RequestThrottle()
         let httpFor = { (jar: WeiboCookieJar) in WeiboHTTP(jar: jar, throttle: throttle) }
         let webCookies = WebKitCookies()

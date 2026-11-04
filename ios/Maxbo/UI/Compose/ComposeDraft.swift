@@ -22,14 +22,31 @@ struct ComposeDraft: Sendable, Hashable {
     var canSend: Bool { !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
 }
 
+/// Where picked pictures are kept while their drafts last; drafts don't
+/// outlive the app, so it is emptied as the app starts.
+let draftPicturesDirectory = FileManager.default.temporaryDirectory.appendingPathComponent("drafts")
+
 /// Copies the bytes of a picked picture to a temporary file, so a draft keeps
 /// it without holding it in memory.
 func storeDraftPicture(_ data: Data) throws -> URL {
-    let directory = FileManager.default.temporaryDirectory.appendingPathComponent("drafts")
-    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-    let file = directory.appendingPathComponent(UUID().uuidString)
+    try FileManager.default.createDirectory(at: draftPicturesDirectory, withIntermediateDirectories: true)
+    let file = draftPicturesDirectory.appendingPathComponent(UUID().uuidString)
     try data.write(to: file)
     return file
+}
+
+/// The bytes of [picture], to upload.
+func readDraftPicture(_ picture: DraftPicture) throws(WeiboError) -> Data {
+    do {
+        return try Data(contentsOf: picture.file)
+    } catch {
+        throw .api("图片读取失败")
+    }
+}
+
+/// Deletes the files of pictures no draft holds any more.
+func discardDraftPictures(_ pictures: [DraftPicture]) {
+    for picture in pictures { try? FileManager.default.removeItem(at: picture.file) }
 }
 
 /// The draft of a new post. It outlives the compose page, so closing it loses
@@ -50,6 +67,7 @@ final class ComposeDraftController {
         session.onUidChange { [weak self] _ in
             guard let self else { return }
             generation += 1
+            discardDraftPictures(draft.pictures)
             draft = ComposeDraft()
         }
     }
@@ -63,6 +81,7 @@ final class ComposeDraftController {
     }
 
     func removePicture(_ id: UUID) {
+        discardDraftPictures(draft.pictures.filter { $0.id == id })
         draft.pictures.removeAll { $0.id == id }
     }
 
@@ -81,13 +100,7 @@ final class ComposeDraftController {
                 continue
             }
             onUpload(i)
-            let data: Data
-            do {
-                data = try Data(contentsOf: picture.file)
-            } catch {
-                throw WeiboError.api("读取图片失败")
-            }
-            let pid = try await api.uploadPicture(data)
+            let pid = try await api.uploadPicture(try readDraftPicture(picture))
             guard generation == self.generation else { return }
             if let index = draft.pictures.firstIndex(where: { $0.id == picture.id }) {
                 draft.pictures[index].pid = pid
@@ -98,6 +111,7 @@ final class ComposeDraftController {
             draft.text.trimmingCharacters(in: .whitespacesAndNewlines), pids: pids,
             visibility: draft.visibility)
         guard generation == self.generation else { return }
+        discardDraftPictures(draft.pictures)
         draft = ComposeDraft()
         if let status { openLists.prependOwn(status) }
     }

@@ -44,6 +44,9 @@ struct CommentComposer: View {
     @State private var asking = false
     @State private var picking = false
     @State private var picked: PhotosPickerItem?
+    /// Whether the picture just picked is still being read in, which sending
+    /// waits for: it isn't in the draft yet.
+    @State private var reading = false
     @State private var notice: String?
     @State private var error: WeiboError?
     @FocusState private var focused: Bool
@@ -63,9 +66,12 @@ struct CommentComposer: View {
                 HStack {
                     if let picture = draft.picture {
                         DraftThumbnail(picture: picture, size: 64, uploading: uploading) {
+                            discardDraftPictures([picture])
                             draft.picture = nil
                         }
                         .disabled(sending)
+                    } else if reading {
+                        ProgressView().frame(width: 64, height: 64)
                     } else {
                         Button {
                             pick()
@@ -95,7 +101,7 @@ struct CommentComposer: View {
                         ProgressView()
                     } else {
                         Button("发送", systemImage: "paperplane.fill", role: .confirm) { submit() }
-                            .disabled(!draft.canSend)
+                            .disabled(!draft.canSend || reading)
                     }
                 }
             }
@@ -106,7 +112,9 @@ struct CommentComposer: View {
         .onChange(of: picked) { _, item in
             guard let item else { return }
             picked = nil
+            reading = true
             Task {
+                defer { reading = false }
                 do {
                     guard let data = try await item.loadTransferable(type: Data.self) else { return }
                     draft.picture = DraftPicture(file: try storeDraftPicture(data))
@@ -158,7 +166,7 @@ struct CommentComposer: View {
                 var picture = draft.picture
                 if var unsent = picture, unsent.pid == nil {
                     uploading = true
-                    unsent.pid = try await graph.api.uploadPicture(try Data(contentsOf: unsent.file))
+                    unsent.pid = try await graph.api.uploadPicture(try readDraftPicture(unsent))
                     // Kept, so sending again after a failure doesn't upload it again.
                     picture = unsent
                     draft.picture = unsent
@@ -166,6 +174,7 @@ struct CommentComposer: View {
                 }
                 try await request.send(draft.text.trimmingCharacters(in: .whitespacesAndNewlines), picture?.pid)
                 request.drafts.drafts[request.draftKey] = nil
+                if let picture { discardDraftPictures([picture]) }
                 dismiss()
                 graph.toasts.show(request.sentMessage)
             } catch {
@@ -176,9 +185,11 @@ struct CommentComposer: View {
 }
 
 /// Why sending failed; when Weibo wants a security check first, a way to take
-/// it (the sheet closes, the draft stays).
+/// it: [onVerify], or by default the sheet closes (the draft stays) for the
+/// check to show over the page, as the Kotlin sheets do.
 struct SendError: View {
     let error: WeiboError
+    var onVerify: ((URL) -> Void)? = nil
     @Environment(AppGraph.self) private var graph
     @Environment(\.dismiss) private var dismiss
 
@@ -187,8 +198,12 @@ struct SendError: View {
             Text(error.message).font(.footnote).foregroundStyle(AppTheme.error)
             if let url = error.captchaURL {
                 Button("去验证") {
-                    dismiss()
-                    graph.router.web = WebRequest(url: url)
+                    if let onVerify {
+                        onVerify(url)
+                    } else {
+                        dismiss()
+                        graph.router.web = WebRequest(url: url)
+                    }
                 }
                 .font(.footnote)
             }

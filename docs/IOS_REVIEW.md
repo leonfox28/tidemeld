@@ -14,7 +14,7 @@
 | A2 | 视频还在加载（例如地址过期正在重新请求）时关掉页面，之后会在后台开始播放，停不下来：加载的 `Task` 没有取消 | `UI/Media/VideoPlayerPage.swift:31-66`；Kotlin `VideoPlayerPage.kt:95,151-154` | 已修 |
 | A3 | 看图打开后 0.4 秒内关掉，实况照片的自动播放仍会在后台下载并静音播放：延时的 `Task` 没有取消 | `UI/Media/ImageViewer.swift:83-87`；Kotlin `ImageViewerPage.kt:94-97` | 已修 |
 | A4 | 看图打开长图时铺满宽度，`scrollViewDidZoom` 把这当成放大，翻页被禁用，左右滑不到下一张 | `UI/Media/ZoomableImage.swift:84-100`、`ImageViewer.swift:36`；Kotlin `ImageViewerPage.kt:182-191` | 已修 |
-| A5 | 发微博、写评论选图后，图片在后台读入，期间没有提示、「发送」可点：这时发出去会少图，或者图片落进下一条草稿 | `UI/Compose/ComposePage.swift:78-82,106-117`、`UI/Interactions/CommentComposer.swift:106-117` | 待修 |
+| A5 | 发微博、写评论选图后，图片在后台读入，期间没有提示、「发送」可点：这时发出去会少图，或者图片落进下一条草稿 | `UI/Compose/ComposePage.swift:78-82,106-117`、`UI/Interactions/CommentComposer.swift:106-117` | 已修 |
 | A6 | Cookie 和 XSRF 在进限流队列之前就写进请求头，Kotlin 是轮到发送时才读：退出后排队的请求仍带旧 `SUB`；续期后排队的读请求多发一次，写请求失败；排队期间换了的 `XSRF-TOKEN` 用不上 | `Core/Net/WeiboHTTP.swift:57-60`；Kotlin `WeiboHttp.kt:82-86,157-172` | 待修 |
 | A7 | 没有设置 `AVAudioSession`：静音键打开时视频和带声音的实况照片没有声音；画中画要 `.playback` 类别和后台音频模式，现在用不了（IOS.md §3 写了支持）。模拟器没有静音键，要真机确认 | 全局；`UI/Media/VideoPlayerPage.swift:112` | 待修 |
 | A8 | 登录页的错误提示看不见：提示条挂在 `TabView` 上，被登录弹层盖住。Kotlin 在登录页自己的提示条里显示 | `UI/Auth/LoginPage.swift:91-93`、`App/RootView.swift:59`；Kotlin `LoginPage.kt:93,203` | 待修 |
@@ -35,7 +35,7 @@
 | C2 | GIF 不降采样，按原尺寸逐帧解码（最多 300 帧）；看图最大 8192 px 的图和列表缩略图挤同一个 96 MB 内存缓存 | `ImageLoader.swift:104,123-139`、`UI/Media/ImageViewer.swift:133` | 待修 |
 | C3 | 每加载完一个表情，屏幕上所有带表情的正文都重绘、重新解析 HTML（共用一个被观察的字典，解析没缓存）。Kotlin 每段正文只解析一次 | `UI/Widget/Text/StatusText.swift:7-34,56,88-95` | 待修 |
 | C4 | 清除图片缓存在主线程同步执行 | `UI/Settings/SettingsPage.swift:66`、`ImageLoader.swift:91-94` | 待修 |
-| C5 | 选图时复制到 `tmp/drafts/` 的文件从不删除（移除图片、发送后、换账号） | `UI/Compose/ComposeDraft.swift:25-33` | 待修 |
+| C5 | 选图时复制到 `tmp/drafts/` 的文件从不删除（移除图片、发送后、换账号） | `UI/Compose/ComposeDraft.swift:25-33` | 已修 |
 | C6 | 看图的占位图加载 `pic.variants.first`（最小的那张），列表一般没加载过它，等于多一个请求，放大时还比缩略图糊。Kotlin 显示转圈 | `UI/Media/ImageViewer.swift:116`；Kotlin `ImageViewerPage.kt:207-208` | 待修 |
 
 ## D. 和 Android 不一致或缺少的
@@ -43,11 +43,11 @@
 | 编号 | 问题 | 位置 | 状态 |
 |---|---|---|---|
 | D1 | 应用内浏览器：返回按钮直接关页，不是网页后退；有历史时没有「关闭」按钮 | `UI/Web/InAppBrowser.swift:17-34`；Kotlin `WebPage.kt:83-90,102` | 待修 |
-| D2 | 转发一条转发时光标在 `//@…` 后面，Kotlin 放在最前（`TextRange(0)`） | `UI/Compose/ComposePage.swift:157,192-194`；Kotlin `StatusWrites.kt:170-178` | 待修 |
-| D3 | 发微博弹层里点「去验证」会关掉弹层（`SendError` 调 `dismiss()`），回来要重新打开。Kotlin 发微博是页面，验证完回到原处 | `ComposePage.swift:27`、`CommentComposer.swift:188-192`；Kotlin `ComposePage.kt:198-201` | 待修 |
-| D4 | 评论的图片读文件失败时提示「网络连接失败」，Kotlin 是「图片读取失败」 | `CommentComposer.swift:161,172`；Kotlin `PicturePicker.kt:88-101` | 待修 |
+| D2 | 转发一条转发时光标在 `//@…` 后面，Kotlin 放在最前（`TextRange(0)`） | `UI/Compose/ComposePage.swift:157,192-194`；Kotlin `StatusWrites.kt:170-178` | 已修 |
+| D3 | 发微博弹层里点「去验证」会关掉弹层（`SendError` 调 `dismiss()`），回来要重新打开。Kotlin 发微博是页面，验证完回到原处 | `ComposePage.swift:27`、`CommentComposer.swift:188-192`；Kotlin `ComposePage.kt:198-201` | 已修 |
+| D4 | 评论的图片读文件失败时提示「网络连接失败」，Kotlin 是「图片读取失败」 | `CommentComposer.swift:161,172`；Kotlin `PicturePicker.kt:88-101` | 已修 |
 | D5 | 转发被截断的转发时，取全文的 `Task` 不跟页面走，离开页面后转发弹层仍会弹出 | `UI/Status/StatusActions.swift:81-95`；Kotlin `StatusWrites.kt:91-114` | 待修 |
-| D6 | 发送时没有「正在上传图片 i/n」 | `ComposePage.swift:27-31`；Kotlin `ComposePage.kt:189-197` | 待修 |
+| D6 | 发送时没有「正在上传图片 i/n」 | `ComposePage.swift:27-31`；Kotlin `ComposePage.kt:189-197` | 已修 |
 | D7 | 正在删除时再点删除，还会弹确认，确认后什么也不做。Kotlin 先查 `deleting` | `StatusActions.swift:110-116`；Kotlin `StatusWrites.kt:121-125` | 待修 |
 | D8 | 视频加载时没有封面，只有转圈 | `UI/Media/VideoPlayerPage.swift:85-90`；Kotlin `VideoPlayerPage.kt:183-191` | 待修 |
 | D9 | 看图没有 GIF 标 | `ImageViewer.swift:59-63`；Kotlin `ImageViewerPage.kt:123-150` | 待修 |

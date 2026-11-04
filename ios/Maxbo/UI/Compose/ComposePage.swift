@@ -7,6 +7,12 @@ struct ComposePage: View {
     @Environment(AppGraph.self) private var graph
     @Environment(\.dismiss) private var dismiss
     @State private var picked: [PhotosPickerItem] = []
+    /// Whether pictures just picked are still being read in, which sending
+    /// waits for: they aren't in the draft yet.
+    @State private var reading = false
+    /// The security check Weibo asked for, over the sheet, which stays: the
+    /// user sends again from it once through.
+    @State private var web: WebRequest?
     @State private var sending = false
     /// Which picture (from 0) is going up, while one is.
     @State private var uploading: Int?
@@ -24,11 +30,24 @@ struct ComposePage: View {
                         .lineLimit(5...)
                         .focused($focused)
                         .disabled(sending)
-                    if let error { SendError(error: error) }
+                    if let error { SendError(error: error) { web = WebRequest(url: $0) } }
                     if let notice {
                         Text(notice).font(.footnote).foregroundStyle(AppTheme.secondary)
                     }
+                    if let uploading {
+                        Text("正在上传图片 \(uploading + 1)/\(draft.pictures.count)")
+                            .font(.footnote)
+                            .foregroundStyle(AppTheme.secondary)
+                    }
                     pictures(draft)
+                    if reading {
+                        HStack(spacing: 8) {
+                            ProgressView().controlSize(.small)
+                            Text("正在读取图片…")
+                        }
+                        .font(.footnote)
+                        .foregroundStyle(AppTheme.secondary)
+                    }
                 }
                 .padding(16)
             }
@@ -45,7 +64,7 @@ struct ComposePage: View {
                         ProgressView()
                     } else {
                         Button("发送", systemImage: "paperplane.fill", role: .confirm) { send() }
-                            .disabled(!draft.canSend)
+                            .disabled(!draft.canSend || reading)
                     }
                 }
                 ToolbarItemGroup(placement: .bottomBar) {
@@ -55,7 +74,7 @@ struct ComposePage: View {
                     ) {
                         Label("添加图片", systemImage: "photo.on.rectangle.angled")
                     }
-                    .disabled(sending || draft.pictures.count >= maxDraftPictures)
+                    .disabled(sending || reading || draft.pictures.count >= maxDraftPictures)
                     Spacer()
                     Menu {
                         Picker("可见范围", selection: $drafts.draft.visibility) {
@@ -75,10 +94,15 @@ struct ComposePage: View {
             }
         }
         .interactiveDismissDisabled(sending)
+        .sheet(item: $web) { WebSheet(request: $0) }
         .onChange(of: picked) { _, items in
             guard !items.isEmpty else { return }
             picked = []
-            Task { await add(items) }
+            reading = true
+            Task {
+                await add(items)
+                reading = false
+            }
         }
         .onAppear { focused = true }
     }
@@ -142,6 +166,9 @@ struct RepostSheet: View {
     @Environment(AppGraph.self) private var graph
     @Environment(\.dismiss) private var dismiss
     @State private var text = ""
+    /// Before the chain of the repost reposted, so what the user writes goes
+    /// ahead of it, as Weibo has it.
+    @State private var selection: TextSelection?
     @State private var visibility: StatusVisibility = .public
     @State private var alsoComment = false
     @State private var sending = false
@@ -154,7 +181,7 @@ struct RepostSheet: View {
             Form {
                 Section {
                     // Weibo puts in 转发微博 when there is nothing.
-                    TextField("说说分享心得…", text: $text, axis: .vertical)
+                    TextField("说说分享心得…", text: $text, selection: $selection, axis: .vertical)
                         .lineLimit(3...8)
                         .focused($focused)
                         .disabled(sending)
@@ -191,6 +218,7 @@ struct RepostSheet: View {
         .interactiveDismissDisabled(sending)
         .onAppear {
             text = graph.repostDrafts[status.id] ?? request.quote
+            selection = TextSelection(insertionPoint: text.startIndex)
             focused = true
         }
     }
