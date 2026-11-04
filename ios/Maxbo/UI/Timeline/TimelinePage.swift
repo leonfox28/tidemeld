@@ -30,6 +30,8 @@ private struct Timeline: View {
     @Environment(AppGraph.self) private var graph
     @State private var atTop = true
     @State private var pull = PullToRefresh()
+    /// The page's width, which the timeline's column follows.
+    @State private var width: CGFloat = 0
 
     var body: some View {
         let timeline = graph.timeline
@@ -50,7 +52,7 @@ private struct Timeline: View {
                     } else {
                         ForEach(state.items) { status in
                             StatusCard(status: status, actions: graph.statusActions)
-                                .feedWidth()
+                                .feedWidth(in: width)
                                 .statusRow()
                         }
                         LoadMoreFooter(list: state) { Task { await timeline.loadMore() } }.plainRow()
@@ -60,6 +62,7 @@ private struct Timeline: View {
             .listStyle(.plain)
             .appListStyle()
             .loadsMoreAsScrolled()
+            .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
             .refreshable { await refresh() }
             .pullToRefresh(pull)
             .tabBarHidesOnScroll()
@@ -123,7 +126,10 @@ extension View {
         frame(maxWidth: width).frame(maxWidth: .infinity)
     }
 
-    /// A home timeline's width: wider than a reading column, so a wide card can
-    /// put its media beside its text.
-    func feedWidth() -> some View { readingWidth(1000) }
+    /// A home timeline's column in a page [width] wide: wider than a reading
+    /// column once a card puts its media beside its text, else the reading
+    /// column, as in the Kotlin app (`feedColumnWidth`).
+    func feedWidth(in width: CGFloat) -> some View {
+        readingWidth(width == 0 || width >= wideCardFrom ? 1000 : 640)
+    }
 }
