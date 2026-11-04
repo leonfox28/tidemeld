@@ -29,6 +29,19 @@ struct WeiboHTTPTests {
         #expect(sent.map { $0.value(forHTTPHeaderField: "Cookie") } == ["SUB=old; XSRF-TOKEN=t1", "SUB=new; XSRF-TOKEN=t2"])
         #expect(sent.map { $0.value(forHTTPHeaderField: "X-XSRF-TOKEN") } == ["t1", "t2"])
     }
+
+    @Test func aRequestGivenUpOnSaysSoRatherThanBlamingTheNetwork() async throws {
+        FakeWeibo.reset { _ in .init(delay: .seconds(2)) }
+        let http = WeiboHTTP(
+            jar: WeiboCookieJar([:]), throttle: RequestThrottle(minInterval: .zero),
+            configuration: FakeWeibo.configuration)
+
+        let request = Task { try await http.send(URLRequest(url: url)) }
+        try await Task.sleep(for: .milliseconds(200))
+        request.cancel()
+
+        await #expect(throws: WeiboError.cancelled) { try await request.value }
+    }
 }
 
 @Suite

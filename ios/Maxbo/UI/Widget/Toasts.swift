@@ -33,6 +33,8 @@ final class Toasts {
     /// themselves).
     func showError(_ error: Error, router: Router) {
         let error = WeiboError.of(error)
+        // Given up on, as its page went away: nothing to say.
+        if error == .cancelled { return }
         if let url = error.captchaURL {
             show(error.message, actionLabel: "去验证") { router.web = WebRequest(url: url) }
         } else {

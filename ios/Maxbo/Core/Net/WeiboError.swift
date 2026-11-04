@@ -10,6 +10,9 @@ enum WeiboError: Error, Sendable, Equatable, LocalizedError {
     case network
     /// Weibo answered, but with an error or a response we don't understand.
     case api(String, status: Int? = nil)
+    /// The request was given up on (its page went away, say): not a failure
+    /// to show, as Kotlin's cancellation isn't one.
+    case cancelled
 
     var message: String {
         switch self {
@@ -18,6 +21,7 @@ enum WeiboError: Error, Sendable, Equatable, LocalizedError {
         case .rateLimited: "请求太频繁，请稍后再试"
         case .network: "网络连接失败，请检查网络"
         case .api(let message, _): message
+        case .cancelled: "已取消"
         }
     }
 
@@ -28,9 +32,18 @@ enum WeiboError: Error, Sendable, Equatable, LocalizedError {
         return nil
     }
 
-    /// [error] as a WeiboError; anything else counts as a network failure.
+    /// [error] as a WeiboError: a cancellation as one, a URL loading error as a
+    /// network failure, and anything else as a failed load, as the Kotlin app
+    /// shows what isn't a `WeiboException`.
     static func of(_ error: Error) -> WeiboError {
-        error as? WeiboError ?? .network
+        if let error = error as? WeiboError { return error }
+        if isCancellation(error) { return .cancelled }
+        if error is URLError { return .network }
+        return .api("加载失败")
+    }
+
+    static func isCancellation(_ error: Error) -> Bool {
+        error is CancellationError || (error as? URLError)?.code == .cancelled
     }
 }
 

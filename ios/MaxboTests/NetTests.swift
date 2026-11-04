@@ -40,6 +40,14 @@ struct WeiboErrorTests {
         }
     }
 
+    @Test func cancellationsAreNotFailures() {
+        struct Other: Error {}
+        #expect(WeiboError.of(CancellationError()) == .cancelled)
+        #expect(WeiboError.of(URLError(.cancelled)) == .cancelled)
+        #expect(WeiboError.of(URLError(.timedOut)) == .network)
+        #expect(WeiboError.of(Other()) == .api("加载失败"))
+    }
+
     @Test func apiErrorsKeepWeibosMessage() {
         #expect(unwrap(reply(#"{"ok":0,"msg":"内容不存在"}"#)) == .failure(.api("内容不存在", status: 200)))
         #expect(unwrap(reply(#"{"ok":0}"#, status: 500)) == .failure(.api("请求失败（500）", status: 500)))

@@ -124,7 +124,8 @@ final class PagedList<T: Sendable> {
         guard generation == self.generation, var latest = state.list else { return }
         latest.loadingMore = false
         guard let page else {
-            latest.loadMoreError = error
+            // Given up on: the user can load more again as before.
+            latest.loadMoreError = error == .cancelled ? nil : error
             state = .ready(latest)
             return
         }

@@ -66,7 +66,7 @@ final class WeiboHTTP: Sendable {
         do {
             (data, response) = try await session.data(for: request, delegate: delegate)
         } catch {
-            throw .network
+            throw WeiboError.isCancellation(error) ? .cancelled : .network
         }
         guard let http = response as? HTTPURLResponse else { throw .network }
         jar.apply(http)
