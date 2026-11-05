@@ -64,16 +64,18 @@ struct XDetailPage: View {
     private func layout(actions: PostInteractionActions?) -> some View {
         PostDetailLayout(
             actions: actions, refresh: { try await model.replies?.refresh() },
-            initialFocus: model.ancestors.isEmpty ? nil : "focal:\(id)",
-            post: {
+            initialFocus: "focal:\(id)",
+            context: {
                 ForEach(model.ancestors, id: \.originalID) { ancestor in
                     PostConversationContext {
                         XPostCard(post: ancestor, owner: owner)
-                    }.readingWidth().plainRow().id("ancestor:\(ancestor.originalID)")
+                    }.readingWidth().id("ancestor:\(ancestor.originalID)")
                 }
+            },
+            post: {
                 if let post = model.post {
                     XPostCard(post: post, owner: owner, detail: true, showReplyContext: model.ancestors.isEmpty)
-                        .readingWidth().plainRow().detailFocus("focal:\(id)")
+                        .readingWidth()
                 }
             },
             responseHeader: {

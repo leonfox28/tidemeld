@@ -1,85 +1,76 @@
 import SwiftUI
 
-/// One detail layout for every platform: post, response header, paged rows and action toolbar.
-struct PostDetailLayout<Post: View, Header: View, Responses: View>: View {
+/// One detail layout for every platform: context, post, responses and action toolbar.
+struct PostDetailLayout<Context: View, Post: View, Header: View, Responses: View>: View {
     var actions: PostInteractionActions?
     let refresh: () async throws -> Void
-    var initialFocus: String? = nil
+    let initialFocus: String?
+    @ViewBuilder let context: () -> Context
     @ViewBuilder let post: () -> Post
     @ViewBuilder let responseHeader: () -> Header
     @ViewBuilder let responses: () -> Responses
     @Environment(AppGraph.self) private var graph
+    @State private var position: String?
     @State private var actionsVisible = true
-    @State private var positioned = false
-    @State private var trailingSpace: CGFloat = 0
-    @State private var viewportHeight: CGFloat = 0
+    @State private var userScrolling = false
+
+    init(
+        actions: PostInteractionActions?, refresh: @escaping () async throws -> Void,
+        initialFocus: String? = nil,
+        @ViewBuilder context: @escaping () -> Context = { EmptyView() },
+        @ViewBuilder post: @escaping () -> Post,
+        @ViewBuilder responseHeader: @escaping () -> Header,
+        @ViewBuilder responses: @escaping () -> Responses
+    ) {
+        self.actions = actions
+        self.refresh = refresh
+        self.initialFocus = initialFocus
+        self.context = context
+        self.post = post
+        self.responseHeader = responseHeader
+        self.responses = responses
+        _position = State(initialValue: initialFocus)
+    }
+
     var body: some View {
-        ScrollViewReader { proxy in
-            List {
-                post()
-                Section {
-                    responses()
-                } header: {
-                    responseHeader().readingWidth().listHeader()
-                }
-                if initialFocus != nil {
-                    Color.clear.frame(height: trailingSpace).plainRow()
-                        .environment(\.defaultMinListRowHeight, 0)
-                        .anchorPreference(key: DetailBounds.self, value: .bounds) { ["end": $0] }
-                        .accessibilityHidden(true)
-                }
-            }.listStyle(.plain).listSectionSpacing(0).appListStyle()
-                .onScrollGeometryChange(for: CGFloat.self) {
-                    $0.containerSize.height - $0.contentInsets.top - $0.contentInsets.bottom
-                } action: { _, height in
-                    viewportHeight = height
-                }
-                .overlayPreferenceValue(DetailBounds.self) { bounds in
-                    GeometryReader { geometry in
-                        let remaining = initialFocus.flatMap { bounds[$0] }.flatMap { focal in
-                            bounds["end"].map { geometry[$0].minY - geometry[focal].minY }
+        GeometryReader { geometry in
+            ScrollView {
+                VStack(spacing: 0) {
+                    VStack(spacing: 0) { context() }.scrollTargetLayout()
+                    LazyVStack(spacing: 0, pinnedViews: [.sectionHeaders]) {
+                        post().id(initialFocus ?? "post")
+                        Section {
+                            responses()
+                        } header: {
+                            responseHeader().readingWidth().background(AppTheme.background)
                         }
-                        let space = remaining.map { max(0, viewportHeight - $0) }
-                        Color.clear.onChange(of: space, initial: true) { _, space in
-                            if let space {
-                                // Leave only the room needed to place a short conversation at its focal post.
-                                trailingSpace = space
-                            }
-                        }
-                    }.allowsHitTesting(false)
-                }
-                .loadsMoreAsScrolled(enabled: initialFocus == nil || positioned)
-                .refreshable {
-                    do { try await refresh() } catch {
-                        graph.toasts.showError(error, router: graph.router)
                     }
+                    .scrollTargetLayout()
+                    // A short reply can align at the top without measuring content or offsets.
+                    .frame(minHeight: geometry.size.height, alignment: .top)
                 }
-                .toolbar { if let actions { PostDetailToolbar(actions: actions) } }
-                .bottomBarHidesOnScroll($actionsVisible, enabled: initialFocus == nil || positioned)
-                .task(id: "\(initialFocus ?? ""):\(trailingSpace)") {
-                    guard !positioned, let target = initialFocus else { return }
-                    await Task.yield()
-                    proxy.scrollTo(target, anchor: .top)
-                    // Positioning is not a user scroll and must not fetch more comments.
-                    try? await Task.sleep(for: .milliseconds(400))
-                    if !Task.isCancelled { positioned = true }
+            }
+            .accessibilityElement(children: .contain)
+            .scrollPosition(id: $position, anchor: .top)
+            .onScrollPhaseChange { _, phase in
+                userScrolling = phase == .interacting || phase == .decelerating
+            }
+            .loadsMoreAsScrolled(enabled: userScrolling)
+            .refreshable {
+                do { try await refresh() } catch {
+                    graph.toasts.showError(error, router: graph.router)
                 }
+            }
+            .bottomBarHidesOnScroll($actionsVisible, enabled: userScrolling)
+            .environment(\.detailScrollRows, true)
         }
+        .appBackground()
+        .toolbar { if let actions { PostDetailToolbar(actions: actions) } }
     }
 }
 
-private struct DetailBounds: PreferenceKey {
-    static let defaultValue: [String: Anchor<CGRect>] = [:]
-    static func reduce(value: inout [String: Anchor<CGRect>], nextValue: () -> [String: Anchor<CGRect>]) {
-        value.merge(nextValue(), uniquingKeysWith: { _, new in new })
-    }
-}
-
-extension View {
-    /// Marks the current post within the shared conversation layout.
-    func detailFocus(_ id: String) -> some View {
-        self.id(id).anchorPreference(key: DetailBounds.self, value: .bounds) { [id: $0] }
-    }
+extension EnvironmentValues {
+    @Entry var detailScrollRows = false
 }
 
 /// Joins contextual posts to the next post without introducing another card layout.
@@ -90,6 +81,30 @@ struct PostConversationContext<Content: View>: View {
             content()
             Rectangle().fill(AppTheme.outline).frame(width: 2, height: 24).padding(.leading, 36)
                 .accessibilityHidden(true)
+        }
+    }
+}
+
+extension View {
+    /// A comment or repost as a list row, divided from the next under its text.
+    func responseRow() -> some View {
+        modifier(ResponseRowStyle())
+    }
+}
+
+private struct ResponseRowStyle: ViewModifier {
+    @Environment(\.detailScrollRows) private var scrollRows
+    func body(content: Content) -> some View {
+        if scrollRows {
+            content.overlay(alignment: .bottom) {
+                Rectangle().fill(AppTheme.outline).frame(height: 0.5)
+                    .padding(.leading, 58).readingWidth().accessibilityHidden(true)
+            }
+        } else {
+            content.listRowInsets(EdgeInsets())
+                .listRowBackground(AppTheme.background)
+                .listRowSeparatorTint(AppTheme.outline)
+                .alignmentGuide(.listRowSeparatorLeading) { _ in 58 }
         }
     }
 }

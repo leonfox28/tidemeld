@@ -390,13 +390,3 @@ struct RepostTile: View {
         .onTapGesture { actions.onOpen?(status) }
     }
 }
-
-extension View {
-    /// A comment or repost as a list row, divided from the next under its text.
-    func responseRow() -> some View {
-        listRowInsets(EdgeInsets())
-            .listRowBackground(AppTheme.background)
-            .listRowSeparatorTint(AppTheme.outline)
-            .alignmentGuide(.listRowSeparatorLeading) { _ in 58 }
-    }
-}
