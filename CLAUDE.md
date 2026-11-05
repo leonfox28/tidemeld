@@ -7,7 +7,8 @@ v0.11.0 及以前是 Flutter 版，2026-10-23 起换成 Kotlin 重写的版本�
 ## 品牌与兼容性
 
 - 中文名「叠澜」，英文名 `Tidemeld`，仓库与目录名 `tidemeld`。
-- Android 源码 namespace 为 `io.github.leonfox28.tidemeld`；安装用的 applicationId、iOS Bundle ID 保留 `io.github.leonfox28.maxbo`（Debug 带 `.debug`），Android Keystore 的 `maxbo.session` 也保留，以延续更新、登录态及现有 App Store 记录。不要因为更名去替换这些兼容标识。
+- Android 源码 namespace 为 `io.github.leonfox28.tidemeld`；安装用的 applicationId 保留 `io.github.leonfox28.maxbo`（Debug 带 `.debug`），Android Keystore 的 `maxbo.session` 也保留，以延续已发布版本的更新和登录态。
+- 2026-11-05 用户要求重建不能更名的 App Store 记录：iOS 正式 Bundle ID 改为 `io.github.leonfox28.tidemeld`，新 SKU 为 `tidemeld-ios`。iOS Debug 暂保留 `io.github.leonfox28.maxbo.debug`，用于已有开发安装和真实登录态；这不属于商店记录。正式新标识不继承旧正式安装的数据容器。
 - 当前版本只实现微博，不应在应用或商店文案中声称已支持 X。无需注册域名，支持和隐私政策继续使用 GitHub。
 
 ## 常用命令

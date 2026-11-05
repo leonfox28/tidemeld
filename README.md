@@ -27,13 +27,13 @@
 
 在 [Releases](https://github.com/leonfox28/tidemeld/releases) 页面下载 APK（新版本命名为 `tidemeld-vX.Y.Z.apk`，改名前的历史版本仍为 `maxbo-vX.Y.Z.apk`），所有手机都用这一个（需要 Android 7.0 及以上）。鸿蒙 HarmonyOS 5/6 可以通过卓易通安装 APK。每个 Release 都附有 `SHA256SUMS.txt`，可以用来核对下载的文件。
 
-本次更名保留原安装标识和签名，已有用户可覆盖安装，登录状态与设置继续保留。
+Android 更名保留原安装标识和签名，已有用户可覆盖安装，登录状态与设置继续保留。
 
 从 v0.12.0 起 Android 应用用 Kotlin 重写。从更早的 Flutter 版本升级时，需要重新登录、重新设置。
 
 ### iOS
 
-原生 iOS 版（SwiftUI，需要 iOS 26 及以上）正在测试，还没有发布安装包，可以按下面「从源码构建」自己编译。v0.2.0 到 v0.11.0 的 Releases 里附有旧的 Flutter 版未签名 IPA，那个版本不再更新。
+原生 iOS 版（SwiftUI，需要 iOS 26 及以上）正在测试，还没有发布安装包，可以按下面「从源码构建」自己编译。正式 Bundle ID 已改为 `io.github.leonfox28.tidemeld`，与旧正式安装是独立的应用身份。v0.2.0 到 v0.11.0 的 Releases 里附有旧的 Flutter 版未签名 IPA，那个版本不再更新。
 
 ## 从源码构建
 

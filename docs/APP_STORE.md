@@ -11,9 +11,9 @@
 | 价格 | 免费，无内购、订阅或捐赠入口 |
 | 平台 | iPhone、iPad，iOS / iPadOS 26+ |
 | 界面 / 商店主语言 | 简体中文；另备英文商店文案 |
-| Bundle ID | `io.github.leonfox28.maxbo`（已注册） |
-| SKU | `maxbo-ios`（原记录的固定 SKU） |
-| App Store Connect | [叠澜 Tidemeld · 6830942092](https://appstoreconnect.apple.com/apps/6830942092/distribution)，已创建，准备提交 |
+| Bundle ID | `io.github.leonfox28.tidemeld`（已注册） |
+| SKU | `tidemeld-ios` |
+| App Store Connect | [叠澜 Tidemeld · 6831005339](https://appstoreconnect.apple.com/apps/6831005339/distribution)，按用户要求重建，准备提交 |
 | 开发者团队 | 当前 Mac 账号，`AVHU3J463N`；不是开发证书姓名后的个人标识 |
 | 版本 / 构建 | `0.13.1` / `1`，上传后若重新构建，递增构建号 |
 | 类别 | 社交 |
@@ -110,3 +110,7 @@ xcodebuild -exportArchive -archivePath build/app-store/Tidemeld.xcarchive \
 - 2026-11-05：增加游客热搜及公开网页浏览后，iOS 76 项测试通过，Android 全量格式、lint、380 项单元测试与 Debug 构建通过。在无真实账号的 `Tidemeld test` 模拟器确认热搜及点击后的公开网页能加载；Release 重新归档、导出和签名校验通过。游客网页继续翻页会要求登录，审核访问问题仍需解决。
 
 - 2026-11-05 更名完成：App Store Connect 的简体中文名称已保存为「叠澜 Tidemeld」，描述、支持、营销及隐私政策链接已切换到 `leonfox28/tidemeld`。Apple ID、Bundle ID 与固定 SKU 保留。重新归档 `Tidemeld.xcarchive` 并导出 `export/Tidemeld.ipa`，签名校验通过，尚未上传或提交审核。
+- 2026-11-05 后续决定：用户要求不能更名的字段删除重建，覆盖上一条保留商店身份的方案。确认旧记录 TestFlight 为“无构建版本”后，取消全部供应地区，并将 `6830942092`（`maxbo-ios`）移入“已移除的 App”。新建 `6831005339`，Bundle ID `io.github.leonfox28.tidemeld`、SKU `tidemeld-ios`、名称「叠澜 Tidemeld」、主语言简体中文。旧记录可在后台已移除列表查找，不用于后续上传。
+- 新身份已重新归档、导出，核对 IPA 的 Bundle ID 为 `io.github.leonfox28.tidemeld`、版本 `0.13.1 (1)`；归档签名校验通过。未上传或提交审核。Debug 仍保留旧标识，以保护开发设备已有真实登录态。
+- 重建后的验证：iOS 79 项测试通过；Android `spotlessCheck lint testDebugUnitTest assembleDebug` 通过，385 项测试无失败（未变的检查使用 Gradle 增量结果）。已停止 Gradle daemon。
+- 新记录已恢复简体中文名称、副标题、宣传文本、描述、关键词、支持/营销/隐私政策链接及社交类别；版本设为 `0.13.1`、手动发布。价格已保存为 USD 0，供应情况已确认仅美国（App 发布时供应）；Mac 和 Apple Vision Pro 供应保持关闭。新记录仍未上传构建或提交审核。

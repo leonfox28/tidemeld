@@ -29,8 +29,8 @@ targets:
         buildPhase: resources
     settings:
       base:
-        # Preserve App Store identity, app storage and Keychain access across the rename.
-        PRODUCT_BUNDLE_IDENTIFIER: io.github.leonfox28.maxbo
+        # The App Store record is recreated under the Tidemeld identity.
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.leonfox28.tidemeld
         PRODUCT_NAME: Tidemeld
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         GENERATE_INFOPLIST_FILE: YES
@@ -48,6 +48,7 @@ targets:
         CODE_SIGN_STYLE: Automatic
       configs:
         Debug:
+          # Keep existing development installs and their local sign-in sessions.
           PRODUCT_BUNDLE_IDENTIFIER: io.github.leonfox28.maxbo.debug
           INFOPLIST_KEY_CFBundleDisplayName: 叠澜 Debug
           SWIFT_ACTIVE_COMPILATION_CONDITIONS: DEBUG

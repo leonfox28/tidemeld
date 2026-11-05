@@ -319,6 +319,8 @@ app/src/androidTest/            # 设备测试（读 WebView 的 HttpOnly Cookie
 
 ## 11. 进度与交接（更新于 2026-10-30，换成 Kotlin 之后；iOS 版另见 IOS.md）
 
+**2026-11-05 后续决定**：用户要求不能更名的 App Store 字段删除重建；iOS 正式 Bundle ID 改为 `io.github.leonfox28.tidemeld`，新记录与 SKU 见 [APP_STORE.md](APP_STORE.md)。这覆盖下方更名记录中“保留 iOS 商店身份”的决定；Android 安装标识及两端已有调试安装的标识仍保留。X 接入的当前能力、费用、条款限制和架构建议见 [X_FEASIBILITY.md](X_FEASIBILITY.md)，尚未实现或完成真实账号接入验证。
+
 **2026-11-05 更名**：项目改名为叠澜（Tidemeld），GitHub 仓库及本地目录使用 `tidemeld`，两端源码、构建目标、公开链接和发布产物名称同步调整。安装标识、签名与会话存储键保留，兼容旧版覆盖更新。当前功能仍为微博；X 接入属于下一阶段，不在本次更名中实现。Android 格式、lint、构建及 385 项测试通过，iOS 79 项测试通过，App Store 归档、导出与签名校验通过。在保留真实登录态的 iOS 模拟器上覆盖安装后，关于页显示新名称，通知页签仍可见。
 
 下表 v0.11.0 及以前的各行写的是 Flutter 版的实现（`lib/` 下的文件名、provider 等），行为在 Kotlin 版里照样保留；Kotlin 版的对应文件见 KOTLIN_MIGRATION.md §4，当前代码的结构见 CLAUDE.md「架构速览」和下方「已有的基础设施」。
