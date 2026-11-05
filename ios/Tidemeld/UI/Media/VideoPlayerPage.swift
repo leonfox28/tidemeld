@@ -104,30 +104,34 @@ struct VideoPlayerPage: View {
     }
 
     var body: some View {
-        NavigationStack {
-            ZStack {
-                Color.black.ignoresSafeArea()
-                if let error = model.error {
-                    ErrorRetry(error: error) { model.retry() }
-                } else {
-                    SystemPlayer(player: model.player).ignoresSafeArea()
-                    if !model.ready {
-                        // The cover the card showed, until the video plays.
-                        if let cover = request.cover {
-                            WeiboImage(url: cover, contentMode: .fit, placeholder: false)
-                                .background(.black)
-                                .ignoresSafeArea()
-                        }
-                        ProgressView().controlSize(.large).tint(.white)
-                    }
+        ZStack {
+            Color.black.ignoresSafeArea()
+            if let error = model.error {
+                ErrorRetry(error: error) { model.retry() }
+            } else if model.ready {
+                // AVKit owns the close button and lays out its controls against
+                // the screen's safe area, without an extra navigation bar.
+                SystemPlayer(player: model.player).ignoresSafeArea()
+            } else {
+                if let cover = request.cover {
+                    WeiboImage(url: cover, contentMode: .fit, placeholder: false)
+                        .background(.black)
+                        .ignoresSafeArea()
                 }
+                ProgressView().controlSize(.large).tint(.white)
             }
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button(role: .close) { dismiss() }
-                }
+        }
+        .overlay(alignment: .topLeading) {
+            // Loading and failure have no system controls yet, but must remain dismissible.
+            if !model.ready || model.error != nil {
+                Button("关闭", systemImage: "xmark") { dismiss() }
+                    .labelStyle(.iconOnly)
+                    .buttonStyle(.glass)
+                    .buttonBorderShape(.circle)
+                    .controlSize(.large)
+                    .tint(.white)
+                    .padding(16)
             }
-            .toolbarBackgroundVisibility(.hidden, for: .navigationBar)
         }
         .environment(\.colorScheme, .dark)
         .onAppear { model.start() }

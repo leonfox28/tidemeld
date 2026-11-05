@@ -120,3 +120,7 @@ X 使用官方网页登录和原生 `XWebAPI`，协议配置与 Android 共用 `
 `Core/Media/MediaPlayback` 定义平台无关的 `VideoRequest`（封面、CDN 请求头、地址刷新回调）和可选 `PhotoMotion`（实况照片能力）。`VideoPlayerPage`、`VideoModel`、`ImageViewer` 和 `LivePhotoPlayer` 不再访问微博 API；`WeiboMedia` / `XMediaPlayback` 适配器负责来源账号、帖子及媒体序号。`MediaVideoAsset` 共用同一个支持 Range/seek/取消的 MP4/MOV 加载器，CDN 不携带账号 Cookie。单视频封面也从微博卡片抽入 `UI/Post/VideoCover`。
 
 X 的媒体解析保留图片/视频混排顺序、尺寸、多个视频及 `animated_gif` 的 MP4，引用帖也保留媒体。图片继续使用同一个缩放/翻页查看器；视频点击直接在应用内播放。刷新地址仍绑定原账号和登录代次，过期失败最多刷新一次。空白回归模拟器 100 项测试通过，包含两个平台的真实 AVFoundation 合成视频解码、播放和跳转，以及关闭时取消解析、原帖/账号/视频序号隔离。保留登录更新 `Tidemeld iPhone` 后，确认真实 X 视频播放、暂停/继续和跳转 10 秒、引用帖图片查看与双击缩放，以及微博图片查看和视频播放正常。Android 同步实现并通过 413 项测试及全量检查；Android 实机播放、真实地址自然过期及 X 仅有非 MP4 流的条目仍待验证。
+
+### 2026-11-05：视频播放页只保留一套顶部控件
+
+移除共用 `VideoPlayerPage` 外层的导航栏与橙色关闭按钮，让 AVKit 占满屏幕并按安全区域摆放系统关闭、静音控件。加载中或失败时才显示备用关闭按钮。模拟器构建通过，并保留登录覆盖更新 `Tidemeld iPhone`；实测 X 视频正常播放、仅有一个关闭按钮、关闭和静音已上移，点击系统关闭可返回信息流。此布局同时用于微博和 X。
