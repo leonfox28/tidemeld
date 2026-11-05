@@ -45,10 +45,12 @@ struct RootView: View {
             Tab("首页", systemImage: "house", value: AppTab.home) {
                 TabStack(tab: .home) { TimelinePage() }
             }
-            Tab("通知", systemImage: "bell", value: AppTab.notifications) {
-                TabStack(tab: .notifications) { NotificationsPage() }
+            if graph.session.state.uid != nil {
+                Tab("通知", systemImage: "bell", value: AppTab.notifications) {
+                    TabStack(tab: .notifications) { NotificationsPage() }
+                }
+                .badge(unread ? Text(verbatim: "") : nil)
             }
-            .badge(unread ? Text(verbatim: "") : nil)
             Tab("我", systemImage: "person", value: AppTab.me) {
                 TabStack(tab: .me) { MePage() }
             }

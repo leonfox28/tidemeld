@@ -66,6 +66,7 @@ final class AppGraph {
         // for the user to carry on once signed back in.
         var owner = session.state.uid
         session.onUidChange { [router, weak session] uid in
+            if uid == nil, router.tab == .notifications { router.tab = .home }
             let signedOut = session?.state == .signedOut(expired: false)
             if signedOut || (uid != nil && uid != owner) { router.paths = [:] }
             if let uid { owner = uid }

@@ -167,10 +167,12 @@ class NotificationsPageTest {
 
         runBlocking { app.graph.session.logout() }
         compose.waitForIdle()
+        tab("通知").assertDoesNotExist()
         newestComment = "另一个账号收到的评论"
         runBlocking {
             app.graph.session.completeLogin(mapOf(WeiboCookieJar.WEB to mapOf("SUB" to "y")))
         }
+        tab("通知").performClick()
 
         app.waitFor("另一个账号收到的评论")
         assertEquals(2, loads("/ajax/message/cmt"))

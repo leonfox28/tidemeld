@@ -1,5 +1,6 @@
 package io.github.leonfox28.maxbo.ui.timeline
 
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.hasScrollToIndexAction
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -75,6 +76,7 @@ class GuestTimelinePageTest {
             }
         awaitText("游客公开示例")
         compose.onNodeWithContentDescription("登录微博").assertExists()
+        compose.onNodeWithContentDescription("通知").assertDoesNotExist()
         runBlocking { graph.session.completeLogin(signedIn.cookies) }
         awaitText("关注动态示例")
         compose.onNodeWithText("游客浏览 · 公开微博").assertDoesNotExist()
@@ -82,11 +84,14 @@ class GuestTimelinePageTest {
         compose.onNodeWithContentDescription("我的主页").performClick()
         assertEquals("7", (navigator.backStack.last() as Route.Profile).uid)
         compose.runOnIdle { navigator.pop() }
+        compose.onNodeWithContentDescription("通知").performClick()
         runBlocking { graph.session.logout() }
         awaitText("游客公开示例")
         compose.onNodeWithText("游客浏览 · 公开微博").assertDoesNotExist()
         compose.onNodeWithContentDescription("登录微博").assertExists()
         compose.onNodeWithContentDescription("我的主页").assertDoesNotExist()
+        compose.onNodeWithContentDescription("通知").assertDoesNotExist()
+        compose.onNodeWithContentDescription("首页").assertIsSelected()
         assertEquals(1, web.requests.count { it.url.encodedPath == "/ajax/feed/friendstimeline" })
     }
 

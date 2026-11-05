@@ -260,7 +260,7 @@ app/src/androidTest/            # 设备测试（读 WebView 的 HttpOnly Cookie
 
 两端首页现复用原生 `StatusCard`、下拉刷新、图片查看器与视频播放器，读取并展示公开首屏，底部说明登录后查看更多。游客 Cookie 仅进入独立 API CookieJar，不调用账号会话的 `completeLogin`；Android 的网页 Cookie 需先通过 `login:false` 检查，iOS 使用临时网页存储。临时网页只运行官方游客初始化，完成或失败即停止，不作为首页 UI、不解决验证码。`pics` / `bid` / 移动版视频地址与封面已适配，保留广告标记及服务端顺序。点赞、转发、完整详情、用户资料等入口直接引导登录，已登录用户仍使用关注时间线。没有自动翻页或绕过游客限制，也不代表 Apple 已认可免登录审核。
 
-首页不额外显示游客标题，顶栏布局与登录后保持一致：左侧为圆形登录按钮，登录后改为本人头像，点击进入本人主页。Android 385 项单元测试及格式、lint、Debug 构建通过，iOS 79 项测试通过；无真实账号的两端测试模拟器均成功取得游客首屏。iOS 手动验证了原生公开图片、视频播放和圆形登录入口，也在保留原登录态的模拟器上验证本人头像与主页跳转。
+首页不额外显示游客标题，顶栏布局与登录后保持一致：左侧为圆形登录按钮，登录后改为本人头像，点击进入本人主页。未登录时隐藏“通知”页签，登录后显示；停留在通知页时退出或登录过期则返回首页。Android 385 项单元测试及格式、lint、Debug 构建通过，iOS 79 项测试通过；无真实账号的两端测试模拟器均成功取得游客首屏。iOS 手动验证了原生公开图片、视频播放和圆形登录入口，也在保留原登录态的模拟器上验证本人头像与主页跳转。
 
 - **weibo.com 没有现成的搜索结果接口**：前端脚本里「搜索结果」页用的 `GET /ajax/search/all?containerid=…` 已经下线，带登录态请求也返回 404「你访问的地址不存在」；网页版顶部搜索栏直接打开 `s.weibo.com`。
 - **m.weibo.cn 只能以游客身份用，而游客只能看第一页**：`/api/container/getIndex?containerid=100103type=1&q=…&page_type=searchall`（话题是 `231522type=1&t=10&q=#话题#`）不带 Cookie 时返回 `ok:-100`；带 WebView 浏览 m.weibo.cn 时拿到的游客 Cookie（`SUB`/`SUBP`，`/api/config` 是 `login:false`）能取到第 1 页（10–17 条，`card_type` 9 是微博，11 是一组卡片，话题的 `cardlistInfo.cardlist_head_cards[].head_data` 是话题头），**第 2 页起返回 `ok:-100`**。应用内 WebView 的搜索页往下滚过第一页也会跳到登录页。微博的格式是 m.weibo.cn 的（`pics[]`、`page_info.urls`、`bid`），与 weibo.com 不同。用 weibo.com 的登录态单点登录 m.weibo.cn（`passport.weibo.com/sso/signin?entry=wapsso&source=wapssowb&url=https://m.weibo.cn/`）也不行：直接请求只得到一个由风控脚本（`wbBotDetector`、易盾）驱动的登录页，不能也不该去模拟；在 WebView 里打开显示的是登录表单，没有自动登录（没有做任何输入就退出了）。

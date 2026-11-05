@@ -113,6 +113,16 @@ fun HomeShell() {
     val navigator = LocalNavigator.current
     val unread by graph.unread.state.collectAsStateWithLifecycle()
     val session by graph.session.state.collectAsStateWithLifecycle()
+    val visibleTabs =
+        Tab.entries.filter { it != Tab.Notifications || session is SessionState.SignedIn }
+    val selectedTab = Tab.entries[current].takeIf { it in visibleTabs } ?: Tab.Home
+    // A session can expire while notifications are open. Render Home immediately.
+    LaunchedEffect(selectedTab) {
+        if (current != selectedTab.ordinal) {
+            current = selectedTab.ordinal
+            bars.show()
+        }
+    }
     // On an expanded window the pill sits in the corner, out of the way of
     // the wide timeline.
     val corner = windowSize() == WindowSize.Expanded
@@ -122,7 +132,7 @@ fun HomeShell() {
         Modifier.nestedScroll(bars.connection),
         // Over the pill's end.
         floatingActionButton = {
-            if (current == Tab.Home.ordinal && session is SessionState.SignedIn) {
+            if (selectedTab == Tab.Home && session is SessionState.SignedIn) {
                 FloatingActionButton(
                     onClick = { navigator.push(Route.Compose) },
                     modifier = Modifier.graphicsLayer { translationY = hidden * 3f * size.height },
@@ -134,7 +144,8 @@ fun HomeShell() {
         // Lists scroll on behind the pill; the padding below makes room for it.
         bottomBar = {
             FloatingNavBar(
-                selected = Tab.entries[current],
+                tabs = visibleTabs,
+                selected = selectedTab,
                 alerts = if (unread.any) setOf(Tab.Notifications) else emptySet(),
                 onSelected = {
                     bars.show()
@@ -148,7 +159,7 @@ fun HomeShell() {
         snackbarHost = { AppSnackbarHost() },
         contentWindowInsets = WindowInsets(0),
     ) { padding ->
-        val tab = Tab.entries[current]
+        val tab = selectedTab
         CompositionLocalProvider(LocalTabReselect provides reselects[tab.ordinal]) {
             tabs.SaveableStateProvider(tab) { TabPage(tab, padding) }
         }
@@ -167,6 +178,7 @@ private fun TabPage(tab: Tab, padding: PaddingValues) {
 
 @Composable
 private fun FloatingNavBar(
+    tabs: List<Tab>,
     selected: Tab,
     alerts: Set<Tab>,
     onSelected: (Tab) -> Unit,
@@ -176,7 +188,7 @@ private fun FloatingNavBar(
     // As wide as its items, not the screen.
     FloatingPill(modifier, alignment = alignment) {
         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            for (tab in Tab.entries) {
+            for (tab in tabs) {
                 NavItem(
                     tab,
                     selected = tab == selected,
