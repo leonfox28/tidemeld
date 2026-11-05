@@ -10,6 +10,9 @@ struct XPostCard: View {
         XPostActionHost(post: post, owner: owner) { actions in
             PostCard(
                 detail: detail, activity: post.repostedBy.map { "\($0) 转发" }, onOpen: open,
+                replyContext: xReplyReference(
+                    post.replyTo, handles: post.replyToHandles,
+                    owner: owner, originalID: post.originalID, router: graph.router),
                 hasAside: post.quote != nil
                     || (!detail && !post.media.isEmpty),
                 header: {
@@ -24,8 +27,10 @@ struct XPostCard: View {
                 },
                 content: {
                     VStack(alignment: .leading, spacing: 8) {
-                        XPostText(text: post.text, owner: owner, selectable: detail).frame(
-                            maxWidth: .infinity, alignment: .leading)
+                        if !post.text.isEmpty {
+                            XPostText(text: post.text, owner: owner, selectable: detail).frame(
+                                maxWidth: .infinity, alignment: .leading)
+                        }
                         if detail || post.quote != nil {
                             XPostMedia(items: post.media, postID: post.originalID, owner: owner)
                         }
@@ -39,6 +44,12 @@ struct XPostCard: View {
                                     owner: owner, id: quote.url.lastPathComponent, initial: nil))
                         }) {
                             VStack(alignment: .leading, spacing: 8) {
+                                if let reference = xReplyReference(
+                                    quote.replyTo, handles: quote.replyToHandles,
+                                    owner: owner, originalID: quote.url.lastPathComponent, router: graph.router)
+                                {
+                                    PostReplyContext(reference: reference)
+                                }
                                 XPostText(text: quote.text, owner: owner, author: quote.author)
                                 XPostMedia(items: quote.media, postID: quote.url.lastPathComponent, owner: owner)
                             }
@@ -51,6 +62,16 @@ struct XPostCard: View {
     }
     private func open() {
         graph.router.push(.xStatus(owner: owner, id: post.originalID, initial: post))
+    }
+}
+
+@MainActor func xReplyReference(
+    _ parent: String?, handles: [String], owner: String, originalID: String,
+    router: Router
+) -> PostReplyReference? {
+    guard let parent, !parent.isEmpty, parent != originalID else { return nil }
+    return PostReplyReference(target: handles.isEmpty ? "原帖" : handles.map { "@\($0)" }.joined(separator: " ")) {
+        router.push(.xStatus(owner: owner, id: parent, initial: nil))
     }
 }
 

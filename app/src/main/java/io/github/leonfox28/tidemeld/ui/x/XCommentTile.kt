@@ -67,6 +67,7 @@ fun XCommentTile(
                         onOpen = { navigator.push(Route.XDetail(owner, quote.originalId, quote)) }
                     ) {
                         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            xReplyReference(quote, owner, navigator)?.let { PostReplyContext(it) }
                             XPostText(
                                 quote.text,
                                 owner,

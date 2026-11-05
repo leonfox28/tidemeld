@@ -36,6 +36,135 @@ class XPostTest {
         assertEquals(listOf("https://media.test/gif.mp4"), gif.streamUrls)
     }
 
+    private fun contentTweet(legacy: JsonObject, note: JsonObject? = null): JsonObject =
+        JsonObject(
+            tweet("42") +
+                buildJsonObject {
+                    put("legacy", legacy)
+                    note?.let {
+                        put(
+                            "note_tweet",
+                            buildJsonObject {
+                                put("note_tweet_results", buildJsonObject { put("result", it) })
+                            },
+                        )
+                    }
+                }
+        )
+
+    @Test
+    fun `reply addressing and rendered media links leave the body while ordinary mentions and URLs remain`() {
+        val raw = "@parent @Other 😀 &amp; @body https://t.co/article https://t.co/photo"
+        val legacy = buildJsonObject {
+            put("full_text", raw)
+            put("in_reply_to_status_id_str", "7")
+            put("in_reply_to_screen_name", "parent")
+            put(
+                "display_text_range",
+                JsonArray(listOf(JsonPrimitive(15), JsonPrimitive(raw.length))),
+            )
+            put(
+                "entities",
+                Json.parseToJsonElement(
+                    """{"urls":[{"url":"https://t.co/article","expanded_url":"https://example.com/article"}]}"""
+                ),
+            )
+            put(
+                "extended_entities",
+                Json.parseToJsonElement(
+                    """{"media":[{"type":"photo","url":"https://t.co/photo","media_url_https":"https://media.test/photo.jpg"}]}"""
+                ),
+            )
+        }
+        val post = parseXPost(contentTweet(legacy))!!
+        assertEquals("😀 & @body https://example.com/article", post.text)
+        assertEquals(listOf("parent", "Other"), post.replyToHandles)
+        assertEquals("7", post.replyTo)
+        assertEquals(1, post.media.size)
+    }
+
+    @Test
+    fun `missing or invalid ranges do not erase mentions notes or unavailable media links`() {
+        val raw = "@parent 😀 https://t.co/photo-more https://t.co/missing https://t.co/photo"
+        val legacy = buildJsonObject {
+            put("full_text", raw)
+            put("in_reply_to_status_id_str", "7")
+            put("in_reply_to_screen_name", "parent")
+            put(
+                "display_text_range",
+                JsonArray(listOf(JsonPrimitive(9), JsonPrimitive(raw.length))),
+            )
+            put(
+                "extended_entities",
+                Json.parseToJsonElement(
+                    """{"media":[{"type":"photo","url":"https://t.co/photo","media_url_https":"https://media.test/photo.jpg"},{"type":"photo","url":"https://t.co/missing"}]}"""
+                ),
+            )
+        }
+        assertEquals(
+            "@parent 😀 https://t.co/photo-more https://t.co/missing",
+            parseXPost(contentTweet(legacy))!!.text,
+        )
+        val note = buildJsonObject {
+            put("text", "😀 Long text @body https://t.co/photo")
+            put("entity_set", buildJsonObject {})
+        }
+        assertEquals("😀 Long text @body", parseXPost(contentTweet(legacy, note))!!.text)
+        val noReply = JsonObject(legacy - "in_reply_to_status_id_str" - "display_text_range")
+        assertTrue(parseXPost(contentTweet(noReply))!!.text.startsWith("@parent 😀"))
+        for (kind in listOf("video", "animated_gif")) {
+            val mediaOnly = buildJsonObject {
+                put("full_text", "https://t.co/video")
+                put(
+                    "extended_entities",
+                    Json.parseToJsonElement(
+                        """{"media":[{"type":"$kind","url":"https://t.co/video","media_url_https":"https://media.test/cover.jpg"}]}"""
+                    ),
+                )
+            }
+            assertEquals("", parseXPost(contentTweet(mediaOnly))!!.text)
+        }
+    }
+
+    @Test
+    fun `reposts and quotes retain the original reply context after normalization`() {
+        val raw = "@parent Reply https://t.co/photo"
+        val reply =
+            contentTweet(
+                buildJsonObject {
+                    put("full_text", raw)
+                    put("in_reply_to_status_id_str", "7")
+                    put("in_reply_to_screen_name", "parent")
+                    put(
+                        "display_text_range",
+                        JsonArray(listOf(JsonPrimitive(8), JsonPrimitive(raw.length))),
+                    )
+                    put(
+                        "extended_entities",
+                        Json.parseToJsonElement(
+                            """{"media":[{"type":"photo","url":"https://t.co/photo","media_url_https":"https://media.test/photo.jpg"}]}"""
+                        ),
+                    )
+                }
+            )
+        val repost =
+            JsonObject(
+                tweet("99") +
+                    ("legacy" to
+                        buildJsonObject {
+                            put("retweeted_status_result", buildJsonObject { put("result", reply) })
+                        })
+            )
+        val parsed = parseXPost(repost)!!
+        assertEquals("99", parsed.id)
+        assertEquals("42", parsed.originalId)
+        assertEquals("7", parsed.replyTo)
+        assertEquals(listOf("parent"), parsed.replyToHandles)
+        assertEquals("Reply", parsed.text)
+        assertEquals("Reply", parseXPost(tweet("100", reply))!!.quote!!.text)
+        assertEquals(listOf("parent"), parseXPost(tweet("100", reply))!!.quote!!.replyToHandles)
+    }
+
     private fun tweet(id: String, quote: JsonObject? = null): JsonObject = buildJsonObject {
         put("rest_id", id)
         put(

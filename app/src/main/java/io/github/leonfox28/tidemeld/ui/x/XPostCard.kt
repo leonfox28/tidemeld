@@ -29,6 +29,7 @@ fun XPostCard(post: XPost, owner: String, detail: Boolean = false) {
         detail = detail,
         activity = post.repostedBy?.let { "$it 转发" },
         onOpen = { navigator.push(Route.XDetail(owner, post.originalId, post)) },
+        replyContext = xReplyReference(post, owner, navigator),
         header = {
             PostHeader(
                 name = post.author,
@@ -42,16 +43,17 @@ fun XPostCard(post: XPost, owner: String, detail: Boolean = false) {
         },
         body = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                XPostText(
-                    post.text,
-                    owner,
-                    selectable = detail,
-                    style =
-                        MaterialTheme.typography.bodyMedium.copy(
-                            fontSize = 15.sp,
-                            lineHeight = (15 * 1.45).sp,
-                        ),
-                )
+                if (post.text.isNotEmpty())
+                    XPostText(
+                        post.text,
+                        owner,
+                        selectable = detail,
+                        style =
+                            MaterialTheme.typography.bodyMedium.copy(
+                                fontSize = 15.sp,
+                                lineHeight = (15 * 1.45).sp,
+                            ),
+                    )
                 if (detail || post.quote != null) XMedia(post, owner)
             }
         },
@@ -65,6 +67,9 @@ fun XPostCard(post: XPost, owner: String, detail: Boolean = false) {
                             }
                         ) {
                             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                xReplyReference(quote, owner, navigator)?.let {
+                                    PostReplyContext(it)
+                                }
                                 XPostText(
                                     quote.text,
                                     owner,
@@ -80,6 +85,19 @@ fun XPostCard(post: XPost, owner: String, detail: Boolean = false) {
             },
         footer = { PostInteractionBar(actions) },
     )
+}
+
+internal fun xReplyReference(
+    post: XPost,
+    owner: String,
+    navigator: Navigator,
+): PostReplyReference? {
+    val parent = post.replyTo?.takeIf { it.isNotEmpty() && it != post.originalId } ?: return null
+    return PostReplyReference(
+        post.replyToHandles.takeIf { it.isNotEmpty() }?.joinToString(" ") { "@$it" } ?: "原帖"
+    ) {
+        navigator.push(Route.XDetail(owner, parent, null))
+    }
 }
 
 @Composable

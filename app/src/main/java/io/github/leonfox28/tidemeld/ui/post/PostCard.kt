@@ -27,7 +27,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import io.github.leonfox28.tidemeld.ui.widget.ReadingWidth
@@ -41,6 +44,7 @@ fun PostCard(
     detail: Boolean = false,
     activity: String? = null,
     onOpen: (() -> Unit)? = null,
+    replyContext: PostReplyReference? = null,
     header: @Composable () -> Unit,
     body: @Composable () -> Unit,
     aside: (@Composable () -> Unit)? = null,
@@ -59,6 +63,10 @@ fun PostCard(
             Column {
                 header()
                 Spacer(Modifier.height(8.dp))
+                if (replyContext != null) {
+                    PostReplyContext(replyContext)
+                    Spacer(Modifier.height(8.dp))
+                }
                 body()
             }
         }
@@ -70,6 +78,22 @@ fun PostCard(
             }
         } else PostCardLayout(main, aside, footer)
     }
+}
+
+data class PostReplyReference(val target: String, val onOpen: () -> Unit)
+
+/** The platform supplies a label and a bound destination; presentation is shared. */
+@Composable
+fun PostReplyContext(reference: PostReplyReference) {
+    val colors = MaterialTheme.colorScheme
+    Text(
+        buildAnnotatedString {
+            withStyle(SpanStyle(color = colors.onSurfaceVariant)) { append("回复 ") }
+            withStyle(SpanStyle(color = colors.primary)) { append(reference.target) }
+        },
+        modifier = Modifier.clickable(onClickLabel = "查看被回复的帖子", onClick = reference.onOpen),
+        style = MaterialTheme.typography.bodySmall,
+    )
 }
 
 @Composable

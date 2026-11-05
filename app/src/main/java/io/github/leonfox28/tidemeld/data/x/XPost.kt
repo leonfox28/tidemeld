@@ -28,6 +28,7 @@ data class XPost(
     val metrics: XMetrics = XMetrics(),
     val replyTo: String? = null,
     val attachments: List<MixedMedia> = emptyList(),
+    val replyToHandles: List<String> = emptyList(),
 ) {
     val media: List<MixedMedia>
         get() = attachments.ifEmpty {
@@ -140,14 +141,9 @@ fun parseXPost(value: JsonElement?, promoted: Boolean = false, depth: Int = 0): 
                 createdAt = parseWeiboDate(legacy["created_at"].string()),
             )
     val note = root.at("note_tweet", "note_tweet_results", "result")
-    var text = note.at("text").string() ?: legacy["full_text"].string().orEmpty()
-    val urls = note.at("entity_set", "urls") ?: legacy.at("entities", "urls")
-    (urls as? JsonArray)?.forEach { entity ->
-        val short = entity.at("url").string()
-        val long = entity.at("expanded_url").string()
-        if (short != null && long != null) text = text.replace(short, long)
-    }
-    val media = parseXMedia((legacy.at("extended_entities", "media") as? JsonArray).orEmpty())
+    val entries = (legacy.at("extended_entities", "media") as? JsonArray).orEmpty()
+    val media = parseXMedia(entries)
+    val content = xPostContent(legacy, note, entries)
     val photos = media.filterIsInstance<MixedMedia.Pic>().map { it.pic }
     val video = media.filterIsInstance<MixedMedia.Video>().firstOrNull()?.video
     return XPost(
@@ -156,7 +152,7 @@ fun parseXPost(value: JsonElement?, promoted: Boolean = false, depth: Int = 0): 
         handle,
         user.at("avatar", "image_url").string()
             ?: user.at("legacy", "profile_image_url_https").string(),
-        Parser.unescapeEntities(text, false),
+        content.text,
         parseWeiboDate(legacy["created_at"].string()),
         photos,
         video?.coverUrl,
@@ -173,5 +169,75 @@ fun parseXPost(value: JsonElement?, promoted: Boolean = false, depth: Int = 0): 
             ),
         replyTo = legacy["in_reply_to_status_id_str"].string(),
         attachments = media,
+        replyToHandles = content.replyToHandles,
+    )
+}
+
+private data class XPostContent(val text: String, val replyToHandles: List<String>)
+
+/** Hide only reply addressing and attachments that have another native presentation. */
+private fun xPostContent(
+    legacy: JsonObject,
+    note: JsonElement?,
+    media: List<JsonElement>,
+): XPostContent {
+    val noteText = note.at("text").string()
+    var text = noteText ?: legacy["full_text"].string().orEmpty()
+    val recipients = mutableListOf<String>()
+    if (legacy["in_reply_to_status_id_str"].string() != null) {
+        legacy["in_reply_to_screen_name"]
+            .string()
+            ?.takeIf { it.matches(Regex("[A-Za-z0-9_]{1,15}")) }
+            ?.let(recipients::add)
+        // A long note has its own text and offsets. Never crop it using the legacy preview's range.
+        val range =
+            (if (noteText != null) note.at("display_text_range") else legacy["display_text_range"])
+                as? JsonArray
+        val start = range?.getOrNull(0).string()?.toIntOrNull()
+        val end = range?.getOrNull(1).string()?.toIntOrNull()
+        if (
+            range?.size == 2 &&
+                start != null &&
+                end != null &&
+                start > 0 &&
+                start <= end &&
+                end <= text.length
+        ) {
+            val prefix = text.take(start)
+            // Addressing contains ASCII handles and whitespace only, so no Unicode boundary is
+            // split.
+            if (prefix.matches(Regex("(?:@[A-Za-z0-9_]{1,15}\\s+)+"))) {
+                recipients +=
+                    Regex("@([A-Za-z0-9_]{1,15})").findAll(prefix).map { it.groupValues[1] }
+                text = text.drop(start)
+            }
+        }
+    }
+    for (entry in media) {
+        val represented = parseXMedia(listOf(entry)).singleOrNull()
+        val visible =
+            when (represented) {
+                is MixedMedia.Pic -> true
+                is MixedMedia.Video ->
+                    represented.video.coverUrl != null || represented.video.streamUrls.isNotEmpty()
+                null -> false
+            }
+        val url = entry.at("url").string()?.takeIf(String::isNotBlank) ?: continue
+        if (!visible) continue
+        // Match the entire token, never every t.co link or the prefix of another URL.
+        val cleaned = text.replace(Regex("(?<!\\S)${Regex.escape(url)}(?=\\s|$)"), "")
+        if (cleaned != text) text = cleaned.trim()
+    }
+    // Do not use the range's end to drop attachments we cannot render or truncate a long note.
+    val urls =
+        if (noteText != null) note.at("entity_set", "urls") else legacy.at("entities", "urls")
+    (urls as? JsonArray)?.forEach { entity ->
+        val short = entity.at("url").string()?.takeIf(String::isNotBlank)
+        val expanded = entity.at("expanded_url").string()
+        if (short != null && expanded != null) text = text.replace(short, expanded)
+    }
+    return XPostContent(
+        Parser.unescapeEntities(text, false),
+        recipients.distinctBy { it.lowercase(java.util.Locale.ROOT) },
     )
 }

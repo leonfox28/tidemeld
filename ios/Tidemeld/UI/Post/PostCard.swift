@@ -14,6 +14,7 @@ struct PostCard<Header: View, Body: View, Aside: View, Footer: View>: View {
     var detail = false
     var activity: String?
     var onOpen: (() -> Void)?
+    var replyContext: PostReplyReference? = nil
     let hasAside: Bool
     @ViewBuilder let header: () -> Header
     @ViewBuilder let content: () -> Body
@@ -24,12 +25,14 @@ struct PostCard<Header: View, Body: View, Aside: View, Footer: View>: View {
             if !detail, let activity { ActivityLine(label: activity) }
             if detail {
                 header()
+                if let replyContext { PostReplyContext(reference: replyContext) }
                 content()
                 if hasAside { aside() }
             } else {
                 PostCardLayout(hasAside: hasAside) {
                     VStack(alignment: .leading, spacing: 8) {
                         header()
+                        if let replyContext { PostReplyContext(reference: replyContext) }
                         content()
                     }
                     footer()
@@ -39,6 +42,24 @@ struct PostCard<Header: View, Body: View, Aside: View, Footer: View>: View {
         }.padding(.horizontal, 16).padding(.top, 12).padding(.bottom, detail ? 12 : 0)
             .frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
             .onTapGesture { if !detail { onOpen?() } }
+    }
+}
+
+struct PostReplyReference {
+    let target: String
+    let onOpen: @MainActor () -> Void
+}
+
+/// The platform supplies a label and a bound destination; presentation is shared.
+struct PostReplyContext: View {
+    let reference: PostReplyReference
+    var body: some View {
+        Button(action: reference.onOpen) {
+            Text(
+                "\(Text("回复 ").foregroundStyle(AppTheme.secondary))\(Text(reference.target).foregroundStyle(AppTheme.accent))"
+            )
+            .font(.footnote).multilineTextAlignment(.leading)
+        }.buttonStyle(.plain).accessibilityHint("查看被回复的帖子")
     }
 }
 

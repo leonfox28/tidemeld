@@ -38,6 +38,30 @@ class XPostLayoutTest {
         )
 
     @Test
+    fun `reply context opens the parent with its source account from cards and details`() {
+        val navigator = Navigator()
+        val reply = post.copy(replyTo = "7", replyToHandles = listOf("parent"))
+        var detail by mutableStateOf(false)
+        compose.setContent {
+            TestHost(navigator = navigator) { XPostCard(reply, "x:other", detail) }
+        }
+        compose.onNodeWithText("回复 @parent").performTouchInput { click() }
+        compose.waitForIdle()
+        assertEquals(
+            listOf(Route.Home, Route.XDetail("x:other", "7", null)),
+            navigator.backStack.toList(),
+        )
+        navigator.pop()
+        detail = true
+        compose.onNodeWithText("回复 @parent").performTouchInput { click() }
+        compose.waitForIdle()
+        assertEquals(
+            listOf(Route.Home, Route.XDetail("x:other", "7", null)),
+            navigator.backStack.toList(),
+        )
+    }
+
+    @Test
     fun `comment media stays thumbnail sized and opens the shared viewer`() {
         val navigator = Navigator()
         compose.setContent { TestHost(navigator = navigator) { XCommentTile(post, "x:7") } }

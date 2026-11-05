@@ -5,6 +5,8 @@ struct XQuote: Sendable {
     let text: String
     let url: URL
     var media: [MixedMedia] = []
+    var replyTo: String? = nil
+    var replyToHandles: [String] = []
 }
 
 struct XPost: Sendable, Identifiable {
@@ -24,10 +26,12 @@ struct XPost: Sendable, Identifiable {
     var metrics = XMetrics()
     var replyTo: String? = nil
     var attachments: [MixedMedia] = []
+    var replyToHandles: [String] = []
     var media: [MixedMedia] {
         if !attachments.isEmpty { return attachments }
-        return pictures.map(MixedMedia.pic) + (videoCover != nil || videoURL != nil
-            ? [.video(VideoInfo(coverURL: videoCover, streamURLs: videoURL.map { [$0] } ?? []))] : [])
+        return pictures.map(MixedMedia.pic)
+            + (videoCover != nil || videoURL != nil
+                ? [.video(VideoInfo(coverURL: videoCover, streamURLs: videoURL.map { [$0] } ?? []))] : [])
     }
     var url: URL { URL(string: "https://x.com/\(handle)/status/\(originalID)")! }
 }
@@ -88,17 +92,9 @@ func parseXPost(_ value: JSON?, promoted: Bool = false, depth: Int = 0) -> XPost
         return post
     }
     let note = root["note_tweet"]?["note_tweet_results"]?["result"]
-    var text = note?["text"]?.string ?? legacy["full_text"]?.string ?? ""
-    for entity in (note?["entity_set"]?["urls"] ?? legacy["entities"]?["urls"])?.objects ?? [] {
-        if let short = entity["url"]?.string, let long = entity["expanded_url"]?.string {
-            text = text.replacingOccurrences(of: short, with: long)
-        }
-    }
-    text = text.replacingOccurrences(of: "&lt;", with: "<").replacingOccurrences(
-        of: "&gt;", with: ">"
-    )
-    .replacingOccurrences(of: "&amp;", with: "&")
-    let media = parseXMedia(legacy["extended_entities"]?["media"]?.objects ?? [])
+    let entries = legacy["extended_entities"]?["media"]?.objects ?? []
+    let media = parseXMedia(entries)
+    let content = xPostContent(legacy, note: note, media: entries)
     let pictures = media.compactMap { if case .pic(let pic) = $0 { pic } else { nil } }
     let video = media.compactMap { if case .video(let video) = $0 { video } else { nil } }.first
     let quote = parseXPost(root["quoted_status_result"]?["result"], depth: depth + 1)
@@ -106,9 +102,13 @@ func parseXPost(_ value: JSON?, promoted: Bool = false, depth: Int = 0) -> XPost
         id: id, author: author, handle: handle,
         avatar: user?["avatar"]?["image_url"]?.url
             ?? user?["legacy"]?["profile_image_url_https"]?.url,
-        text: text, createdAt: parseWeiboDate(legacy["created_at"]?.string), pictures: pictures,
+        text: content.text, createdAt: parseWeiboDate(legacy["created_at"]?.string), pictures: pictures,
         videoCover: video?.coverURL, videoURL: video?.streamURLs.first,
-        quote: quote.map { XQuote(author: $0.author, text: $0.text, url: $0.url, media: $0.media) },
+        quote: quote.map {
+            XQuote(
+                author: $0.author, text: $0.text, url: $0.url, media: $0.media,
+                replyTo: $0.replyTo, replyToHandles: $0.replyToHandles)
+        },
         promoted: promoted,
         originalID: id,
         metrics: XMetrics(
@@ -116,7 +116,63 @@ func parseXPost(_ value: JSON?, promoted: Bool = false, depth: Int = 0) -> XPost
             reposts: Int(clamping: max(0, legacy["retweet_count"]?.int ?? 0)),
             replies: Int(clamping: max(0, legacy["reply_count"]?.int ?? 0)),
             liked: legacy["favorited"]?.bool == true, reposted: legacy["retweeted"]?.bool == true),
-        replyTo: legacy["in_reply_to_status_id_str"]?.string, attachments: media)
+        replyTo: legacy["in_reply_to_status_id_str"]?.string, attachments: media,
+        replyToHandles: content.replyToHandles)
+}
+
+/// Hide only reply addressing and attachments that have another native presentation.
+private func xPostContent(_ legacy: JSON, note: JSON?, media: [JSON]) -> (text: String, replyToHandles: [String]) {
+    let noteText = note?["text"]?.string
+    var text = noteText ?? legacy["full_text"]?.string ?? ""
+    var recipients: [String] = []
+    if legacy["in_reply_to_status_id_str"]?.string != nil {
+        if let handle = legacy["in_reply_to_screen_name"]?.string,
+            handle.range(of: #"^[A-Za-z0-9_]{1,15}$"#, options: .regularExpression) != nil
+        {
+            recipients.append(handle)
+        }
+        // A long note has its own text and offsets, independent of the legacy preview.
+        let range = (noteText != nil ? note?["display_text_range"] : legacy["display_text_range"])?.array
+        if let range, range.count == 2, let start = range[0].int, let end = range[1].int,
+            start > 0, start <= end, end <= (text as NSString).length
+        {
+            let prefix = (text as NSString).substring(to: Int(start))
+            // Addressing contains ASCII handles and whitespace only; do not strip ordinary mentions.
+            if prefix.range(of: #"^(?:@[A-Za-z0-9_]{1,15}\s+)+$"#, options: .regularExpression) != nil {
+                recipients += prefix.split(whereSeparator: \.isWhitespace).map { String($0.dropFirst()) }
+                text = (text as NSString).substring(from: Int(start))
+            }
+        }
+    }
+    for entry in media {
+        let represented = parseXMedia([entry]).first
+        let visible: Bool
+        switch represented {
+        case .pic: visible = true
+        case .video(let video): visible = video.coverURL != nil || !video.streamURLs.isEmpty
+        case nil: visible = false
+        }
+        guard visible, let url = entry["url"]?.string, !url.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        else { continue }
+        // Match the whole attachment token, not every t.co link or a longer URL sharing its prefix.
+        let cleaned = text.replacingOccurrences(
+            of: #"(?<!\S)"# + NSRegularExpression.escapedPattern(for: url) + #"(?=\s|$)"#,
+            with: "", options: .regularExpression)
+        if cleaned != text { text = cleaned.trimmingCharacters(in: .whitespacesAndNewlines) }
+    }
+    // Keep links to media we cannot render, and never truncate long text using the range's end.
+    let urls = noteText != nil ? note?["entity_set"]?["urls"] : legacy["entities"]?["urls"]
+    for entity in urls?.objects ?? [] {
+        if let short = entity["url"]?.string, !short.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+            let expanded = entity["expanded_url"]?.string
+        {
+            text = text.replacingOccurrences(of: short, with: expanded)
+        }
+    }
+    text = text.replacingOccurrences(of: "&lt;", with: "<").replacingOccurrences(of: "&gt;", with: ">")
+        .replacingOccurrences(of: "&amp;", with: "&")
+    var seen: Set<String> = []
+    return (text, recipients.filter { seen.insert($0.lowercased()).inserted })
 }
 
 func parseXTimeline(_ json: JSON, previousCursor: String? = nil) throws -> Paged<XPost> {
