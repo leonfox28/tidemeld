@@ -1,6 +1,7 @@
 package io.github.leonfox28.tidemeld.ui.x
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -11,6 +12,8 @@ import io.github.leonfox28.tidemeld.data.x.XPost
 import io.github.leonfox28.tidemeld.ui.post.*
 import io.github.leonfox28.tidemeld.ui.widget.*
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 
@@ -22,14 +25,27 @@ class XDetailController(
     scope: CoroutineScope,
 ) : PagedController<XPost>(scope) {
     val post = MutableStateFlow(initial)
+    val ancestors = MutableStateFlow<List<XPost>>(emptyList())
+    private var contextGeneration = 0
 
     override fun idOf(item: XPost) = item.originalId
 
-    override suspend fun fetchPage(cursor: String?) =
-        interactions.conversation(owner, id, cursor).let { page ->
-            page.post?.let { post.value = it }
+    override suspend fun fetchPage(
+        cursor: String?
+    ): io.github.leonfox28.tidemeld.data.model.Paged<XPost> {
+        val ticket = if (cursor == null) ++contextGeneration else contextGeneration
+        return interactions.conversation(owner, id, cursor).let { page ->
+            currentCoroutineContext().ensureActive()
+            // Pagination appends comments without replacing the context or focal post.
+            if (cursor == null && ticket == contextGeneration) {
+                ancestors.value = page.ancestors
+                page.post?.let {
+                    post.value = it.copy(repostedBy = post.value?.repostedBy ?: it.repostedBy)
+                }
+            }
             page.replies
         }
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -40,6 +56,7 @@ fun XDetailPage(owner: String, id: String, initial: XPost?) {
     val controller =
         remember(owner, id) { XDetailController(graph.xInteractions, owner, id, initial, scope) }
     val post by controller.post.collectAsStateWithLifecycle()
+    val ancestors by controller.ancestors.collectAsStateWithLifecycle()
     val state by controller.state.collectAsStateWithLifecycle()
     val overlays = LocalOverlays.current
     fun reply() {
@@ -56,6 +73,7 @@ fun XDetailPage(owner: String, id: String, initial: XPost?) {
         title = "帖子",
         actions = actions,
         onRefresh = { controller.refresh() },
+        initialPostIndex = ancestors.size.takeIf { it > 0 },
         onLoadMore =
             if ((state as? ListLoad.Ready)?.list?.loadMoreError == null)
                 ({
@@ -64,7 +82,14 @@ fun XDetailPage(owner: String, id: String, initial: XPost?) {
                 })
             else null,
         postItems = {
-            post?.let { value -> item(key = "focal") { XPostCard(value, owner, detail = true) } }
+            items(ancestors, key = { "ancestor:${it.originalId}" }) { ancestor ->
+                PostConversationContext { XPostCard(ancestor, owner) }
+            }
+            post?.let { value ->
+                item(key = "focal") {
+                    XPostCard(value, owner, detail = true, showReplyContext = ancestors.isEmpty())
+                }
+            }
         },
         responseItems = {
             item {

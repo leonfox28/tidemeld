@@ -67,7 +67,7 @@ enum XWrite { case like, repost, reply, quote }
                 throw WeiboError.sessionExpired
             }
             ingest(
-                account, posts: (page.post.map { [$0] } ?? []) + page.replies.items,
+                account, posts: page.ancestors + (page.post.map { [$0] } ?? []) + page.replies.items,
                 started: started)
             return page
         } catch {

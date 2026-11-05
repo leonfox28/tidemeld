@@ -43,6 +43,7 @@ fun PostCard(
     modifier: Modifier = Modifier,
     detail: Boolean = false,
     activity: String? = null,
+    showActivityInDetail: Boolean = false,
     onOpen: (() -> Unit)? = null,
     replyContext: PostReplyReference? = null,
     header: @Composable () -> Unit,
@@ -55,7 +56,7 @@ fun PostCard(
             .then(if (!detail && onOpen != null) Modifier.clickable(onClick = onOpen) else Modifier)
             .padding(start = 16.dp, top = 12.dp, end = 16.dp, bottom = if (detail) 12.dp else 0.dp)
     ) {
-        if (!detail && activity != null) {
+        if ((!detail || showActivityInDetail) && activity != null) {
             PostActivity(activity)
             Spacer(Modifier.height(8.dp))
         }

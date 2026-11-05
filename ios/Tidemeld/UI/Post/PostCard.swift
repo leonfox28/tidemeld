@@ -13,6 +13,7 @@ let wideCardFrom: CGFloat = 840
 struct PostCard<Header: View, Body: View, Aside: View, Footer: View>: View {
     var detail = false
     var activity: String?
+    var showActivityInDetail = false
     var onOpen: (() -> Void)?
     var replyContext: PostReplyReference? = nil
     let hasAside: Bool
@@ -22,7 +23,7 @@ struct PostCard<Header: View, Body: View, Aside: View, Footer: View>: View {
     @ViewBuilder let footer: () -> Footer
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            if !detail, let activity { ActivityLine(label: activity) }
+            if !detail || showActivityInDetail, let activity { ActivityLine(label: activity) }
             if detail {
                 header()
                 if let replyContext { PostReplyContext(reference: replyContext) }

@@ -85,6 +85,7 @@ extension ScrollGeometry {
 /// view, so that it doesn't keep them hidden over the page put on top of it.
 struct HideOnScroll: ViewModifier {
     @Binding var visible: Bool
+    var enabled = true
     /// Whether the content is a web view, which tells of its scrolling its own way.
     var web = false
     /// Whether [visible] is the tab bar's, which fades out before it hides; see
@@ -99,7 +100,9 @@ struct HideOnScroll: ViewModifier {
     func body(content: Content) -> some View {
         Group {
             if web {
-                content.webViewOnScrollGeometryChange(for: ScrollHider.Position.self, of: \.hiderPosition) { scrolled($1) }
+                content.webViewOnScrollGeometryChange(for: ScrollHider.Position.self, of: \.hiderPosition) {
+                    scrolled($1)
+                }
             } else {
                 content.onScrollGeometryChange(for: ScrollHider.Position.self, of: \.hiderPosition) { scrolled($1) }
             }
@@ -118,6 +121,12 @@ struct HideOnScroll: ViewModifier {
 
     private func scrolled(_ position: ScrollHider.Position) {
         hider.scrolled(to: position)
+        if !enabled {
+            hider.show()
+            stopFading()
+            visible = true
+            return
+        }
         if hider.visible {
             if fadingOut {
                 stopFading()
@@ -194,8 +203,8 @@ enum TabBarFade {
 extension View {
     /// The page's bottom toolbar, which goes away as the content scrolls on
     /// and comes back as it scrolls back.
-    func bottomBarHidesOnScroll(_ visible: Binding<Bool>) -> some View {
-        modifier(HideOnScroll(visible: visible))
+    func bottomBarHidesOnScroll(_ visible: Binding<Bool>, enabled: Bool = true) -> some View {
+        modifier(HideOnScroll(visible: visible, enabled: enabled))
             .toolbarVisibility(visible.wrappedValue ? .visible : .hidden, for: .bottomBar)
     }
 

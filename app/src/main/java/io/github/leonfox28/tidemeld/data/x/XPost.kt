@@ -54,7 +54,11 @@ data class XMetrics(
     val reposted: Boolean = false,
 )
 
-data class XConversation(val post: XPost?, val replies: Paged<XPost>)
+data class XConversation(
+    val post: XPost?,
+    val replies: Paged<XPost>,
+    val ancestors: List<XPost> = emptyList(),
+)
 
 fun parseXConversation(
     json: JsonObject,
@@ -65,18 +69,31 @@ fun parseXConversation(
         json.at("data", "threaded_conversation_with_injections_v2", "instructions") as? JsonArray
             ?: throw WeiboApiException("X 暂时无法读取这条帖子的评论")
     val page = parseXEntries(instructions, previousCursor)
+    val posts = page.items.distinctBy { it.originalId }.associateBy { it.originalId }
+    val focal = posts[focalId]
+    val ancestors = mutableListOf<XPost>()
+    val visited = mutableSetOf(focalId)
+    var parent = focal?.replyTo
+    while (parent != null && visited.add(parent)) {
+        val post = posts[parent] ?: break
+        ancestors += post
+        parent = post.replyTo
+    }
     val related = mutableSetOf(focalId)
     repeat(page.items.size) {
-        page.items.filter { it.replyTo in related }.forEach { related += it.originalId }
+        page.items
+            .filter { it.originalId !in visited && it.replyTo in related }
+            .forEach { related += it.originalId }
     }
     return XConversation(
-        page.items.firstOrNull { it.originalId == focalId },
+        focal,
         Paged(
             page.items.filter {
                 it.originalId != focalId && it.originalId in related
             },
             page.nextCursor,
         ),
+        ancestors.asReversed(),
     )
 }
 

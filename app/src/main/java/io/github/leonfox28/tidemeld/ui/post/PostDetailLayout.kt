@@ -1,6 +1,8 @@
 package io.github.leonfox28.tidemeld.ui.post
 
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -17,19 +19,24 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.dp
 import io.github.leonfox28.tidemeld.ui.navigation.LocalNavigator
 import io.github.leonfox28.tidemeld.ui.widget.AppSnackbarHost
 import io.github.leonfox28.tidemeld.ui.widget.BarsOnScroll
@@ -52,6 +59,7 @@ fun PostDetailLayout(
     actions: PostInteractionActions?,
     onRefresh: suspend () -> Unit,
     onLoadMore: (() -> Unit)? = null,
+    initialPostIndex: Int? = null,
     postItems: LazyListScope.() -> Unit,
     responseItems: LazyListScope.() -> Unit,
 ) {
@@ -64,8 +72,40 @@ fun PostDetailLayout(
         animateFloatAsState(if (bars.visible) 0f else 1f, BarsOnScroll.spec(), label = "bars")
     var refreshing by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
+    val postListState = rememberLazyListState()
     val split = windowSize() == WindowSize.Expanded
-    LoadMoreTrigger(listState, onLoadMore)
+    var positioned by remember { mutableStateOf(false) }
+    var trailingSpace by remember { mutableStateOf(0.dp) }
+    val density = LocalDensity.current
+    LaunchedEffect(initialPostIndex, split, density) {
+        val focus = initialPostIndex ?: return@LaunchedEffect
+        val state = if (split) postListState else listState
+        snapshotFlow { state.layoutInfo }
+            .collect { info ->
+                val focal = info.visibleItemsInfo.find { it.index == focus }
+                val last = info.visibleItemsInfo.lastOrNull()
+                if (focal != null && last?.index == info.totalItemsCount - 1) {
+                    val viewport = info.viewportEndOffset - info.viewportStartOffset
+                    val afterFocus = last.offset + last.size - focal.offset
+                    trailingSpace =
+                        with(density) { (viewport - afterFocus).coerceAtLeast(0).toDp() }
+                } else if (
+                    info.visibleItemsInfo.firstOrNull()?.index?.let { it >= focus } == true
+                ) {
+                    trailingSpace = 0.dp
+                }
+            }
+    }
+    LaunchedEffect(initialPostIndex, split, trailingSpace) {
+        if (!positioned && initialPostIndex != null) {
+            (if (split) postListState else listState).requestScrollToItem(initialPostIndex)
+            // Apply the initial position before enabling user-driven pagination.
+            withFrameNanos {}
+            withFrameNanos {}
+            positioned = true
+        }
+    }
+    LoadMoreTrigger(listState, if (initialPostIndex == null || positioned) onLoadMore else null)
     Scaffold(
         Modifier.nestedScroll(bars.connection),
         bottomBar = {
@@ -117,11 +157,17 @@ fun PostDetailLayout(
             ) {
                 // Room to scroll the last item out from under the comment bar.
                 val bottom = PaddingValues(bottom = padding.calculateBottomPadding())
+                val focusedBottom =
+                    PaddingValues(bottom = maxOf(padding.calculateBottomPadding(), trailingSpace))
                 if (split) {
                     // The lists scroll on their own, leaving the status where it is.
                     ReadingPanes(
                         start = {
-                            LazyColumn(Modifier.fillMaxSize(), contentPadding = bottom) {
+                            LazyColumn(
+                                Modifier.fillMaxSize(),
+                                state = postListState,
+                                contentPadding = focusedBottom,
+                            ) {
                                 postItems()
                             }
                         },
@@ -140,7 +186,7 @@ fun PostDetailLayout(
                         LazyColumn(
                             Modifier.fillMaxSize(),
                             state = listState,
-                            contentPadding = readingPadding(maxWidth, bottom),
+                            contentPadding = readingPadding(maxWidth, focusedBottom),
                         ) {
                             postItems()
                             responseItems()
@@ -149,5 +195,18 @@ fun PostDetailLayout(
                 }
             }
         }
+    }
+}
+
+/** Joins contextual posts without introducing another card layout. */
+@Composable
+fun PostConversationContext(content: @Composable () -> Unit) {
+    Column {
+        content()
+        Box(
+            Modifier.padding(start = 36.dp)
+                .size(width = 2.dp, height = 24.dp)
+                .background(MaterialTheme.colorScheme.outlineVariant)
+        )
     }
 }

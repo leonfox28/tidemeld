@@ -5,12 +5,15 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
 import io.github.leonfox28.tidemeld.core.accounts.SocialPlatform
 import io.github.leonfox28.tidemeld.core.net.RequestThrottle
+import io.github.leonfox28.tidemeld.core.paging.ListLoad
 import io.github.leonfox28.tidemeld.core.session.StoredSession
 import io.github.leonfox28.tidemeld.data.model.Account
 import io.github.leonfox28.tidemeld.data.x.*
 import io.github.leonfox28.tidemeld.support.*
 import io.github.leonfox28.tidemeld.ui.navigation.*
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.*
 import org.junit.*
 import org.junit.Assert.*
@@ -106,6 +109,108 @@ class XPostCardTest {
         compose
             .onAllNodesWithContentDescription("来源：X", useUnmergedTree = true)
             .assertCountEquals(1)
+    }
+
+    private fun contextPage(
+        entries: List<Triple<String, String?, String>>,
+        cursor: String? = null,
+    ): String {
+        val rows =
+            entries
+                .map { (id, parent, body) ->
+                    Json.parseToJsonElement(
+                        """{"content":{"itemContent":{"tweet_results":{"result":{"rest_id":"$id","core":{"user_results":{"result":{"core":{"name":"作者","screen_name":"fixture"}}}},"legacy":{"full_text":${JsonPrimitive(body)},"in_reply_to_status_id_str":${parent?.let(::JsonPrimitive) ?: JsonNull}}}}}}}"""
+                    )
+                }
+                .toMutableList()
+        if (cursor != null)
+            rows +=
+                Json.parseToJsonElement("""{"content":{"cursorType":"Bottom","value":"$cursor"}}""")
+        return """{"data":{"threaded_conversation_with_injections_v2":{"instructions":[{"entries":${JsonArray(rows)}}]}}}"""
+    }
+
+    @Test
+    fun `reply detail focuses the current post and scrolling up reveals native context without prefetch`() {
+        val parentText = "合成上文\n".repeat(40)
+        web.respond = {
+            json(
+                contextPage(
+                    listOf(Triple("7", null, parentText), Triple("42", "7", "当前回复")),
+                    "next",
+                )
+            )
+        }
+        val navigator = Navigator()
+        compose.setContent {
+            TestHost(graph, navigator) { XDetailPage("x:7", "42", post.copy(repostedBy = "合成转发者")) }
+        }
+        compose.waitUntil(5000) {
+            compose
+                .onAllNodesWithText("当前回复", useUnmergedTree = true)
+                .fetchSemanticsNodes()
+                .isNotEmpty()
+        }
+        compose.waitForIdle()
+        compose.onNodeWithText("当前回复", useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithText("合成转发者 转发", useUnmergedTree = true).assertExists()
+        val listTop = compose.onNode(hasScrollToIndexAction()).fetchSemanticsNode().boundsInRoot.top
+        val authorTop =
+            compose
+                .onNodeWithText("合成转发者 转发", useUnmergedTree = true)
+                .fetchSemanticsNode()
+                .boundsInRoot
+                .top
+        assertTrue(
+            "The focal post should start near the top even with no comments",
+            authorTop - listTop < 80,
+        )
+        assertEquals(1, web.requests.size)
+        compose.onNode(hasScrollToIndexAction()).performScrollToIndex(0)
+        compose
+            .onNodeWithText(parentText, useUnmergedTree = true)
+            .assertIsDisplayed()
+            .performClick()
+        val opened = navigator.backStack.last() as Route.XDetail
+        assertEquals("7", opened.id)
+        assertEquals("x:7", opened.owner)
+    }
+
+    @Test
+    fun `comment pagination keeps context and refresh replaces it`() = runBlocking {
+        val first =
+            contextPage(listOf(Triple("7", null, "合成上文"), Triple("42", "7", "当前回复")), "next")
+        val more = contextPage(listOf(Triple("43", "42", "下级回复")))
+        web.respond = { request ->
+            json(
+                if (
+                    Json.parseToJsonElement(request.url.queryParameter("variables")!!)
+                        .jsonObject["cursor"] == null
+                )
+                    first
+                else more
+            )
+        }
+        val controller =
+            XDetailController(
+                graph.xInteractions,
+                "x:7",
+                "42",
+                post.copy(repostedBy = "合成转发者"),
+                this,
+            )
+        controller.start()
+        withTimeout(5000) { controller.state.first { it is ListLoad.Ready } }
+        assertEquals(listOf("7"), controller.ancestors.value.map { it.originalId })
+        controller.loadMore()
+        assertEquals(listOf("7"), controller.ancestors.value.map { it.originalId })
+        assertEquals("当前回复", controller.post.value?.text)
+        assertEquals("合成转发者", controller.post.value?.repostedBy)
+        assertEquals(2, web.requests.size)
+        web.respond = { json(contextPage(listOf(Triple("42", "missing", "更新后的回复")))) }
+        controller.refresh()
+        assertTrue(controller.ancestors.value.isEmpty())
+        assertEquals("更新后的回复", controller.post.value?.text)
+        assertEquals("合成转发者", controller.post.value?.repostedBy)
     }
 
     @Test

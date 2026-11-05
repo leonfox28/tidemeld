@@ -67,7 +67,7 @@ class XInteractions(private val accounts: AccountManager, private val api: XWebA
         try {
             val page = service().conversation(account.session, id, cursor, cookies(account))
             if (accounts.find(owner)?.revision != account.revision) throw SessionExpiredException()
-            ingest(account, listOfNotNull(page.post) + page.replies.items, started)
+            ingest(account, page.ancestors + listOfNotNull(page.post) + page.replies.items, started)
             return page
         } catch (error: SessionExpiredException) {
             if (accounts.find(owner)?.revision == account.revision) accounts.expire(owner)

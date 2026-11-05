@@ -84,10 +84,11 @@ extension EnvironmentValues {
 extension View {
     /// Lets the footer of this list load the next page as the user scrolls to
     /// it (see [LoadMoreFooter]); without it, only its button does.
-    func loadsMoreAsScrolled() -> some View { modifier(LoadsMoreAsScrolled()) }
+    func loadsMoreAsScrolled(enabled: Bool = true) -> some View { modifier(LoadsMoreAsScrolled(enabled: enabled)) }
 }
 
 private struct LoadsMoreAsScrolled: ViewModifier {
+    var enabled = true
     @State private var forward = false
     @State private var settling: Task<Void, Never>?
 
@@ -99,6 +100,11 @@ private struct LoadsMoreAsScrolled: ViewModifier {
                 $0.contentOffset.y + $0.contentInsets.top
             } action: {
                 old, new in
+                guard enabled else {
+                    forward = false
+                    settling?.cancel()
+                    return
+                }
                 // On toward the end, from below the top: springing back from a
                 // pull to refresh doesn't count.
                 let forward = new > old && new > 0

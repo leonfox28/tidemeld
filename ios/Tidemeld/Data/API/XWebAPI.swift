@@ -47,6 +47,7 @@ struct XMetrics: Sendable, Equatable {
 struct XConversation: Sendable {
     let post: XPost?
     let replies: Paged<XPost>
+    var ancestors: [XPost] = []
 }
 
 func parseXConversation(_ json: JSON, focalID: String, previousCursor: String? = nil) throws
@@ -58,18 +59,27 @@ func parseXConversation(_ json: JSON, focalID: String, previousCursor: String? =
             .array
     else { throw WeiboError.api("X 暂时无法读取这条帖子的评论") }
     let page = parseXEntries(instructions, previousCursor: previousCursor)
+    let posts = Dictionary(page.items.map { ($0.originalID, $0) }, uniquingKeysWith: { first, _ in first })
+    let focal = posts[focalID]
+    var ancestors: [XPost] = []
+    var visited: Set<String> = [focalID]
+    var parent = focal?.replyTo
+    while let id = parent, visited.insert(id).inserted, let post = posts[id] {
+        ancestors.append(post)
+        parent = post.replyTo
+    }
     var related: Set<String> = [focalID]
     for _ in page.items {
-        for post in page.items where post.replyTo.map(related.contains) == true {
+        for post in page.items where !visited.contains(post.originalID) && post.replyTo.map(related.contains) == true {
             related.insert(post.originalID)
         }
     }
     return XConversation(
-        post: page.items.first { $0.originalID == focalID },
+        post: focal,
         replies: Paged(
             items: page.items.filter {
                 $0.originalID != focalID && related.contains($0.originalID)
-            }, nextCursor: page.nextCursor))
+            }, nextCursor: page.nextCursor), ancestors: Array(ancestors.reversed()))
 }
 
 func parseXPost(_ value: JSON?, promoted: Bool = false, depth: Int = 0) -> XPost? {

@@ -251,7 +251,7 @@ class XPostTest {
     }
 
     @Test
-    fun `conversation excludes ancestors and ads retains replies and reads metrics from original repost`() {
+    fun `conversation separates ancestors and ads from replies and reads metrics from original repost`() {
         fun entry(id: String, parent: String? = null, ad: Boolean = false): JsonObject {
             val base = tweet(id).toMutableMap()
             base["legacy"] =
@@ -311,6 +311,38 @@ class XPostTest {
         }
         val conversation = parseXConversation(json, "42")
         assertEquals(listOf("nested", "reply"), conversation.replies.items.map { it.id })
+        assertEquals(listOf("ancestor"), conversation.ancestors.map { it.originalId })
+        fun withEntries(vararg values: JsonObject) =
+            parseXConversation(
+                Json.parseToJsonElement(
+                        """{"data":{"threaded_conversation_with_injections_v2":{"instructions":[{"entries":${JsonArray(values.toList())}}]}}}"""
+                    )
+                    .jsonObject,
+                "42",
+            )
+        val ordered =
+            withEntries(
+                entry("middle", "root"),
+                entry("42", "parent"),
+                entry("outside"),
+                entry("root"),
+                entry("parent", "middle"),
+            )
+        assertEquals(listOf("root", "middle", "parent"), ordered.ancestors.map { it.originalId })
+        assertTrue(ordered.replies.items.isEmpty())
+        assertEquals(
+            listOf("parent"),
+            withEntries(entry("42", "parent"), entry("parent", "missing")).ancestors.map {
+                it.originalId
+            },
+        )
+        assertTrue(
+            withEntries(entry("42", "parent"), entry("parent", ad = true)).ancestors.isEmpty()
+        )
+        val cycle = withEntries(entry("42", "parent"), entry("parent", "42"), entry("reply", "42"))
+        assertEquals(listOf("parent"), cycle.ancestors.map { it.originalId })
+        assertEquals(listOf("reply"), cycle.replies.items.map { it.originalId })
+
         assertEquals(XMetrics(12, 2, 3, true, true), conversation.post!!.metrics)
         assertEquals("next", conversation.replies.nextCursor)
         assertNull(parseXConversation(json, "42", "next").replies.nextCursor)

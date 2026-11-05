@@ -21,15 +21,21 @@ import kotlinx.coroutines.launch
 
 /** X supplies content and account-bound actions to the same card as Weibo. */
 @Composable
-fun XPostCard(post: XPost, owner: String, detail: Boolean = false) {
+fun XPostCard(
+    post: XPost,
+    owner: String,
+    detail: Boolean = false,
+    showReplyContext: Boolean = true,
+) {
     val navigator = LocalNavigator.current
     val actions = rememberXPostActions(owner, post)
     val hasMedia = post.media.isNotEmpty()
     PostCard(
         detail = detail,
         activity = post.repostedBy?.let { "$it 转发" },
+        showActivityInDetail = true,
         onOpen = { navigator.push(Route.XDetail(owner, post.originalId, post)) },
-        replyContext = xReplyReference(post, owner, navigator),
+        replyContext = if (showReplyContext) xReplyReference(post, owner, navigator) else null,
         header = {
             PostHeader(
                 name = post.author,

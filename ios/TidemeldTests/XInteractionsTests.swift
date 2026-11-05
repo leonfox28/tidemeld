@@ -44,19 +44,23 @@ private func payload(_ request: URLRequest) -> JSON? {
 extension FakeWeiboTests {
     @MainActor @Suite struct XInteractionsTests {
         @Test func nativeVideoRefreshUsesOriginalPostSourceAccountAndVideoIndex() async throws {
-            FakeWeibo.reset { _ in .init(body: #"""
-            {"data":{"threaded_conversation_with_injections_v2":{"instructions":[{"entries":[{"content":{"itemContent":{"tweet_results":{"result":{
-              "rest_id":"42","core":{"user_results":{"result":{"core":{"screen_name":"fixture"}}}},
-              "legacy":{"full_text":"合成内容","extended_entities":{"media":[
-                {"type":"video","video_info":{"variants":[{"content_type":"video/mp4","url":"https://media.test/first.mp4"}]}},
-                {"type":"animated_gif","video_info":{"variants":[{"content_type":"video/mp4","url":"https://media.test/second.mp4"}]}}
-              ]}}
-            }}}}}]}]}}}
-            """#) }
+            FakeWeibo.reset { _ in
+                .init(
+                    body: #"""
+                        {"data":{"threaded_conversation_with_injections_v2":{"instructions":[{"entries":[{"content":{"itemContent":{"tweet_results":{"result":{
+                          "rest_id":"42","core":{"user_results":{"result":{"core":{"screen_name":"fixture"}}}},
+                          "legacy":{"full_text":"合成内容","extended_entities":{"media":[
+                            {"type":"video","video_info":{"variants":[{"content_type":"video/mp4","url":"https://media.test/first.mp4"}]}},
+                            {"type":"animated_gif","video_info":{"variants":[{"content_type":"video/mp4","url":"https://media.test/second.mp4"}]}}
+                          ]}}
+                        }}}}}]}]}}}
+                        """#)
+            }
             let graph = testGraph(xAPI: xAPI())
             try graph.accounts.add(.x, session: xSession("7"))
             try graph.accounts.add(.x, session: xSession("8"))
-            let request = graph.xVideoRequest(owner: "x:7", postID: "42", index: 1,
+            let request = graph.xVideoRequest(
+                owner: "x:7", postID: "42", index: 1,
                 known: VideoInfo(coverURL: "https://media.test/cover.jpg", streamURLs: ["https://media.test/old.mp4"]))
             #expect(try await request.resolve(false) == VideoSource(url: "https://media.test/old.mp4", fetched: false))
             #expect(FakeWeibo.requests.isEmpty)
@@ -65,7 +69,9 @@ extension FakeWeiboTests {
             #expect(request.headers["Cookie"] == nil)
             let sent = try #require(FakeWeibo.requests.first)
             #expect(sent.value(forHTTPHeaderField: "x-csrf-token") == "csrf-7")
-            let variables = URLComponents(url: sent.url!, resolvingAgainstBaseURL: false)?.queryItems?.first { $0.name == "variables" }?.value
+            let variables = URLComponents(url: sent.url!, resolvingAgainstBaseURL: false)?.queryItems?.first {
+                $0.name == "variables"
+            }?.value
             #expect(variables.flatMap(JSON.parse)?["focalTweetId"]?.string == "42")
             try graph.accounts.add(.x, session: xSession("7"))
             await #expect(throws: WeiboError.sessionExpired) { _ = try await request.resolve(true) }
@@ -73,20 +79,24 @@ extension FakeWeiboTests {
         }
 
         @Test func mediaAdapterKeepsOrderMultipleVideosDimensionsAndMP4Variants() throws {
-            let entries = try #require(JSON.parse(#"""
-            [
-              {"type":"photo","id_str":"photo","media_url_https":"https://media.test/photo.jpg","original_info":{"width":600,"height":1800}},
-              {"type":"video","video_info":{"duration_millis":12500,"aspect_ratio":[16,9],"variants":[
-                {"content_type":"application/x-mpegURL","url":"https://media.test/hls.m3u8"},
-                {"content_type":"video/mp4","bitrate":10,"url":"https://media.test/low.mp4"},
-                {"content_type":"video/mp4","bitrate":20,"url":"https://media.test/high.mp4"}]}},
-              {"type":"animated_gif","video_info":{"variants":[{"content_type":"video/mp4","url":"https://media.test/gif.mp4"}]}}
-            ]
-            """#)?.array)
+            let entries = try #require(
+                JSON.parse(
+                    #"""
+                    [
+                      {"type":"photo","id_str":"photo","media_url_https":"https://media.test/photo.jpg","original_info":{"width":600,"height":1800}},
+                      {"type":"video","video_info":{"duration_millis":12500,"aspect_ratio":[16,9],"variants":[
+                        {"content_type":"application/x-mpegURL","url":"https://media.test/hls.m3u8"},
+                        {"content_type":"video/mp4","bitrate":10,"url":"https://media.test/low.mp4"},
+                        {"content_type":"video/mp4","bitrate":20,"url":"https://media.test/high.mp4"}]}},
+                      {"type":"animated_gif","video_info":{"variants":[{"content_type":"video/mp4","url":"https://media.test/gif.mp4"}]}}
+                    ]
+                    """#)?.array)
             let media = parseXMedia(entries)
             #expect(media.count == 3)
-            guard case .pic(let photo) = media[0], case .video(let video) = media[1], case .video(let gif) = media[2] else {
-                Issue.record("Attachment order changed"); return
+            guard case .pic(let photo) = media[0], case .video(let video) = media[1], case .video(let gif) = media[2]
+            else {
+                Issue.record("Attachment order changed")
+                return
             }
             #expect(photo.aspectRatio == 1.0 / 3)
             #expect(video.duration == 12)
@@ -226,7 +236,78 @@ extension FakeWeiboTests {
             #expect(graph.accounts.find("x:8")?.expired == false)
         }
 
-        @Test func conversationKeepsRepliesButExcludesAdsAndAncestors() throws {
+        @Test func detailPaginationPreservesContextAndRefreshReplacesIt() async throws {
+            func payload(_ entries: [(String, String?, String)], cursor: String? = nil) -> String {
+                var rows: [JSON] = entries.map { id, parent, body in
+                    var legacy: [String: JSON] = ["full_text": .string(body)]
+                    if let parent { legacy["in_reply_to_status_id_str"] = .string(parent) }
+                    return .object([
+                        "content": .object([
+                            "itemContent": .object([
+                                "tweet_results": .object([
+                                    "result": .object([
+                                        "rest_id": .string(id), "legacy": .object(legacy),
+                                        "core": .object([
+                                            "user_results": .object([
+                                                "result": .object(["core": .object(["screen_name": .string("fixture")])]
+                                                )
+                                            ])
+                                        ]),
+                                    ])
+                                ])
+                            ])
+                        ])
+                    ])
+                }
+                if let cursor {
+                    rows.append(
+                        .object(["content": .object(["cursorType": .string("Bottom"), "value": .string(cursor)])]))
+                }
+                return JSON.object([
+                    "data": .object([
+                        "threaded_conversation_with_injections_v2": .object([
+                            "instructions": .array([.object(["entries": .array(rows)])])
+                        ])
+                    ])
+                ]).text
+            }
+            let first = payload([("7", nil, "合成上文"), ("42", "7", "当前回复")], cursor: "next")
+            let more = payload([("43", "42", "下级回复")])
+            FakeWeibo.reset { request in
+                let query =
+                    URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems?.first {
+                        $0.name == "variables"
+                    }?.value ?? "{}"
+                return .init(body: JSON.parse(query)?["cursor"]?.string == nil ? first : more)
+            }
+            let graph = testGraph(xAPI: xAPI())
+            try graph.accounts.add(.x, session: xSession("7"))
+            var initial = xPost()
+            initial.repostedBy = "合成转发者"
+            let model = XDetailModel(initial: initial)
+            model.start(graph.xInteractions, owner: "x:7", id: "42")
+            let list = try #require(model.replies)
+            for _ in 0..<200 {
+                if case .ready = list.state { break }
+                try await Task.sleep(for: .milliseconds(10))
+            }
+            #expect(model.ancestors.map(\.originalID) == ["7"])
+            #expect(model.post?.repostedBy == "合成转发者")
+            try #require(list.state.list?.hasMore == true)
+            await list.loadMore()
+            #expect(model.ancestors.map(\.originalID) == ["7"])
+            #expect(model.post?.text == "当前回复")
+            #expect(list.items.map(\.originalID) == ["43"])
+            #expect(FakeWeibo.requests.count == 2)
+            let refreshed = payload([("42", "missing", "更新后的回复")])
+            FakeWeibo.reset { _ in .init(body: refreshed) }
+            try await list.refresh()
+            #expect(model.ancestors.isEmpty)
+            #expect(model.post?.text == "更新后的回复")
+            #expect(model.post?.repostedBy == "合成转发者")
+        }
+
+        @Test func conversationSeparatesRepliesAncestorsAndAds() throws {
             func entry(_ id: String, parent: String? = nil, ad: Bool = false) -> JSON {
                 var legacy: [String: JSON] = [
                     "full_text": .string("合成内容"), "favorite_count": .int(12),
@@ -268,6 +349,33 @@ extension FakeWeiboTests {
             ])
             let page = try parseXConversation(json, focalID: "42")
             #expect(page.replies.items.map(\.id) == ["nested", "reply"])
+            #expect(page.ancestors.map(\.originalID) == ["ancestor"])
+            func parsed(_ entries: [JSON]) throws -> XConversation {
+                try parseXConversation(
+                    .object([
+                        "data": .object([
+                            "threaded_conversation_with_injections_v2": .object([
+                                "instructions": .array([.object(["entries": .array(entries)])])
+                            ])
+                        ])
+                    ]), focalID: "42")
+            }
+            let ordered = try parsed([
+                entry("middle", parent: "root"), entry("42", parent: "parent"),
+                entry("outside"), entry("root"), entry("parent", parent: "middle"),
+            ])
+            #expect(ordered.ancestors.map(\.originalID) == ["root", "middle", "parent"])
+            #expect(ordered.replies.items.isEmpty)
+            #expect(
+                try parsed([entry("42", parent: "parent"), entry("parent", parent: "missing")]).ancestors.map(
+                    \.originalID) == ["parent"])
+            #expect(try parsed([entry("42", parent: "parent"), entry("parent", ad: true)]).ancestors.isEmpty)
+            let cycle = try parsed([
+                entry("42", parent: "parent"), entry("parent", parent: "42"), entry("reply", parent: "42"),
+            ])
+            #expect(cycle.ancestors.map(\.originalID) == ["parent"])
+            #expect(cycle.replies.items.map(\.originalID) == ["reply"])
+
             #expect(
                 page.post?.metrics
                     == XMetrics(likes: 12, reposts: 2, replies: 3, liked: true, reposted: true))

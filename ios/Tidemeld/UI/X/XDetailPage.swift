@@ -3,14 +3,26 @@ import SwiftUI
 
 @MainActor @Observable final class XDetailModel {
     var post: XPost?
+    var ancestors: [XPost] = []
     var replies: PagedList<XPost>?
+    private var contextGeneration = 0
     init(initial: XPost?) { post = initial }
     func start(_ interactions: XInteractions, owner: String, id: String) {
         guard replies == nil else { return }
         let list = PagedList<XPost>(
             fetch: { [weak self] cursor in
+                if cursor == nil { self?.contextGeneration += 1 }
+                let ticket = self?.contextGeneration
                 let page = try await interactions.conversation(owner, id: id, cursor: cursor)
-                if let post = page.post { self?.post = post }
+                try Task.checkCancellation()
+                // Comment pagination must not replace context or reset the user's position.
+                if cursor == nil, ticket == self?.contextGeneration {
+                    self?.ancestors = page.ancestors
+                    if var post = page.post {
+                        post.repostedBy = self?.post?.repostedBy ?? post.repostedBy
+                        self?.post = post
+                    }
+                }
                 return page.replies
             }, id: \.originalID)
         replies = list
@@ -52,9 +64,16 @@ struct XDetailPage: View {
     private func layout(actions: PostInteractionActions?) -> some View {
         PostDetailLayout(
             actions: actions, refresh: { try await model.replies?.refresh() },
+            initialFocus: model.ancestors.isEmpty ? nil : "focal:\(id)",
             post: {
+                ForEach(model.ancestors, id: \.originalID) { ancestor in
+                    PostConversationContext {
+                        XPostCard(post: ancestor, owner: owner)
+                    }.readingWidth().plainRow().id("ancestor:\(ancestor.originalID)")
+                }
                 if let post = model.post {
-                    XPostCard(post: post, owner: owner, detail: true).readingWidth().plainRow()
+                    XPostCard(post: post, owner: owner, detail: true, showReplyContext: model.ancestors.isEmpty)
+                        .readingWidth().plainRow().detailFocus("focal:\(id)")
                 }
             },
             responseHeader: {
@@ -67,9 +86,11 @@ struct XDetailPage: View {
             responses: {
                 if let replies = model.replies {
                     PagedRows(list: replies, emptyText: "还没有评论", include: { $0.replyTo == id }) { post in
-                        XCommentTile(post: post, owner: owner, authorHandle: model.post?.handle,
+                        XCommentTile(
+                            post: post, owner: owner, authorHandle: model.post?.handle,
                             preview: replies.items.filter { $0.replyTo == post.originalID },
-                            onSent: { replies.reload() }).readingWidth().responseRow()
+                            onSent: { replies.reload() }
+                        ).readingWidth().responseRow()
                     }
                 }
             })

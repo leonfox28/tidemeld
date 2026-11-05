@@ -5,14 +5,16 @@ struct XPostCard: View {
     let post: XPost
     let owner: String
     var detail = false
+    var showReplyContext = true
     @Environment(AppGraph.self) private var graph
     var body: some View {
         XPostActionHost(post: post, owner: owner) { actions in
             PostCard(
-                detail: detail, activity: post.repostedBy.map { "\($0) 转发" }, onOpen: open,
-                replyContext: xReplyReference(
-                    post.replyTo, handles: post.replyToHandles,
-                    owner: owner, originalID: post.originalID, router: graph.router),
+                detail: detail, activity: post.repostedBy.map { "\($0) 转发" }, showActivityInDetail: true, onOpen: open,
+                replyContext: showReplyContext
+                    ? xReplyReference(
+                        post.replyTo, handles: post.replyToHandles,
+                        owner: owner, originalID: post.originalID, router: graph.router) : nil,
                 hasAside: post.quote != nil
                     || (!detail && !post.media.isEmpty),
                 header: {
