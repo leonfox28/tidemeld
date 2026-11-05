@@ -83,8 +83,8 @@ private val ThemeMode.label: String
             ThemeMode.Dark -> "深色"
         }
 
-/** One of the options a setting offers: a value, its label and maybe a description. */
-private class Choice<T>(val value: T, val label: String, val description: String? = null)
+/** One of the options a setting offers: a value and its label. */
+private class Choice<T>(val value: T, val label: String)
 
 /** A setting being chosen in a dialog. */
 private class Choosing<T>(
@@ -163,7 +163,7 @@ fun SettingsPage(padding: PaddingValues = PaddingValues()) {
                             Choosing(
                                 "图片质量",
                                 settings.imageQuality,
-                                ImageQuality.entries.map { Choice(it, it.label, it.description) },
+                                ImageQuality.entries.map { Choice(it, it.label) },
                             ) { quality ->
                                 update { it.copy(imageQuality = quality) }
                             }
@@ -173,7 +173,6 @@ fun SettingsPage(padding: PaddingValues = PaddingValues()) {
                     SwitchSetting(
                         Icons.Outlined.MotionPhotosAuto,
                         "自动播放实况照片",
-                        "查看大图时静音播放一遍，每张要下载几 MB",
                         settings.autoplayLivePhotos,
                     ) { on ->
                         update { it.copy(autoplayLivePhotos = on) }
@@ -183,7 +182,7 @@ fun SettingsPage(padding: PaddingValues = PaddingValues()) {
                     Setting(
                         Icons.Outlined.Storage,
                         "图片缓存上限",
-                        "${formatBytes(settings.imageCacheLimitMb * MB)}，超出后先删最早下载的图片",
+                        formatBytes(settings.imageCacheLimitMb * MB),
                     ) {
                         choosing =
                             Choosing(
@@ -316,14 +315,12 @@ private fun Setting(
 private fun SwitchSetting(
     icon: ImageVector,
     title: String,
-    description: String,
     checked: Boolean,
     onChange: (Boolean) -> Unit,
 ) {
     ListItem(
         headlineContent = { Text(title) },
         modifier = Modifier.toggleable(checked, role = Role.Switch, onValueChange = onChange),
-        supportingContent = { Text(description) },
         leadingContent = { Icon(icon, contentDescription = null) },
         trailingContent = { Switch(checked, onCheckedChange = null) },
     )
@@ -375,15 +372,10 @@ private fun <T> Option(choice: Choice<T>, choosing: Choosing<T>, close: () -> Un
         verticalAlignment = Alignment.CenterVertically,
     ) {
         RadioButton(selected = selected, onClick = null)
-        Column(Modifier.padding(start = 16.dp)) {
-            Text(choice.label, style = MaterialTheme.typography.bodyLarge)
-            choice.description?.let {
-                Text(
-                    it,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
+        Text(
+            choice.label,
+            Modifier.padding(start = 16.dp),
+            style = MaterialTheme.typography.bodyLarge,
+        )
     }
 }

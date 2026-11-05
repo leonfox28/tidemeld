@@ -55,7 +55,7 @@ class SettingsPageTest {
         compose.onNodeWithText("跟随系统").assertExists()
         // The text size and the image quality.
         compose.onAllNodesWithText("标准").assertCountEquals(2)
-        compose.onNodeWithText("300 MB，超出后先删最早下载的图片").assertExists()
+        compose.onNodeWithText("300 MB").assertExists()
     }
 
     @Test
@@ -71,7 +71,7 @@ class SettingsPageTest {
     @Test
     fun `picks an image quality`() {
         tap("图片质量")
-        compose.onNodeWithText(ImageQuality.Original.description).assertExists()
+        compose.onNodeWithText(ImageQuality.Original.label).assertExists()
         tap("省流量")
 
         assertEquals(ImageQuality.DataSaver, storage.stored.imageQuality)

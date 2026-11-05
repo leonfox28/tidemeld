@@ -23,27 +23,19 @@ struct SettingsPage: View {
             Section {
                 Picker(selection: binding(\.imageQuality)) {
                     ForEach(ImageQuality.allCases) { quality in
-                        VStack(alignment: .leading) {
-                            Text(quality.label)
-                            Text(quality.description).font(.caption).foregroundStyle(AppTheme.secondary)
-                        }
-                        .tag(quality)
+                        Text(quality.label).tag(quality)
                     }
                 } label: {
                     Text("图片质量")
                 }
                 .pickerStyle(.navigationLink)
-                Toggle(isOn: binding(\.autoplayLivePhotos)) {
-                    Text("自动播放实况照片")
-                    Text("查看大图时静音播放一遍，每张要下载几 MB")
-                }
+                Toggle("自动播放实况照片", isOn: binding(\.autoplayLivePhotos))
                 Picker(selection: binding(\.imageCacheLimitMB)) {
                     ForEach(AppSettings.imageCacheLimitChoices, id: \.self) { mb in
                         Text(formatBytes(Int64(mb) * 1024 * 1024)).tag(mb)
                     }
                 } label: {
                     Text("图片缓存上限")
-                    Text("超出后先删最早下载的图片")
                 }
                 Button("清除图片缓存") { confirmingClear = true }
                     .badge(Text(cacheSize))
