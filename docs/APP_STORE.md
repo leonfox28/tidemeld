@@ -15,7 +15,7 @@
 | SKU | `tidemeld-ios` |
 | App Store Connect | [叠澜 Tidemeld · 6831005339](https://appstoreconnect.apple.com/apps/6831005339/distribution)，按用户要求重建，准备提交 |
 | 开发者团队 | 当前 Mac 账号，`AVHU3J463N`；不是开发证书姓名后的个人标识 |
-| 版本 / 构建 | `0.13.1` / `1`，上传后若重新构建，递增构建号 |
+| 版本 / 构建 | `1.0.0` / `1`，上传后若重新构建，递增构建号 |
 | 类别 | 社交 |
 | 发布方式 | 手动发布，审核通过后再确定公开日期 |
 | 支持入口 | [GitHub Issues](https://github.com/leonfox28/tidemeld/issues)，无需公开个人邮箱 |
@@ -116,3 +116,5 @@ xcodebuild -exportArchive -archivePath build/app-store/Tidemeld.xcarchive \
 - 新记录已恢复简体中文名称、副标题、宣传文本、描述、关键词、支持/营销/隐私政策链接及社交类别；版本设为 `0.13.1`、手动发布。价格已保存为 USD 0，供应情况已确认仅美国（App 发布时供应）；Mac 和 Apple Vision Pro 供应保持关闭。新记录仍未上传构建或提交审核。
 
 - 后续开发状态：源码版本已推进至 `0.14.0 (1)`，加入多账号、聚合信息流及 X 网页接入原型。App Store Connect 仍保留 `0.13.1` 和原先文案，旧归档未重建、未上传。X 后续已完成 iOS 单账号登录与原生读取补测，多账号及其余端到端验证未完成；更新商店文案与构建前应按最终验收结果描述能力。
+
+- 2026-11-05 TestFlight 首次发布：按用户要求将 iOS `MARKETING_VERSION` 和 Android `versionName` 同步为 `1.0.0`，Android `versionCode` 递增至 `5031`；iOS 构建号为 `1`。在 `Tidemeld regression` 上运行 111 项测试全部通过（含参数化测试共 120 次执行），Release 归档及签名校验通过。`xcodebuild -exportArchive` 使用 `destination=upload` 上传成功，Apple 处理完成后已加入“内部测试”群组，后台确认 `1.0.0 (1)` 为“正在测试”，90 天后过期；群组仅含当前账户持有人，自动分发未开启。归档和日志位于 `ios/build/testflight-1.0.0/`。App Store 草稿版本已保存为 `1.0.0`，未提交外部 TestFlight 或 App Store 审核；商店描述及首发验收事项仍待后续完善。

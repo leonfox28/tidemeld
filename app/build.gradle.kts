@@ -27,8 +27,8 @@ android {
         targetSdk = 36
         // One more for each release. The Flutter builds before 0.12.0 went up
         // to 4021 (ABI × 1000 + build number), so this installs over them.
-        versionCode = 5030
-        versionName = "0.14.0"
+        versionCode = 5031
+        versionName = "1.0.0"
         manifestPlaceholders["appLabel"] = "叠澜"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
