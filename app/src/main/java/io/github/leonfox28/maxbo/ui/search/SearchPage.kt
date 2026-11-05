@@ -35,12 +35,12 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.VerticalAlignTop
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -48,9 +48,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
@@ -74,7 +77,6 @@ import io.github.leonfox28.maxbo.data.api.WeiboApi
 import io.github.leonfox28.maxbo.data.model.HotSearch
 import io.github.leonfox28.maxbo.data.model.HotSearchItem
 import io.github.leonfox28.maxbo.ui.navigation.LocalNavigator
-import io.github.leonfox28.maxbo.ui.navigation.Route
 import io.github.leonfox28.maxbo.ui.shell.LocalTabReselect
 import io.github.leonfox28.maxbo.ui.status.openSearchResults
 import io.github.leonfox28.maxbo.ui.widget.ErrorRetry
@@ -118,52 +120,71 @@ class HotSearchViewModel(private val api: WeiboApi) : ViewModel() {
     }
 }
 
-/**
- * The search tab: a search bar over the hot search list. A search, as a hot search entry, opens the
- * posts found for it. No app bar: the tab bar names the tab.
- */
+/** Trending topics, with an optional query field for signed-in users. */
 @Composable
 fun SearchPage(padding: PaddingValues) {
     val session by LocalAppGraph.current.session.state.collectAsStateWithLifecycle()
     val asGuest = session is SessionState.SignedOut
-    val navigator = LocalNavigator.current
+    val focus = LocalFocusManager.current
+    val uid = (session as? SessionState.SignedIn)?.account?.uid
+    var searching by rememberSaveable(uid) { mutableStateOf(false) }
+    var focusRequested by remember(uid) { mutableStateOf(false) }
     val area =
         Modifier.fillMaxSize()
             .windowInsetsPadding(
                 WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)
             )
     Column(area) {
-        SearchField(asGuest)
-        if (asGuest) {
-            Row(
-                Modifier.padding(horizontal = 16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    "游客可浏览热搜和部分公开内容，更多内容及互动需登录。",
-                    modifier = Modifier.weight(1f),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                TextButton(onClick = { navigator.push(Route.Login) }) { Text("登录微博") }
+        Box(Modifier.fillMaxWidth().height(56.dp).padding(horizontal = 8.dp)) {
+            Text(
+                "搜索",
+                Modifier.align(Alignment.Center),
+                style = MaterialTheme.typography.titleMedium,
+            )
+            if (!asGuest) {
+                FilledTonalIconButton(
+                    onClick = {
+                        searching = !searching
+                        focusRequested = searching
+                        if (!searching) focus.clearFocus()
+                    },
+                    modifier = Modifier.align(Alignment.CenterEnd).size(48.dp),
+                ) {
+                    Icon(
+                        if (searching) Icons.Filled.Close else Icons.Filled.Search,
+                        contentDescription = if (searching) "取消搜索" else "搜索微博",
+                    )
+                }
             }
+        }
+        if (searching && !asGuest) {
+            SearchField(focusRequested, onFocused = { focusRequested = false })
         }
         Box(Modifier.weight(1f)) { HotSearchList(padding, asGuest) }
     }
 }
 
 @Composable
-private fun SearchField(asGuest: Boolean) {
+private fun SearchField(focusRequested: Boolean, onFocused: () -> Unit) {
+    val graph = LocalAppGraph.current
     val navigator = LocalNavigator.current
     val focus = LocalFocusManager.current
+    val requester = remember { FocusRequester() }
     val text = rememberTextFieldState()
     val colors = MaterialTheme.colorScheme
     fun search() {
+        if (graph.session.state.value !is SessionState.SignedIn) return
         val query = text.text.toString().trim()
         if (query.isEmpty()) return
         // Or the keyboard comes back with the field when the results close.
         focus.clearFocus()
-        openSearchResults(navigator, query, asGuest)
+        openSearchResults(navigator, query)
+    }
+    LaunchedEffect(focusRequested) {
+        if (focusRequested) {
+            requester.requestFocus()
+            onFocused()
+        }
     }
     // Over the list's column, not spread across a wide window.
     Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
@@ -185,7 +206,7 @@ private fun SearchField(asGuest: Boolean) {
                 )
                 BasicTextField(
                     text,
-                    Modifier.weight(1f),
+                    Modifier.weight(1f).focusRequester(requester),
                     textStyle = MaterialTheme.typography.bodyLarge.copy(color = colors.onSurface),
                     lineLimits = TextFieldLineLimits.SingleLine,
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),

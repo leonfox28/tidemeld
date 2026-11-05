@@ -13,8 +13,8 @@ Authentication and network access:
 
 Navigation:
 - 首页: without signing in, public posts appear as native cards with pull-to-refresh, photo viewing and video playback. Weibo currently limits this guest feed to its first page. Further reading, profiles and interactions prompt sign-in. After sign-in, this tab becomes the native following feed, with post details, comments and pagination.
-- 搜索: trending topics and post search. This tab is available without signing in: guests see the native trending list, and tapping a topic or submitting a search opens Weibo's public web page. Weibo limits guest results and may require login for further browsing. Signed-in users get native search results. This limited guest access does not expose the following feed, notifications or account actions for review.
-- 通知: mentions, comments and likes.
+- 搜索: trending topics and post search. Guests see the native trending list; tapping a topic opens Weibo's public web page. Weibo limits guest results and may require login for further browsing. After sign-in, the top-right search button opens the keyword field, and searches use native results. This limited guest access does not expose the following feed, notifications or account actions for review.
+- 通知: mentions, comments and likes. This tab is visible only after sign-in.
 - 我: current profile, settings and sign-out. Settings → 关于 maxbo → 隐私政策 opens the bundled policy without a network connection. The login screen also offers a policy button.
 
 The app supports posting text/photos, commenting, replying, liking, reposting and deleting the signed-in user's own posts/comments. No purchases or subscriptions are offered.

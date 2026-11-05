@@ -262,6 +262,8 @@ app/src/androidTest/            # 设备测试（读 WebView 的 HttpOnly Cookie
 
 首页不额外显示游客标题，顶栏布局与登录后保持一致：左侧为圆形登录按钮，登录后改为本人头像，点击进入本人主页。未登录时隐藏“通知”页签，登录后显示；停留在通知页时退出或登录过期则返回首页。Android 385 项单元测试及格式、lint、Debug 构建通过，iOS 79 项测试通过；无真实账号的两端测试模拟器均成功取得游客首屏。iOS 手动验证了原生公开图片、视频播放和圆形登录入口，也在保留原登录态的模拟器上验证本人头像与主页跳转。
 
+搜索页同日调整为居中标题顶栏，下方直接显示热搜，不再展示游客说明或常驻输入框。登录后右侧显示搜索按钮，点击展开并聚焦输入框，取消收起；返回搜索结果前的页面可继续修改关键词，退出登录则关闭输入。游客仍可点击热搜进入公开网页结果，不能从搜索页输入关键词。
+
 - **weibo.com 没有现成的搜索结果接口**：前端脚本里「搜索结果」页用的 `GET /ajax/search/all?containerid=…` 已经下线，带登录态请求也返回 404「你访问的地址不存在」；网页版顶部搜索栏直接打开 `s.weibo.com`。
 - **m.weibo.cn 只能以游客身份用，而游客只能看第一页**：`/api/container/getIndex?containerid=100103type=1&q=…&page_type=searchall`（话题是 `231522type=1&t=10&q=#话题#`）不带 Cookie 时返回 `ok:-100`；带 WebView 浏览 m.weibo.cn 时拿到的游客 Cookie（`SUB`/`SUBP`，`/api/config` 是 `login:false`）能取到第 1 页（10–17 条，`card_type` 9 是微博，11 是一组卡片，话题的 `cardlistInfo.cardlist_head_cards[].head_data` 是话题头），**第 2 页起返回 `ok:-100`**。应用内 WebView 的搜索页往下滚过第一页也会跳到登录页。微博的格式是 m.weibo.cn 的（`pics[]`、`page_info.urls`、`bid`），与 weibo.com 不同。用 weibo.com 的登录态单点登录 m.weibo.cn（`passport.weibo.com/sso/signin?entry=wapsso&source=wapssowb&url=https://m.weibo.cn/`）也不行：直接请求只得到一个由风控脚本（`wbBotDetector`、易盾）驱动的登录页，不能也不该去模拟；在 WebView 里打开显示的是登录表单，没有自动登录（没有做任何输入就退出了）。
 - **`s.weibo.com/weibo?q=`**（桌面 UA，带 weibo.com 的登录态）是已登录的 PC 版 HTML，每页约 20 条，有分页链接，能翻页，但要解析 PC 版 HTML，太脆弱，没有采用。

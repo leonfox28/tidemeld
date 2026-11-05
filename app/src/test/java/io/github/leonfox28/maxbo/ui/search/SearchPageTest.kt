@@ -67,9 +67,10 @@ class SearchPageTest {
 
         assertEquals(listOf("/ajax/side/hotSearch"), app.paths())
         assertNull(web.requests.single().headers["Cookie"])
-        app.text("游客可浏览热搜", substring = true).assertExists()
-        app.text("登录微博").performClick()
-        assertEquals(Route.Login, app.top)
+        app.text("游客可浏览热搜", substring = true).assertDoesNotExist()
+        app.text("登录微博").assertDoesNotExist()
+        compose.onNodeWithContentDescription("搜索微博").assertDoesNotExist()
+        field.assertDoesNotExist()
     }
 
     @Test
@@ -82,13 +83,20 @@ class SearchPageTest {
     }
 
     @Test
-    fun `a guest's typed query opens web search rather than the authenticated API`() {
-        openAsGuest()
+    fun `signing out closes the query field and leaves public trending topics available`() {
+        web.respond = { json(list.toString()) }
+        open()
+        app.waitFor("第一条")
 
+        compose.onNodeWithContentDescription("搜索微博").performClick()
         field.performTextReplacement("  天气 & 日落  ")
-        field.performImeAction()
-        assertEquals(weiboSearchUrl("天气 & 日落"), (app.top as Route.Web).url)
-        assertEquals(listOf("/ajax/side/hotSearch"), app.paths())
+        runBlocking { app.graph.session.logout() }
+
+        field.assertDoesNotExist()
+        compose.onNodeWithContentDescription("搜索微博").assertDoesNotExist()
+        compose.onNodeWithContentDescription("取消搜索").assertDoesNotExist()
+        app.text("第一条").assertExists()
+        assertEquals(Route.Home, app.top)
     }
 
     @Test
@@ -133,6 +141,8 @@ class SearchPageTest {
         open()
         app.waitFor("第一条")
 
+        field.assertDoesNotExist()
+        compose.onNodeWithContentDescription("搜索微博").performClick()
         field.performTextReplacement("  某个词 ")
         field.performImeAction()
         assertEquals(Route.SearchResults("某个词"), app.top)
@@ -151,6 +161,7 @@ class SearchPageTest {
         web.respond = { json(list.toString()) }
         open()
         app.waitFor("第一条")
+        compose.onNodeWithContentDescription("搜索微博").performClick()
         compose.onNodeWithContentDescription("清除").assertDoesNotExist()
 
         field.performTextReplacement("   ")
@@ -160,6 +171,9 @@ class SearchPageTest {
         compose.onNodeWithContentDescription("清除").performClick()
         compose.onNodeWithContentDescription("清除").assertDoesNotExist()
         app.text("搜索微博").assertExists()
+        compose.onNodeWithContentDescription("取消搜索").performClick()
+        field.assertDoesNotExist()
+        compose.onNodeWithContentDescription("搜索微博").assertExists()
     }
 
     @Test
@@ -180,6 +194,7 @@ class SearchPageTest {
         open()
         app.waitFor("服务繁忙")
         // Searching doesn't need the list.
+        compose.onNodeWithContentDescription("搜索微博").performClick()
         app.text("搜索微博").assertExists()
 
         web.respond = { json(list.toString()) }

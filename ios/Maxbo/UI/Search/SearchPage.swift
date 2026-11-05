@@ -33,40 +33,65 @@ final class HotSearchModel {
     }
 }
 
-/// The search tab: a search field over the hot search list. A search, as a hot
-/// search entry, opens the posts found for it.
+/// Trending topics, with an optional query field for signed-in users.
 struct SearchPage: View {
     @Environment(AppGraph.self) private var graph
     @State private var model = HotSearchModel()
     @State private var query = ""
     @State private var atTop = true
     @State private var refreshing = false
+    @State private var searching = false
+    @FocusState private var searchFocused: Bool
 
     var body: some View {
         VStack(spacing: 0) {
-            if graph.session.account == nil {
-                Text("游客可浏览热搜和部分公开内容，更多内容及互动需登录。")
-                    .font(.footnote)
-                    .foregroundStyle(AppTheme.secondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 8)
+            if searching, graph.session.account != nil {
+                HStack(spacing: 10) {
+                    Image(systemName: "magnifyingglass").foregroundStyle(AppTheme.secondary)
+                    TextField("搜索微博", text: $query)
+                        .focused($searchFocused)
+                        .submitLabel(.search)
+                        .onSubmit {
+                            guard graph.session.account != nil,
+                                !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                            else { return }
+                            searchFocused = false
+                            graph.router.openSearch(query)
+                        }
+                    if !query.isEmpty {
+                        Button("清除", systemImage: "xmark.circle.fill") { query = "" }
+                            .labelStyle(.iconOnly)
+                            .foregroundStyle(AppTheme.secondary)
+                    }
+                }
+                .padding(.horizontal, 14).padding(.vertical, 12)
+                .background(AppTheme.elevated, in: Capsule())
+                .readingWidth()
+                .padding(.horizontal, 16).padding(.vertical, 8)
             }
             hotList.frame(maxWidth: .infinity, maxHeight: .infinity)
-        }
-        .searchable(text: $query, prompt: "搜索微博")
-        .onSubmit(of: .search) {
-            graph.router.openSearch(query, asGuest: graph.session.account == nil)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .appBackground()
         .navigationTitle("搜索")
+        .toolbarTitleDisplayMode(.inline)
         .toolbar {
-            if graph.session.account == nil {
+            if graph.session.account != nil {
                 ToolbarItem(placement: .primaryAction) {
-                    Button("登录微博") { graph.router.showingLogin = true }
+                    Button(searching ? "取消搜索" : "搜索微博", systemImage: searching ? "xmark" : "magnifyingglass") {
+                        searching.toggle()
+                        if !searching { query = "" }
+                    }
+                    .labelStyle(.iconOnly)
                 }
             }
+        }
+        .onChange(of: searching) { _, active in searchFocused = active }
+        .onDisappear { searchFocused = false }
+        .onChange(of: graph.session.state.uid) {
+            searching = false
+            searchFocused = false
+            query = ""
         }
     }
 
@@ -97,6 +122,7 @@ struct SearchPage: View {
                     .listRowBackground(AppTheme.surface)
                 }
                 .appListStyle()
+                .scrollDismissesKeyboard(.interactively)
                 .refreshable { await refresh() }
                 .tabBarHidesOnScroll()
                 .onScrollGeometryChange(for: Bool.self) { geometry in
