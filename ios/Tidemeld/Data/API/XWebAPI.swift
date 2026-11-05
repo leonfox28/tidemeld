@@ -1,12 +1,9 @@
 import Foundation
 
-struct XQuote: Sendable {
-    let author: String
-    let text: String
-    let url: URL
-    var media: [MixedMedia] = []
-    var replyTo: String? = nil
-    var replyToHandles: [String] = []
+/// An immutable reference allows nested quotes without discarding the post needed by detail pages.
+final class XQuote: Sendable {
+    let post: XPost
+    init(_ post: XPost) { self.post = post }
 }
 
 struct XPost: Sendable, Identifiable {
@@ -114,11 +111,7 @@ func parseXPost(_ value: JSON?, promoted: Bool = false, depth: Int = 0) -> XPost
             ?? user?["legacy"]?["profile_image_url_https"]?.url,
         text: content.text, createdAt: parseWeiboDate(legacy["created_at"]?.string), pictures: pictures,
         videoCover: video?.coverURL, videoURL: video?.streamURLs.first,
-        quote: quote.map {
-            XQuote(
-                author: $0.author, text: $0.text, url: $0.url, media: $0.media,
-                replyTo: $0.replyTo, replyToHandles: $0.replyToHandles)
-        },
+        quote: quote.map(XQuote.init),
         promoted: promoted,
         originalID: id,
         metrics: XMetrics(

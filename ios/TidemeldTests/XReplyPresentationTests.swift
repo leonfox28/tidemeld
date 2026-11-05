@@ -107,8 +107,8 @@ import Testing
         #expect(repost.text == "Reply")
         var quoted = try #require(tweet([:], id: "100").object)
         quoted["quoted_status_result"] = .object(["result": reply])
-        #expect(parseXPost(.object(quoted))?.quote?.text == "Reply")
-        #expect(parseXPost(.object(quoted))?.quote?.replyToHandles == ["parent"])
+        #expect(parseXPost(.object(quoted))?.quote?.post.text == "Reply")
+        #expect(parseXPost(.object(quoted))?.quote?.post.replyToHandles == ["parent"])
     }
 
     @MainActor @Test func parentNavigationKeepsTheSourceAccount() throws {
@@ -119,5 +119,50 @@ import Testing
         reference.onOpen()
         #expect(router.paths[.home] == [.xStatus(owner: "x:other", id: "7", initial: nil)])
         #expect(xReplyReference("42", handles: [], owner: "x:other", originalID: "42", router: router) == nil)
+    }
+
+    @MainActor @Test func quotedDetailStartsWithTheCompleteOriginalPost() throws {
+        var original = try #require(tweet([
+            "full_text": .string("Original https://t.co/photo"),
+            "created_at": .string("Thu Nov 05 10:00:00 +0000 2026"),
+            "favorite_count": .int(12), "retweet_count": .int(3), "reply_count": .int(2),
+            "favorited": .bool(true), "retweeted": .bool(true),
+            "in_reply_to_status_id_str": .string("7"),
+            "in_reply_to_screen_name": .string("parent"),
+            "extended_entities": .object(["media": .array([photo])]),
+        ]).object)
+        original["core"] = .object([
+            "user_results": .object([
+                "result": .object([
+                    "core": .object(["name": .string("原作者"), "screen_name": .string("original")]),
+                    "avatar": .object(["image_url": .string("https://media.test/avatar.jpg")]),
+                ])
+            ])
+        ])
+        original["quoted_status_result"] = .object([
+            "result": tweet(["full_text": .string("Nested quote")], id: "8")
+        ])
+        var outer = try #require(tweet(["full_text": .string("Outer")], id: "100").object)
+        outer["quoted_status_result"] = .object(["result": .object(original)])
+        let quote = try #require(parseXPost(.object(outer))?.quote?.post)
+        let model = XDetailModel(initial: quote)
+        let initial = try #require(model.post)
+        #expect(initial.id == "42")
+        #expect(initial.originalID == "42")
+        #expect(initial.author == "原作者")
+        #expect(initial.handle == "original")
+        #expect(initial.avatar == "https://media.test/avatar.jpg")
+        #expect(initial.createdAt == parseWeiboDate("Thu Nov 05 10:00:00 +0000 2026"))
+        #expect(initial.createdAt != nil)
+        #expect(initial.text == "Original")
+        #expect(initial.media.count == 1)
+        #expect(initial.pictures.first?.viewerVariant.url == "https://media.test/photo.jpg")
+        #expect(initial.metrics == XMetrics(likes: 12, reposts: 3, replies: 2, liked: true, reposted: true))
+        #expect(initial.replyTo == "7")
+        #expect(initial.replyToHandles == ["parent"])
+        #expect(initial.quote?.post.originalID == "8")
+        #expect(initial.quote?.post.text == "Nested quote")
+        #expect(initial.repostedBy == nil)
+        #expect(model.replies == nil)
     }
 }

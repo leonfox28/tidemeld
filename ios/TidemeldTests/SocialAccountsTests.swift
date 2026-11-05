@@ -233,7 +233,7 @@ extension FakeWeiboTests {
             #expect(page.items.first?.text == "A & B")
             #expect(page.items.first?.promoted == false)
             #expect(page.items.first?.pictures.count == 1)
-            #expect(page.items.first?.quote?.author == "引用作者")
+            #expect(page.items.first?.quote?.post.author == "引用作者")
             #expect(page.nextCursor == "next")
             #expect(try parseXTimeline(json, previousCursor: "next").nextCursor == nil)
             #expect(throws: (any Error).self) { try parseXTimeline(.object([:])) }

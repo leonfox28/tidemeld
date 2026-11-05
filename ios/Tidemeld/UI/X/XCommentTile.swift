@@ -25,22 +25,22 @@ struct XCommentTile: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
                     XPostMedia(items: post.media, postID: post.originalID, owner: owner, compact: true)
-                    if let quote = post.quote {
+                    if let quote = post.quote?.post {
                         QuotedPost(onOpen: {
                             graph.router.push(
-                                .xStatus(owner: owner, id: quote.url.lastPathComponent, initial: nil))
+                                .xStatus(owner: owner, id: quote.originalID, initial: quote))
                         }) {
                             VStack(alignment: .leading, spacing: 6) {
                                 if let reference = xReplyReference(
                                     quote.replyTo, handles: quote.replyToHandles,
-                                    owner: owner, originalID: quote.url.lastPathComponent, router: graph.router)
+                                    owner: owner, originalID: quote.originalID, router: graph.router)
                                 {
                                     PostReplyContext(reference: reference)
                                 }
                                 XPostText(
                                     text: quote.text, owner: owner, author: quote.author, textStyle: .subheadline)
                                 XPostMedia(
-                                    items: quote.media, postID: quote.url.lastPathComponent, owner: owner,
+                                    items: quote.media, postID: quote.originalID, owner: owner,
                                     compact: true)
                             }
                         }

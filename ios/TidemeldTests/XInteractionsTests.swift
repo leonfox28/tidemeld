@@ -236,6 +236,69 @@ extension FakeWeiboTests {
             #expect(graph.accounts.find("x:8")?.expired == false)
         }
 
+        @Test(arguments: [false, true])
+        func quotedDetailKeepsInitialContentWhileLoadingAndOnFailure(fail: Bool) async throws {
+            FakeWeibo.reset { _ in
+                .init(status: fail ? 503 : 200, body: #"""
+                    {"data":{"threaded_conversation_with_injections_v2":{"instructions":[{"entries":[
+                      {"content":{"itemContent":{"tweet_results":{"result":{
+                        "rest_id":"42","core":{"user_results":{"result":{"core":{"screen_name":"fixture"}}}},
+                        "legacy":{"full_text":"更新后的原帖","favorite_count":8}
+                      }}}}},
+                      {"content":{"itemContent":{"tweet_results":{"result":{
+                        "rest_id":"43","core":{"user_results":{"result":{"core":{"screen_name":"reply"}}}},
+                        "legacy":{"full_text":"新评论","in_reply_to_status_id_str":"42"}
+                      }}}}}
+                    ]}]}}}
+                    """#)
+            }
+            let throttle = RequestThrottle(maxConcurrent: 1, minInterval: .zero)
+            await throttle.acquire()
+            let graph = testGraph(xAPI: xAPI(throttle: throttle))
+            try graph.accounts.add(.x, session: xSession("7"))
+            try graph.accounts.add(.x, session: xSession("8"))
+            let quote = XQuote(xPost())
+            let model = XDetailModel(initial: quote.post)
+            model.start(graph.xInteractions, owner: "x:8", id: quote.post.originalID)
+            let list = try #require(model.replies)
+            for _ in 0..<20 { await Task.yield() }
+            #expect(FakeWeibo.requests.isEmpty)
+            #expect(model.post?.text == quote.post.text)
+            #expect(model.post?.metrics == quote.post.metrics)
+            guard case .loading = list.state else {
+                await throttle.release()
+                Issue.record("Comments should load while the original post remains visible")
+                return
+            }
+            await throttle.release()
+            for _ in 0..<200 {
+                if case .loading = list.state {
+                    try await Task.sleep(for: .milliseconds(10))
+                } else { break }
+            }
+            if fail {
+                guard case .failed = list.state else {
+                    Issue.record("Expected the comment request to fail")
+                    return
+                }
+                #expect(model.post?.text == quote.post.text)
+                #expect(model.post?.metrics == quote.post.metrics)
+            } else {
+                #expect(model.post?.text == "更新后的原帖")
+                #expect(model.post?.metrics.likes == 8)
+                #expect(list.items.map(\.originalID) == ["43"])
+            }
+            model.start(graph.xInteractions, owner: "x:8", id: quote.post.originalID)
+            #expect(model.replies === list)
+            #expect(FakeWeibo.requests.count == 1)
+            let sent = try #require(FakeWeibo.requests.first)
+            #expect(sent.value(forHTTPHeaderField: "x-csrf-token") == "csrf-8")
+            let variables = URLComponents(url: sent.url!, resolvingAgainstBaseURL: false)?.queryItems?.first {
+                $0.name == "variables"
+            }?.value
+            #expect(variables.flatMap(JSON.parse)?["focalTweetId"]?.string == "42")
+        }
+
         @Test func detailPaginationPreservesContextAndRefreshReplacesIt() async throws {
             func payload(_ entries: [(String, String?, String)], cursor: String? = nil) -> String {
                 var rows: [JSON] = entries.map { id, parent, body in
