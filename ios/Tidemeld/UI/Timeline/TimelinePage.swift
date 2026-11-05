@@ -3,12 +3,9 @@ import SwiftUI
 /// The home tab: public posts for guests, the following feed after sign-in.
 struct TimelinePage: View {
     @Environment(AppGraph.self) private var graph
-    @Environment(\.displayScale) private var scale
-    @State private var currentUser: WeiboUser?
 
     var body: some View {
         let uid = graph.session.state.uid
-        let user = currentUser?.id == uid ? currentUser : nil
         Group {
             if graph.accounts.accounts.isEmpty && graph.settings.settings.feedSelection != .x { Timeline(uid: nil) }
             else { SocialTimeline() }
@@ -29,42 +26,14 @@ struct TimelinePage: View {
                     .accessibilityLabel("选择信息流")
                 }
                 ToolbarItem(placement: .topBarLeading) {
-                    if uid != nil {
-                        Button {
-                            graph.router.push(.accounts)
-                        } label: {
-                            Group {
-                                if let url = user?.avatarURL {
-                                    WeiboImage(url: url, maxPixels: 32 * scale)
-                                } else {
-                                    Image(systemName: "person.crop.circle.fill").resizable()
-                                }
-                            }
-                            .frame(width: 32, height: 32)
-                            .clipShape(Circle())
-                        }
-                        .accessibilityElement(children: .ignore)
-                        .accessibilityLabel("账号管理")
-                    } else {
-                        Button("账号管理", systemImage: "person") { graph.router.push(.accounts) }
-                            .labelStyle(.iconOnly)
-                    }
+                    Button("账号管理", systemImage: "person") { graph.router.push(.accounts) }
+                        .labelStyle(.iconOnly)
                 }
                 if uid != nil {
                     ToolbarItem(placement: .primaryAction) {
                         Button("发微博", systemImage: "square.and.pencil") { graph.router.showingCompose = true }
                     }
                 }
-            }
-            .task(id: uid) {
-                guard let uid else {
-                    currentUser = nil
-                    return
-                }
-                guard currentUser?.id != uid else { return }
-                let user = try? await graph.api.fetchProfile(uid: uid).user
-                guard !Task.isCancelled, graph.session.state.uid == uid else { return }
-                currentUser = user
             }
     }
 }

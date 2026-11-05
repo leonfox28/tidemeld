@@ -28,7 +28,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -51,9 +50,7 @@ import io.github.leonfox28.tidemeld.core.accounts.*
 import io.github.leonfox28.tidemeld.core.net.WeiboException
 import io.github.leonfox28.tidemeld.core.paging.ListLoad
 import io.github.leonfox28.tidemeld.core.paging.PagedState
-import io.github.leonfox28.tidemeld.core.session.SessionState
 import io.github.leonfox28.tidemeld.data.model.Status
-import io.github.leonfox28.tidemeld.data.model.WeiboUser
 import io.github.leonfox28.tidemeld.ui.navigation.LocalNavigator
 import io.github.leonfox28.tidemeld.ui.navigation.Route
 import io.github.leonfox28.tidemeld.ui.notifications.UNREAD_RECHECK_MS
@@ -66,7 +63,6 @@ import io.github.leonfox28.tidemeld.ui.widget.KeepAtTop
 import io.github.leonfox28.tidemeld.ui.widget.LoadMoreFooter
 import io.github.leonfox28.tidemeld.ui.widget.LoadMoreTrigger
 import io.github.leonfox28.tidemeld.ui.widget.LocalSnackbars
-import io.github.leonfox28.tidemeld.ui.widget.UserAvatar
 import io.github.leonfox28.tidemeld.ui.widget.readingPadding
 import io.github.leonfox28.tidemeld.ui.widget.status.StatusCard
 import kotlinx.coroutines.launch
@@ -75,25 +71,11 @@ import kotlinx.coroutines.launch
 @Composable
 fun TimelinePage(padding: PaddingValues) {
     val graph = LocalAppGraph.current
-    val session by graph.session.state.collectAsStateWithLifecycle()
-    val uid = (session as? SessionState.SignedIn)?.account?.uid
     val navigator = LocalNavigator.current
     val settings by graph.settings.settings.collectAsStateWithLifecycle()
     val accounts by graph.accounts.accounts.collectAsStateWithLifecycle()
     val selection = settings.feedSelection
     var menu by remember { mutableStateOf(false) }
-    var currentUser by remember(uid) { mutableStateOf<WeiboUser?>(null) }
-    LaunchedEffect(uid) {
-        if (uid != null) {
-            try {
-                val user = graph.api.fetchProfile(uid = uid).user
-                if ((graph.session.state.value as? SessionState.SignedIn)?.account?.uid == uid)
-                    currentUser = user
-            } catch (_: WeiboException) {
-                // The profile remains reachable while its avatar is unavailable.
-            }
-        }
-    }
     val area =
         Modifier.fillMaxSize()
             .windowInsetsPadding(
@@ -128,23 +110,11 @@ fun TimelinePage(padding: PaddingValues) {
                     }
                 }
             }
-            if (uid == null) {
-                FilledTonalIconButton(
-                    onClick = { navigator.push(Route.Accounts) },
-                    modifier = Modifier.align(Alignment.CenterStart).size(48.dp),
-                ) {
-                    Icon(Icons.Outlined.Person, contentDescription = "账号管理")
-                }
-            } else {
-                IconButton(
-                    onClick = { navigator.push(Route.Accounts) },
-                    modifier =
-                        Modifier.align(Alignment.CenterStart).size(48.dp).semantics {
-                            contentDescription = "账号管理"
-                        },
-                ) {
-                    UserAvatar(currentUser, size = 36.dp)
-                }
+            FilledTonalIconButton(
+                onClick = { navigator.push(Route.Accounts) },
+                modifier = Modifier.align(Alignment.CenterStart).size(48.dp),
+            ) {
+                Icon(Icons.Outlined.Person, contentDescription = "账号管理")
             }
         }
         if (accounts.isEmpty() && selection != FeedSelection.X)
