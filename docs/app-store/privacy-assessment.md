@@ -1,6 +1,6 @@
 # App privacy and age-rating assessment
 
-Checked 2026-11-06 against build 1.0.0 (3). This is a preparation record, not a published privacy label or a legal opinion.
+Checked 2026-11-06 against build 1.0.0 (3). This records the published App Store Connect privacy answers, saved age questionnaire and outstanding issues; it is not a legal opinion or an approval record.
 
 ## Sources and scope
 
@@ -10,9 +10,9 @@ Checked 2026-11-06 against build 1.0.0 (3). This is a preparation record, not a 
 - [X adult-content policy](https://help.x.com/en/rules-and-policies/adult-content): permits labeled adult content and applies age-related restrictions. Tidemeld must preserve appropriate restrictions rather than assume the official app's rating applies.
 - [Apple age-rating definitions](https://developer.apple.com/help/app-store-connect/reference/app-information/age-ratings-values-and-definitions/): graphic sexual content and prolonged graphic/sadistic violence can make an app unrated. A higher age override is not a substitute for accurate questionnaire answers.
 
-## Saved data-type draft
+## Published privacy label
 
-App Store Connect has an unpublished draft with these 12 data types. Purposes, identity linkage and tracking have not yet been finalized; the Publish button remains disabled.
+App Store Connect now has a published label with these 12 data types. All purpose, identity-linkage and tracking questions were completed in the follow-up below; the UI confirmed publication by the account holder on 2026-11-06.
 
 | Data | Relevant path / reason |
 |---|---|
@@ -27,16 +27,39 @@ App Store Connect has an unpublished draft with these 12 data types. Purposes, i
 | Product interaction | Platform requests, likes/replies/reposts and web activity |
 | Advertising data | Advertising within platform web pages, as covered by their policies |
 
-The draft is intentionally incomplete. The maintainer has no analytics/backend, but the platforms' retained information must still be evaluated. Login/account requests are linked to identity; local feed merging does not remove that linkage. Platform-wide policy descriptions establish possible uses, not a complete endpoint-level map.
+The initial data-type draft was subsequently completed. The maintainer has no analytics/backend, but the platforms' retained information is included. Login/account requests are linked to identity; local feed merging does not remove that linkage. Platform-wide policy descriptions establish possible uses, not a complete endpoint-level map.
 
-Before publishing, determine which data from these embedded services is combined with other-company data for targeted advertising/measurement. If tracking occurs, both the privacy label and the app's ATT behavior must agree. Build 3 has no AppTrackingTransparency request or explicit control over platform scripts. Do not publish a blanket “no tracking” answer based only on the absence of native advertising SDKs. Additional diagnostics or data categories must be added if the scoped web behavior establishes them.
+The published label includes platform data combination for targeted advertising/measurement. Both the privacy label and the app's ATT behavior must agree. Build 3 has no AppTrackingTransparency request or explicit control over platform scripts. Do not publish a blanket “no tracking” answer based only on the absence of native advertising SDKs. Additional diagnostics or data categories must be added if the scoped web behavior establishes them.
 
 ## Age questionnaire
 
 Known answers: UGC and social features, comments/replies, platform web navigation and Weibo advertising are present. The native client has no parental controls, age assurance or Declared Age Range integration. It is not a medical, gambling or contest app.
 
-Outstanding: frequency and handling of mature/sexual/violent material from the selected feeds and platform pages. `parseXPost` in `ios/Tidemeld/Data/API/XWebAPI.swift` does not inspect `possibly_sensitive` or media sensitivity warnings before displaying available media. No lower rating or absence of graphic content has been asserted. The questionnaire is not saved. The full UGC report/block/filter work listed in `docs/APP_STORE.md` remains open.
+The questionnaire was subsequently completed using a conservative assessment of the available social content, rather than claiming absent content without a filter. `parseXPost` in `ios/Tidemeld/Data/API/XWebAPI.swift` does not inspect `possibly_sensitive` or media sensitivity warnings before displaying available media. No absence of graphic content has been asserted. The questionnaire was saved; Apple calculated “Unrated” and explicitly said the app cannot be offered on the App Store with these answers. The full UGC report/block/filter work listed in `docs/APP_STORE.md` remains open.
 
 ## Content rights
 
 The app accesses third-party content. Apple's content-rights field cannot truthfully be set to “does not contain/display/access third-party content.” Authorization to operate App Store Connect does not itself establish permission from Weibo/X or a lawful-use basis for US distribution. This factual basis is still requested from the maintainer; no rights declaration has been saved.
+
+## Follow-up completion on 2026-11-06
+
+The maintainer explicitly asked the agent to complete the remaining fields. The privacy purpose assessment now uses the platforms' published practices as the basis for potential collection, including cases that depend on users' platform settings. X Privacy Policy §§1.2–1.3 and 2.1–2.3 explicitly cover account identity, activity/logs, advertising-partner data combination, personalization, advertising measurement, service analytics and security. This is sufficient to disclose these potential uses without assuming native SDKs are required.
+
+For name, email, phone, coarse location, other user content, browsing/search history, user/device identifiers, product interaction and ad data: disclose App Functionality, Analytics, Product Personalization and Third-Party Advertising; linked to identity; used for tracking. This is an interpretation of the broad platform policy applied to the client's actual login/API/web paths. For photos uploaded by the native client to Weibo: App Functionality, linked to identity, not used for tracking; no X photo upload is implemented. A tracking label does not fix the absence of ATT behavior in build 3.
+
+[Current X terms](https://x.com/en/tos), effective October 9, 2026, limit access to published interfaces and restrict scraping without express written permission except where applicable law requires otherwise. The repository uses web endpoints, not a documented OAuth/API integration. This source does not establish the application's content-rights basis; it makes a blanket assumption of permission inappropriate.
+
+### Saved age answers
+
+- No parental controls, age assurance or under-13 social-media restriction using Declared Age Range.
+- Yes to unrestricted web access, UGC, social media, messaging/chat (comments/replies) and advertising.
+- Infrequent profanity, horror, substance references and medical/treatment information; health/wellness topics present.
+- Frequent mature/suggestive themes; infrequent sexual/nudity and graphic sexual/nudity content. The graphic category is included because X permits such material and the current parser does not enforce its sensitivity markers.
+- Infrequent cartoon/fantasy, realistic, graphic/sadistic violence and weapons. With unrestricted platform content and no native content-safety enforcement, these categories have not been claimed absent.
+- No simulated gambling, contests, real-money gambling or loot boxes as app functionality.
+
+These are conservative category assessments, not empirical measurements of every user's personalized feed. Apple displayed “Unrated” for both current and pre-26 operating systems. Content filtering and safety enforcement need to be implemented and verified before revising these answers to describe a safer build; do not change answers solely to get past validation.
+
+### Final submission validation
+
+After publishing privacy answers and saving the age questionnaire, clicking “Add for Review” returned only one missing-field error: content-rights information must be set in App Information. No review submission was created. The absence of age/privacy errors in this required-field check does not override the age wizard's explicit “Unrated” warning or establish that build 3 meets tracking requirements.
