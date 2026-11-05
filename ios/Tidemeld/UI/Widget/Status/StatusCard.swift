@@ -73,7 +73,8 @@ struct StatusHeader: View {
             status.isAd ? "广告" : nil,
         ].compactMap { $0 }
         PostHeader(
-            name: user?.screenName ?? "微博用户", metadata: meta, tags: tags,
+            name: user?.screenName ?? "微博用户", metadata: meta,
+            sourceIcon: Image("PlatformWeibo"), sourceLabel: "微博", tags: tags,
             onAuthor: user.flatMap { user in actions.onUser.map { action in { action(user) } } },
             avatar: { UserAvatar(user: user, onTap: actions.onUser) },
             badge: {

@@ -14,13 +14,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.leonfox28.tidemeld.LocalAppGraph
+import io.github.leonfox28.tidemeld.R
 import io.github.leonfox28.tidemeld.core.media.WeiboImage
 import io.github.leonfox28.tidemeld.core.util.formatPostTime
 import io.github.leonfox28.tidemeld.data.model.MixedMedia
 import io.github.leonfox28.tidemeld.data.x.XPost
 import io.github.leonfox28.tidemeld.ui.navigation.*
 import io.github.leonfox28.tidemeld.ui.post.*
-import io.github.leonfox28.tidemeld.ui.theme.KeepTextSize
 import io.github.leonfox28.tidemeld.ui.widget.*
 import kotlinx.coroutines.launch
 
@@ -29,11 +29,7 @@ import kotlinx.coroutines.launch
 fun XPostCard(post: XPost, owner: String, detail: Boolean = false) {
     val navigator = LocalNavigator.current
     val actions = rememberXPostActions(owner, post)
-    var moreMenu by remember { mutableStateOf(false) }
     val hasMedia = post.media.isNotEmpty()
-    fun web() {
-        navigator.push(Route.AccountWeb(owner, post.url))
-    }
     PostCard(
         detail = detail,
         activity = post.repostedBy?.let { "$it 转发" },
@@ -43,6 +39,8 @@ fun XPostCard(post: XPost, owner: String, detail: Boolean = false) {
                 name = post.author,
                 metadata =
                     "@${post.handle}" + (post.createdAt?.let { " · ${formatPostTime(it)}" } ?: ""),
+                sourceIcon = R.drawable.ic_platform_x,
+                sourceLabel = "X",
                 tags = if (post.promoted) listOf("广告") else emptyList(),
                 avatar = {
                     Box(
@@ -51,24 +49,6 @@ fun XPostCard(post: XPost, owner: String, detail: Boolean = false) {
                     ) {
                         if (post.avatar != null) WeiboImage(post.avatar, Modifier.fillMaxSize())
                         else Icon(Icons.Default.Person, null)
-                    }
-                },
-                menu = {
-                    Box {
-                        IconButton(onClick = { moreMenu = true }, Modifier.size(40.dp)) {
-                            Icon(Icons.Default.MoreHoriz, "更多选项")
-                        }
-                        DropdownMenu(moreMenu, onDismissRequest = { moreMenu = false }) {
-                            KeepTextSize {
-                                DropdownMenuItem(
-                                    text = { Text("在 X 网页中打开") },
-                                    onClick = {
-                                        moreMenu = false
-                                        web()
-                                    },
-                                )
-                            }
-                        }
                     }
                 },
             )

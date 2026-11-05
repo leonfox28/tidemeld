@@ -45,6 +45,8 @@ struct PostCard<Header: View, Body: View, Aside: View, Footer: View>: View {
 struct PostHeader<Avatar: View, Badge: View, Menu: View>: View {
     let name: String
     let metadata: String
+    let sourceIcon: Image
+    let sourceLabel: String
     var tags: [String] = []
     var onAuthor: (() -> Void)?
     @ViewBuilder let avatar: () -> Avatar
@@ -67,6 +69,9 @@ struct PostHeader<Avatar: View, Badge: View, Menu: View>: View {
             Spacer(minLength: 0)
             ForEach(tags, id: \.self) { TagLabel(text: $0) }
             menu()
+            sourceIcon.resizable().scaledToFit().frame(width: 20, height: 20)
+                .foregroundStyle(AppTheme.secondary).frame(width: 32, height: 32)
+                .accessibilityLabel("来源：\(sourceLabel)")
         }
     }
 }

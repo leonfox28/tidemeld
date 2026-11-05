@@ -98,13 +98,6 @@ fun SocialTimeline(selection: FeedSelection, padding: PaddingValues, modifier: M
                         }
                     }
                 items(state.items, key = { it.key }) { item ->
-                    val account = accounts.firstOrNull { it.key == item.owner }
-                    Text(
-                        "${account?.platform?.label.orEmpty()} · ${account?.name.orEmpty()}",
-                        Modifier.padding(start = 16.dp, top = 12.dp),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.primary,
-                    )
                     when (item) {
                         is FeedPost.Weibo -> {
                             val scoped = graph.forAccount(item.owner)

@@ -1,5 +1,6 @@
 package io.github.leonfox28.tidemeld.ui.post
 
+import androidx.annotation.DrawableRes
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -25,6 +26,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
@@ -74,6 +76,8 @@ fun PostCard(
 fun PostHeader(
     name: String,
     metadata: String,
+    @DrawableRes sourceIcon: Int,
+    sourceLabel: String,
     tags: List<String> = emptyList(),
     onAuthor: (() -> Unit)? = null,
     avatar: @Composable () -> Unit,
@@ -112,6 +116,14 @@ fun PostHeader(
             TagLabel(tag)
         }
         menu()
+        Box(Modifier.size(32.dp), contentAlignment = Alignment.Center) {
+            Icon(
+                painterResource(sourceIcon),
+                contentDescription = "来源：$sourceLabel",
+                modifier = Modifier.size(20.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
     }
 }
 

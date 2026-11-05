@@ -37,11 +37,7 @@ struct SocialTimeline: View {
                     }
                 }
                 ForEach(feed.items) { item in
-                    let account = graph.accounts.find(item.owner)
-                    VStack(alignment: .leading, spacing: 0) {
-                        Text("\(account?.platform.label ?? "") · \(account?.name ?? "")")
-                            .font(.caption2).foregroundStyle(AppTheme.accent).padding(.leading, 16).padding(
-                                .top, 12)
+                    Group {
                         switch item {
                         case .weibo(_, let status):
                             if let context = graph.forAccount(item.owner) {

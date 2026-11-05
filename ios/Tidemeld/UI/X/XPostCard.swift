@@ -18,6 +18,7 @@ struct XPostCard: View {
                         name: post.author,
                         metadata: "@\(post.handle)"
                             + (post.createdAt.map { " · \(formatPostTime($0))" } ?? ""),
+                        sourceIcon: Image("PlatformX"), sourceLabel: "X",
                         tags: post.promoted ? ["广告"] : [],
                         avatar: {
                             Group {
@@ -29,17 +30,7 @@ struct XPostCard: View {
                                 }
                             }.frame(width: 40, height: 40).clipShape(Circle())
                         }, badge: {},
-                        menu: {
-                            Menu {
-                                Button("在 X 网页中打开") {
-                                    graph.router.push(.accountWeb(owner, post.url))
-                                }
-                            } label: {
-                                Image(systemName: "ellipsis").font(.body).foregroundStyle(
-                                    AppTheme.secondary
-                                ).frame(width: 32, height: 32).contentShape(Rectangle())
-                            }.accessibilityLabel("更多选项")
-                        })
+                        menu: {})
                 },
                 content: {
                     VStack(alignment: .leading, spacing: 8) {

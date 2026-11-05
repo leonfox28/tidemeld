@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.leonfox28.tidemeld.LocalAppGraph
+import io.github.leonfox28.tidemeld.R
 import io.github.leonfox28.tidemeld.core.media.WeiboImage
 import io.github.leonfox28.tidemeld.core.session.SessionState
 import io.github.leonfox28.tidemeld.core.util.formatPostTime
@@ -142,6 +143,8 @@ private fun Header(status: Status, actions: StatusCardActions) {
     PostHeader(
         name = user?.screenName ?: "微博用户",
         metadata = meta,
+        sourceIcon = R.drawable.ic_platform_weibo,
+        sourceLabel = "微博",
         tags = tags,
         onAuthor = if (user != null && onUser != null) ({ onUser(user) }) else null,
         avatar = { UserAvatar(user, onClick = onUser) },
