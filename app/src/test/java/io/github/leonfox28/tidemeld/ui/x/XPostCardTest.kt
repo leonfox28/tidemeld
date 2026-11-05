@@ -23,7 +23,7 @@ class XPostCardTest {
     private val web = FakeWeibo()
     private val spec =
         Json.parseToJsonElement(
-                """{"operations":{"FavoriteTweet":{"queryId":"fixture"},"CreateTweet":{"queryId":"fixture"},"CreateRetweet":{"queryId":"fixture"}}}"""
+                """{"operations":{"TweetDetail":{"queryId":"fixture"},"FavoriteTweet":{"queryId":"fixture"},"CreateTweet":{"queryId":"fixture"},"CreateRetweet":{"queryId":"fixture"}}}"""
             )
             .jsonObject
     private val graph =
@@ -43,6 +43,70 @@ class XPostCardTest {
     }
 
     @After fun close() = web.close()
+
+    @Test
+    fun `compact comment replies to its own original post with its source account`() {
+        web.respond = {
+            json("""{"data":{"create_tweet":{"tweet_results":{"result":{"rest_id":"100"}}}}}""")
+        }
+        val comment = post.copy(id = "wrapper", originalId = "70", replyTo = "42")
+        var sent = 0
+        compose.setContent { TestHost(graph) { XCommentTile(comment, "x:7", onSent = { sent++ }) } }
+        compose.onNodeWithContentDescription("转发").assertDoesNotExist()
+        compose.onNodeWithText("合成正文").performClick()
+        assertTrue(web.requests.isEmpty())
+        compose.onNode(hasSetTextAction()).performTextInput("合成回复")
+        compose.onNodeWithText("发送").performClick()
+        compose.waitUntil(5000) { sent == 1 }
+        val request = web.requests.single()
+        val variables =
+            Json.parseToJsonElement(request.body!!.utf8()).jsonObject["variables"]!!.jsonObject
+        assertEquals(
+            "70",
+            variables["reply"]!!.jsonObject["in_reply_to_tweet_id"]!!.jsonPrimitive.content,
+        )
+        assertEquals("synthetic", request.headers["x-csrf-token"])
+    }
+
+    @Test
+    fun `comment thread preview opens the reply using its original identity`() {
+        val comment = post.copy(id = "wrapper", originalId = "70", metrics = XMetrics(replies = 3))
+        val child = post.copy(id = "71", originalId = "71", text = "下级回复", replyTo = "70")
+        val navigator = Navigator()
+        compose.setContent {
+            TestHost(graph, navigator) {
+                XCommentTile(comment, "x:7", authorHandle = "fixture", preview = listOf(child))
+            }
+        }
+        compose.onNodeWithText("博主", useUnmergedTree = true).assertExists()
+        compose.onNodeWithText("@作者：下级回复", useUnmergedTree = true).assertExists()
+        compose.onNodeWithText("共3条回复 >").performClick()
+        assertEquals(Route.XDetail("x:7", "70", comment), navigator.backStack.last())
+        assertTrue(web.requests.isEmpty())
+    }
+
+    @Test
+    fun `detail nests lower replies in previews instead of additional feed cards`() {
+        fun entry(id: String, parent: String, text: String) =
+            """{"content":{"itemContent":{"tweet_results":{"result":{"rest_id":"$id","core":{"user_results":{"result":{"core":{"name":"作者","screen_name":"fixture"}}}},"legacy":{"full_text":"$text","in_reply_to_status_id_str":"$parent","reply_count":1}}}}}}"""
+        web.respond = {
+            json(
+                """{"data":{"threaded_conversation_with_injections_v2":{"instructions":[{"entries":[${entry("72", "71", "二级回复")},${entry("71", "42", "一级回复")}]}]}}}"""
+            )
+        }
+        compose.setContent { TestHost(graph) { XDetailPage("x:7", "42", post) } }
+        compose.waitUntil(5000) {
+            compose
+                .onAllNodesWithText("一级回复", useUnmergedTree = true)
+                .fetchSemanticsNodes()
+                .isNotEmpty()
+        }
+        compose.onNodeWithText("@作者：二级回复", useUnmergedTree = true).assertExists()
+        compose.onNodeWithText("二级回复", useUnmergedTree = true).assertDoesNotExist()
+        compose
+            .onAllNodesWithContentDescription("来源：X", useUnmergedTree = true)
+            .assertCountEquals(1)
+    }
 
     @Test
     fun `native card shares acknowledged likes and comments open account detail`() {

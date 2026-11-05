@@ -92,7 +92,7 @@ fun XPostCard(post: XPost, owner: String, detail: Boolean = false) {
 }
 
 @Composable
-private fun XMedia(post: XPost, owner: String) {
+internal fun XMedia(post: XPost, owner: String, compact: Boolean = false) {
     val navigator = LocalNavigator.current
     val graph = LocalAppGraph.current
     val items = post.media
@@ -117,7 +117,8 @@ private fun XMedia(post: XPost, owner: String) {
         }
     }
     val singleVideo = (items.singleOrNull() as? MixedMedia.Video)?.video
-    if (singleVideo != null) VideoCover(singleVideo) { open(0) }
+    if (compact && items.isNotEmpty()) PostCommentMedia(items, ::open)
+    else if (singleVideo != null) VideoCover(singleVideo) { open(0) }
     else if (items.isNotEmpty()) PicGrid(items, onClick = ::open)
 }
 

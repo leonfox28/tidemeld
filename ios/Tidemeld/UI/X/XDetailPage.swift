@@ -66,8 +66,10 @@ struct XDetailPage: View {
             },
             responses: {
                 if let replies = model.replies {
-                    PagedRows(list: replies, emptyText: "还没有评论") { post in
-                        XPostCard(post: post, owner: owner).readingWidth().statusRow()
+                    PagedRows(list: replies, emptyText: "还没有评论", include: { $0.replyTo == id }) { post in
+                        XCommentTile(post: post, owner: owner, authorHandle: model.post?.handle,
+                            preview: replies.items.filter { $0.replyTo == post.originalID },
+                            onSent: { replies.reload() }).readingWidth().responseRow()
                     }
                 }
             })

@@ -7,6 +7,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.unit.dp
 import io.github.leonfox28.tidemeld.data.model.PicInfo
 import io.github.leonfox28.tidemeld.data.x.XPost
 import io.github.leonfox28.tidemeld.support.*
@@ -35,6 +36,15 @@ class XPostLayoutTest {
             null,
             pictures = listOf(PicInfo.fromUrl("https://example.com/synthetic.jpg")),
         )
+
+    @Test
+    fun `comment media stays thumbnail sized and opens the shared viewer`() {
+        val navigator = Navigator()
+        compose.setContent { TestHost(navigator = navigator) { XCommentTile(post, "x:7") } }
+        compose.onNodeWithTag("media").assertWidthIsEqualTo(96.dp).assertHeightIsEqualTo(96.dp)
+        compose.onNodeWithTag("media").performClick()
+        assertEquals(Route.Viewer(post.pictures, 0), navigator.backStack.last())
+    }
 
     @Test
     fun `X inherits Weibo wide card layout and original picture navigation`() {

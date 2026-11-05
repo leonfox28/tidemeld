@@ -29,6 +29,7 @@ fun <T> LazyListScope.pagedItems(
     onLoadMore: () -> Unit,
     emptyText: String = "暂无内容",
     dividerIndent: Dp = 58.dp,
+    include: (T) -> Boolean = { true },
     itemContent: @Composable (T) -> Unit,
 ) {
     when (load) {
@@ -42,7 +43,8 @@ fun <T> LazyListScope.pagedItems(
             item(key = "paged-error") { ErrorRetry(load.error, onRetry, Modifier.fillMaxWidth()) }
         is ListLoad.Ready -> {
             val list = load.list
-            if (list.items.isEmpty() && !list.hasMore) {
+            val visibleItems = list.items.filter(include)
+            if (visibleItems.isEmpty() && !list.hasMore) {
                 item(key = "paged-empty") {
                     Box(
                         Modifier.fillMaxWidth().padding(vertical = 40.dp),
@@ -57,7 +59,7 @@ fun <T> LazyListScope.pagedItems(
                 }
                 return
             }
-            items(list.items, key = key) { item ->
+            items(visibleItems, key = key) { item ->
                 itemContent(item)
                 HorizontalDivider(Modifier.padding(start = dividerIndent))
             }

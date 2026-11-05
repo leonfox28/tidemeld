@@ -64,15 +64,20 @@ struct XPostCard: View {
     }
 }
 
-private struct XPostMedia: View {
+struct XPostMedia: View {
     let items: [MixedMedia]
     let postID: String
     let owner: String
+    var compact = false
     @Environment(AppGraph.self) private var graph
     @State private var source = UUID().uuidString
     private var pics: [PicInfo] { items.compactMap { if case .pic(let pic) = $0 { pic } else { nil } } }
     var body: some View {
-        if items.count == 1, case .video(let video) = items[0] {
+        if compact, !items.isEmpty {
+            PostCommentMedia(items: items, onOpen: open, sourceID: { index in
+                if case .pic(let pic) = items[index] { picSourceID(source, pic) } else { "\(source):\(index)" }
+            })
+        } else if items.count == 1, case .video(let video) = items[0] {
             VideoCover(video: video) { open(0) }
         } else if !items.isEmpty {
             PicGrid(items: items, onTap: open, sourceID: { index in

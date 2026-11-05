@@ -117,6 +117,8 @@ private struct LoadsMoreAsScrolled: ViewModifier {
 struct PagedRows<T: Sendable, Row: View>: View {
     let list: PagedList<T>
     var emptyText = "暂无内容"
+    /// Nested responses can be previewed in their parent's row without changing pagination.
+    var include: (T) -> Bool = { _ in true }
     @ViewBuilder let row: (T) -> Row
 
     var body: some View {
@@ -132,7 +134,8 @@ struct PagedRows<T: Sendable, Row: View>: View {
                 .listRowSeparator(.hidden)
                 .listRowBackground(Color.clear)
         case .ready(let state):
-            if state.items.isEmpty, !state.hasMore {
+            let items = state.items.filter(include)
+            if items.isEmpty, !state.hasMore {
                 Text(emptyText)
                     .font(.subheadline)
                     .foregroundStyle(AppTheme.secondary)
@@ -141,7 +144,7 @@ struct PagedRows<T: Sendable, Row: View>: View {
                     .listRowSeparator(.hidden)
                     .listRowBackground(Color.clear)
             } else {
-                ForEach(state.items.map { (list.idOf($0), $0) }, id: \.0) { item in
+                ForEach(items.map { (list.idOf($0), $0) }, id: \.0) { item in
                     row(item.1)
                 }
                 LoadMoreFooter(list: state) { Task { await list.loadMore() } }

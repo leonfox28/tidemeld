@@ -81,8 +81,16 @@ fun XDetailPage(owner: String, id: String, initial: XPost?) {
                 onRetry = controller::reload,
                 onLoadMore = { scope.launch { controller.loadMore() } },
                 emptyText = "还没有评论",
+                include = { it.replyTo == id },
             ) {
-                XPostCard(it, owner)
+                val all = (state as? ListLoad.Ready)?.list?.items.orEmpty()
+                XCommentTile(
+                    it,
+                    owner,
+                    authorHandle = post?.handle,
+                    preview = all.filter { child -> child.replyTo == it.originalId },
+                    onSent = controller::reload,
+                )
             }
         },
     )
