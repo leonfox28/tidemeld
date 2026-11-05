@@ -11,6 +11,8 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.*
 import okhttp3.*
 import okhttp3.HttpUrl.Companion.toHttpUrl
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.RequestBody.Companion.toRequestBody
 
 /** First-party web requests only. Cookies are never sent to assets, redirects or third parties. */
 class XWebApi(
@@ -77,24 +79,162 @@ class XWebApi(
         }
     }
 
+    suspend fun conversation(
+        session: StoredSession,
+        id: String,
+        cursor: String?,
+        onCookies: (Map<String, Map<String, String>>) -> Unit = {},
+    ): XConversation =
+        withSession(session, onCookies) { cookies ->
+            val variables = buildJsonObject {
+                put("focalTweetId", id)
+                put("referrer", "home")
+                put("with_rux_injections", false)
+                put("rankingMode", "Relevance")
+                put("includePromotedContent", true)
+                put("withCommunity", true)
+                put("withQuickPromoteEligibilityTweetFields", true)
+                put("withBirdwatchNotes", true)
+                put("withVoice", true)
+                cursor?.let { put("cursor", it) }
+            }
+            parseXConversation(query("TweetDetail", variables, cookies), id, cursor)
+        }
+
+    suspend fun like(
+        session: StoredSession,
+        id: String,
+        liked: Boolean,
+        onCookies: (Map<String, Map<String, String>>) -> Unit = {},
+        isCurrent: () -> Boolean = { true },
+    ) =
+        withSession(session, onCookies) { cookies ->
+            val result =
+                query(
+                    if (liked) "FavoriteTweet" else "UnfavoriteTweet",
+                    buildJsonObject { put("tweet_id", id) },
+                    cookies,
+                    write = true,
+                    isCurrent = isCurrent,
+                )
+            if (
+                result.at("data", if (liked) "favorite_tweet" else "unfavorite_tweet").string() !=
+                    "Done"
+            )
+                throw WeiboApiException(WRITE_UNCERTAIN)
+        }
+
+    suspend fun repost(
+        session: StoredSession,
+        id: String,
+        reposted: Boolean,
+        onCookies: (Map<String, Map<String, String>>) -> Unit = {},
+        isCurrent: () -> Boolean = { true },
+    ) =
+        withSession(session, onCookies) { cookies ->
+            val result =
+                query(
+                    if (reposted) "CreateRetweet" else "DeleteRetweet",
+                    buildJsonObject {
+                        put(if (reposted) "tweet_id" else "source_tweet_id", id)
+                        put("dark_request", false)
+                    },
+                    cookies,
+                    write = true,
+                    isCurrent = isCurrent,
+                )
+            val acknowledged =
+                if (reposted)
+                    result
+                        .at("data", "create_retweet", "retweet_results", "result", "rest_id")
+                        .string() != null
+                else
+                    result
+                        .at("data", "unretweet", "source_tweet_results", "result", "rest_id")
+                        .string() == id
+            if (!acknowledged) throw WeiboApiException(WRITE_UNCERTAIN)
+        }
+
+    suspend fun publish(
+        session: StoredSession,
+        post: XPost,
+        text: String,
+        quote: Boolean = false,
+        onCookies: (Map<String, Map<String, String>>) -> Unit = {},
+        isCurrent: () -> Boolean = { true },
+    ): String =
+        withSession(session, onCookies) { cookies ->
+            if (text.isBlank()) throw WeiboApiException("请输入内容")
+            val variables = buildJsonObject {
+                put("tweet_text", text.trim())
+                put("dark_request", false)
+                putJsonObject("media") {
+                    put("media_entities", JsonArray(emptyList()))
+                    put("possibly_sensitive", false)
+                }
+                put("semantic_annotation_ids", JsonArray(emptyList()))
+                if (quote) put("attachment_url", post.url)
+                else
+                    putJsonObject("reply") {
+                        put("in_reply_to_tweet_id", post.originalId)
+                        put("exclude_reply_user_ids", JsonArray(emptyList()))
+                    }
+            }
+            val result =
+                query("CreateTweet", variables, cookies, write = true, isCurrent = isCurrent)
+            result.at("data", "create_tweet", "tweet_results", "result", "rest_id").string()
+                ?: result
+                    .at("data", "create_tweet", "tweet_results", "result", "tweet", "rest_id")
+                    .string()
+                ?: throw WeiboApiException(WRITE_UNCERTAIN)
+        }
+
+    private suspend fun <T> withSession(
+        session: StoredSession,
+        onCookies: (Map<String, Map<String, String>>) -> Unit,
+        action: suspend (MutableMap<String, String>) -> T,
+    ): T {
+        val cookies = session.cookies["x.com"].orEmpty().toMutableMap()
+        if (cookies["auth_token"].isNullOrBlank() || cookies["ct0"].isNullOrBlank())
+            throw SessionExpiredException()
+        try {
+            return action(cookies)
+        } finally {
+            if (cookies != session.cookies["x.com"]) onCookies(mapOf("x.com" to cookies.toMap()))
+        }
+    }
+
     private suspend fun query(
         operation: String,
         variables: JsonObject,
         cookies: MutableMap<String, String>,
+        write: Boolean = false,
+        isCurrent: () -> Boolean = { true },
     ): JsonObject {
         val spec =
             protocol.at("operations", operation).obj() ?: throw WeiboApiException("X 接口配置不可用")
-        val url =
+        val builder =
             "https://api.x.com/graphql/${spec["queryId"].string()}/$operation"
                 .toHttpUrl()
                 .newBuilder()
-                .addQueryParameter("variables", variables.toString())
-                .addQueryParameter("features", spec["features"].toString())
-                .build()
-        val text = get(url, cookies, api = true)
+        val body =
+            if (write)
+                buildJsonObject {
+                    put("variables", variables)
+                    put("queryId", spec["queryId"]!!)
+                    spec["features"]?.let { put("features", it) }
+                }
+                    .toString()
+            else null
+        if (!write) {
+            builder.addQueryParameter("variables", variables.toString())
+            spec["features"]?.let { builder.addQueryParameter("features", it.toString()) }
+            spec["fieldToggles"]?.let { builder.addQueryParameter("fieldToggles", it.toString()) }
+        }
+        val text = get(builder.build(), cookies, api = true, body = body, isCurrent = isCurrent)
         val result =
             runCatching { Json.parseToJsonElement(text).jsonObject }.getOrNull()
-                ?: throw WeiboApiException("X 返回了无法识别的内容")
+                ?: throw WeiboApiException(if (write) WRITE_UNCERTAIN else "X 返回了无法识别的内容")
         val errors = result["errors"] as? JsonArray
         val code = errors?.firstOrNull().at("code").string()?.toIntOrNull()
         if (code in listOf(32, 89, 215)) throw SessionExpiredException()
@@ -102,8 +242,16 @@ class XWebApi(
             throttle.backOff()
             throw RateLimitedException(429)
         }
-        if (!errors.isNullOrEmpty() && result["data"] == null)
-            throw WeiboApiException("X 暂时无法读取，请在官方网页检查账号状态")
+        if (!errors.isNullOrEmpty() && (write || result["data"] == null)) {
+            val message =
+                when (code) {
+                    186 -> "内容超过 X 的长度限制，请缩短后重试"
+                    187 -> "X 提示内容重复，请先刷新确认是否已发送"
+                    226 -> "X 暂时限制了这次操作，请在官方网页检查账号状态"
+                    else -> if (write) "X 未确认这次操作，请刷新帖子检查状态" else "X 暂时无法读取，请在官方网页检查账号状态"
+                }
+            throw WeiboApiException(message)
+        }
         return result
     }
 
@@ -111,11 +259,14 @@ class XWebApi(
         url: HttpUrl,
         cookies: MutableMap<String, String>,
         api: Boolean,
+        body: String? = null,
+        isCurrent: () -> Boolean = { true },
     ): String {
         require(url.scheme == "https" && url.host in setOf("x.com", "api.x.com"))
         throttle.acquire()
         try {
             return withContext(Dispatchers.IO) {
+                if (!isCurrent()) throw WeiboApiException("账号已变更，操作已取消")
                 val request =
                     Request.Builder()
                         .url(url)
@@ -138,6 +289,7 @@ class XWebApi(
                         .header("x-twitter-auth-type", "OAuth2Session")
                         .header("x-twitter-active-user", "yes")
                         .header("x-twitter-client-language", "zh-cn")
+                if (body != null) request.post(body.toRequestBody("application/json".toMediaType()))
                 client.newCall(request.build()).execute().use { response ->
                     when {
                         response.code == 401 -> throw SessionExpiredException()
@@ -150,7 +302,11 @@ class XWebApi(
                         response.code in 300..399 ->
                             throw WeiboApiException("请完成 X 官方网页登录后重试", response.code)
                         !response.isSuccessful ->
-                            throw WeiboApiException("X 加载失败（${response.code}）", response.code)
+                            throw WeiboApiException(
+                                if (body != null && response.code >= 500) WRITE_UNCERTAIN
+                                else "X 请求失败（${response.code}）",
+                                response.code,
+                            )
                     }
                     for (cookie in Cookie.parseAll(response.request.url, response.headers)) {
                         if (cookie.domain == "x.com" || cookie.domain == "api.x.com") {
@@ -163,6 +319,7 @@ class XWebApi(
                 }
             }
         } catch (error: IOException) {
+            if (body != null) throw WeiboApiException(WRITE_UNCERTAIN)
             throw NetworkException(error)
         } finally {
             throttle.release()
@@ -170,6 +327,7 @@ class XWebApi(
     }
 
     companion object {
+        const val WRITE_UNCERTAIN = "操作结果未确认，请先刷新帖子检查，避免重复发送"
         // Public identifier shipped by X's web client, not a user's developer credential.
         private const val WEB_BEARER =
             "AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA"

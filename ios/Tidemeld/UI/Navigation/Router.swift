@@ -11,6 +11,7 @@ enum AppTab: Hashable, CaseIterable {
 /// carry what the previous page already has, such as the status that was
 /// tapped; routes compare by what they show, not by that.
 enum Route: Hashable {
+    case xStatus(owner: String, id: String, initial: XPost?)
     case accounts
     indirect case account(String, Route)
     /// A status and its comments; [initial] shows until the full status loads.
@@ -33,6 +34,7 @@ enum Route: Hashable {
 
     private var key: String {
         switch self {
+        case .xStatus(let owner, let id, _): "xStatus:\(owner):\(id)"
         case .accounts: "accounts"
         case .account(let owner, let route): "account:\(owner):\(route.key)"
         case .status(let id, _): "status:\(id)"

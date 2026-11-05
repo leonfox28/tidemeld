@@ -82,14 +82,11 @@ class TimelinePageTest {
         compose.onNodeWithContentDescription("选择信息流").performClick()
         compose.onNodeWithText("X", useUnmergedTree = true).performClick()
         compose.waitUntil(5_000) { !shown(0, "来自微博的信息") && shown(0, "来自X的信息") }
-        compose.onNodeWithText("在 X 中查看与互动").performClick()
-        assertEquals(
-            io.github.leonfox28.tidemeld.ui.navigation.Route.AccountWeb(
-                "x:9",
-                "https://x.com/fixture/status/91",
-            ),
-            navigator.backStack.last(),
-        )
+        compose.onNodeWithText("评论 0").performClick()
+        val route =
+            navigator.backStack.last() as io.github.leonfox28.tidemeld.ui.navigation.Route.XDetail
+        assertEquals("x:9", route.owner)
+        assertEquals("91", route.id)
         compose.onNodeWithContentDescription("选择信息流").performClick()
         compose.onNodeWithText("微博", useUnmergedTree = true).performClick()
         compose.waitUntil(5_000) { shown(0, "来自微博的信息") && !shown(0, "来自X的信息") }

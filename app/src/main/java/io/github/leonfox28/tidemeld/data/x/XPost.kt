@@ -23,9 +23,45 @@ data class XPost(
     val repostedBy: String? = null,
     val promoted: Boolean = false,
     val originalId: String = id,
+    val metrics: XMetrics = XMetrics(),
+    val replyTo: String? = null,
 ) {
     val url
         get() = "https://x.com/$handle/status/$originalId"
+}
+
+data class XMetrics(
+    val likes: Int = 0,
+    val reposts: Int = 0,
+    val replies: Int = 0,
+    val liked: Boolean = false,
+    val reposted: Boolean = false,
+)
+
+data class XConversation(val post: XPost?, val replies: Paged<XPost>)
+
+fun parseXConversation(
+    json: JsonObject,
+    focalId: String,
+    previousCursor: String? = null,
+): XConversation {
+    val instructions =
+        json.at("data", "threaded_conversation_with_injections_v2", "instructions") as? JsonArray
+            ?: throw WeiboApiException("X 暂时无法读取这条帖子的评论")
+    val page = parseXEntries(instructions, previousCursor)
+    val related = mutableSetOf(focalId)
+    repeat(page.items.size) {
+        page.items.filter { it.replyTo in related }.forEach { related += it.originalId }
+    }
+    return XConversation(
+        page.items.firstOrNull { it.originalId == focalId },
+        Paged(
+            page.items.filter {
+                it.originalId != focalId && (it.originalId in related || it.promoted)
+            },
+            page.nextCursor,
+        ),
+    )
 }
 
 internal fun JsonElement?.obj() = this as? JsonObject
@@ -40,6 +76,10 @@ fun parseXTimeline(json: JsonObject, previousCursor: String? = null): Paged<XPos
     val instructions =
         json.at("data", "home", "home_timeline_urt", "instructions") as? JsonArray
             ?: throw WeiboApiException("X 信息流格式已变化，请稍后更新应用")
+    return parseXEntries(instructions, previousCursor)
+}
+
+private fun parseXEntries(instructions: JsonArray, previousCursor: String?): Paged<XPost> {
     val posts = mutableListOf<XPost>()
     var cursor: String? = null
     fun content(value: JsonElement?) {
@@ -114,5 +154,14 @@ fun parseXPost(value: JsonElement?, promoted: Boolean = false, depth: Int = 0): 
         stream,
         parseXPost(root.at("quoted_status_result", "result"), depth = depth + 1),
         promoted = promoted,
+        metrics =
+            XMetrics(
+                likes = legacy["favorite_count"].string()?.toIntOrNull()?.coerceAtLeast(0) ?: 0,
+                reposts = legacy["retweet_count"].string()?.toIntOrNull()?.coerceAtLeast(0) ?: 0,
+                replies = legacy["reply_count"].string()?.toIntOrNull()?.coerceAtLeast(0) ?: 0,
+                liked = (legacy["favorited"] as? JsonPrimitive)?.booleanOrNull == true,
+                reposted = (legacy["retweeted"] as? JsonPrimitive)?.booleanOrNull == true,
+            ),
+        replyTo = legacy["in_reply_to_status_id_str"].string(),
     )
 }

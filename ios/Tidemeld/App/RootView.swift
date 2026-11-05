@@ -128,6 +128,7 @@ struct RouteView: View {
         case .web(let url):
             if let owner = graph.router.accountKey { AccountWebPage(owner: owner, url: url) }
             else { InAppBrowser(url: url) }
+        case .xStatus(let owner, let id, let initial): XDetailPage(owner: owner, id: id, initial: initial)
         case .accountWeb(let owner, let url): AccountWebPage(owner: owner, url: url)
         case .textSize: TextSizePage()
         case .about: AboutPage()

@@ -1,32 +1,24 @@
 package io.github.leonfox28.tidemeld.ui.timeline
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.leonfox28.tidemeld.LocalAppGraph
 import io.github.leonfox28.tidemeld.core.accounts.FeedSelection
-import io.github.leonfox28.tidemeld.core.media.WeiboImage
-import io.github.leonfox28.tidemeld.core.util.formatPostTime
-import io.github.leonfox28.tidemeld.data.model.MixedMedia
-import io.github.leonfox28.tidemeld.data.x.XPost
 import io.github.leonfox28.tidemeld.ui.navigation.*
 import io.github.leonfox28.tidemeld.ui.shell.LocalTabReselect
 import io.github.leonfox28.tidemeld.ui.status.rememberStatusCardActions
 import io.github.leonfox28.tidemeld.ui.widget.*
 import io.github.leonfox28.tidemeld.ui.widget.status.StatusCard
+import io.github.leonfox28.tidemeld.ui.x.XPostCard
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -143,59 +135,5 @@ fun SocialTimeline(selection: FeedSelection, padding: PaddingValues, modifier: M
                     }
             }
         }
-    }
-}
-
-@Composable
-private fun XPostCard(post: XPost, owner: String) {
-    val navigator = LocalNavigator.current
-    fun open() {
-        navigator.push(Route.AccountWeb(owner, post.url))
-    }
-    Column(
-        Modifier.fillMaxWidth().clickable(onClick = ::open).padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        post.repostedBy?.let { Text("$it 转发", style = MaterialTheme.typography.labelSmall) }
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            post.avatar?.let { WeiboImage(it, Modifier.size(40.dp).clip(CircleShape)) }
-            Column(Modifier.weight(1f)) {
-                Text(post.author, style = MaterialTheme.typography.titleSmall)
-                Text(
-                    "@${post.handle}" + (post.createdAt?.let { " · ${formatPostTime(it)}" } ?: ""),
-                    style = MaterialTheme.typography.bodySmall,
-                )
-            }
-            if (post.promoted) Text("广告", style = MaterialTheme.typography.labelSmall)
-        }
-        Text(post.text, style = MaterialTheme.typography.bodyLarge)
-        if (post.pictures.isNotEmpty())
-            PicGrid(
-                post.pictures.map(MixedMedia::Pic),
-                onClick = { navigator.push(Route.Viewer(post.pictures, it)) },
-            )
-        post.videoCover?.let { cover ->
-            Box(
-                Modifier.fillMaxWidth().height(200.dp).clickable(onClick = ::open),
-                contentAlignment = Alignment.Center,
-            ) {
-                WeiboImage(cover, Modifier.fillMaxSize())
-                FilledTonalIconButton(onClick = ::open) {
-                    Icon(Icons.Default.PlayArrow, "在 X 中播放视频")
-                }
-            }
-        }
-        post.quote?.let { quote ->
-            OutlinedCard(onClick = { navigator.push(Route.AccountWeb(owner, quote.url)) }) {
-                Column(Modifier.padding(12.dp)) {
-                    Text(quote.author, style = MaterialTheme.typography.labelMedium)
-                    Text(quote.text)
-                }
-            }
-        }
-        TextButton(onClick = ::open) { Text("在 X 中查看与互动") }
     }
 }

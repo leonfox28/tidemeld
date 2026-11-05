@@ -25,6 +25,12 @@ sealed interface Route {
     data class ForAccount(val key: String, val page: Route) : Route
 
     /** A status and its comments; [initial] shows until the full status loads. */
+    data class XDetail(
+        val owner: String,
+        val id: String,
+        val initial: io.github.leonfox28.tidemeld.data.x.XPost? = null,
+    ) : Route
+
     data class StatusDetail(val id: String, val initial: Status? = null) : Route
 
     /** A comment and its replies ("楼中楼"). */

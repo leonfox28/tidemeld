@@ -92,6 +92,92 @@ class XPostTest {
         assertNull(parseXTimeline(json, "next").nextCursor)
     }
 
+    @Test
+    fun `conversation excludes ancestors retains replies and ads and reads metrics from original repost`() {
+        fun entry(id: String, parent: String? = null, ad: Boolean = false): JsonObject {
+            val base = tweet(id).toMutableMap()
+            base["legacy"] =
+                JsonObject(
+                    base["legacy"]!!.jsonObject +
+                        buildJsonObject {
+                            parent?.let { put("in_reply_to_status_id_str", it) }
+                            put("favorite_count", 12)
+                            put("retweet_count", 2)
+                            put("reply_count", 3)
+                            put("favorited", true)
+                            put("retweeted", true)
+                        }
+                )
+            return buildJsonObject {
+                put(
+                    "content",
+                    buildJsonObject {
+                        put(
+                            "itemContent",
+                            buildJsonObject {
+                                put(
+                                    "tweet_results",
+                                    buildJsonObject { put("result", JsonObject(base)) },
+                                )
+                                if (ad) put("promotedMetadata", buildJsonObject {})
+                            },
+                        )
+                    },
+                )
+            }
+        }
+        val entries = buildJsonArray {
+            add(entry("ancestor"))
+            add(entry("42", "ancestor"))
+            add(entry("nested", "reply"))
+            add(entry("reply", "42"))
+            add(entry("ad", ad = true))
+            add(Json.parseToJsonElement("""{"content":{"cursorType":"Bottom","value":"next"}}"""))
+        }
+        val json = buildJsonObject {
+            put(
+                "data",
+                buildJsonObject {
+                    put(
+                        "threaded_conversation_with_injections_v2",
+                        buildJsonObject {
+                            put(
+                                "instructions",
+                                buildJsonArray { add(buildJsonObject { put("entries", entries) }) },
+                            )
+                        },
+                    )
+                },
+            )
+        }
+        val conversation = parseXConversation(json, "42")
+        assertEquals(listOf("nested", "reply", "ad"), conversation.replies.items.map { it.id })
+        assertEquals(XMetrics(12, 2, 3, true, true), conversation.post!!.metrics)
+        assertEquals("next", conversation.replies.nextCursor)
+        assertNull(parseXConversation(json, "42", "next").replies.nextCursor)
+        val original =
+            entries[1]
+                .jsonObject["content"]!!
+                .jsonObject["itemContent"]!!
+                .jsonObject["tweet_results"]!!
+                .jsonObject["result"]!!
+        val repost =
+            JsonObject(
+                tweet("wrapper") +
+                    ("legacy" to
+                        buildJsonObject {
+                            put(
+                                "retweeted_status_result",
+                                buildJsonObject { put("result", original) },
+                            )
+                        })
+            )
+        val parsed = parseXPost(repost)!!
+        assertEquals("wrapper", parsed.id)
+        assertEquals("42", parsed.originalId)
+        assertTrue(parsed.metrics.liked)
+    }
+
     @Test(expected = WeiboApiException::class)
     fun `unknown timeline shape is an error rather than an empty feed`() {
         parseXTimeline(buildJsonObject {})

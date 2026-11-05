@@ -124,6 +124,8 @@ class AppGraph(
         return scoped
     }
 
+    val xInteractions by lazy { io.github.leonfox28.tidemeld.ui.x.XInteractions(accounts, xApi) }
+
     val socialFeed by lazy {
         SocialFeedController(accounts, appScope) { account, cursor ->
             when (account.platform) {
@@ -149,12 +151,14 @@ class AppGraph(
                             ?: throw io.github.leonfox28.tidemeld.core.net.WeiboApiException(
                                 "X 接口配置不可用"
                             )
+                    val started = xInteractions.readStamp
                     service
                         .timeline(account.session, cursor) { cookies ->
                             if (accounts.find(account.key)?.revision == account.revision)
                                 accounts.updateCookies(account.key, cookies)
                         }
                         .let { page ->
+                            xInteractions.ingest(account, page.items, started)
                             io.github.leonfox28.tidemeld.data.model.Paged(
                                 page.items.map {
                                     io.github.leonfox28.tidemeld.ui.timeline.FeedPost.X(
