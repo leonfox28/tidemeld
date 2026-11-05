@@ -114,6 +114,7 @@ final class FakeWeibo: URLProtocol {
     nonisolated(unsafe) private static var respond: @Sendable (URLRequest) -> Reply = { _ in Reply() }
     nonisolated(unsafe) private static var received: [URLRequest] = []
     nonisolated(unsafe) private static var stopped = 0
+    nonisolated(unsafe) private static var generation = UUID()
 
     static var requests: [URLRequest] { lock.withLock { received } }
     /// How many requests were given up before their answer.
@@ -124,11 +125,14 @@ final class FakeWeibo: URLProtocol {
             self.respond = respond
             received = []
             stopped = 0
+            generation = UUID()
         }
     }
 
     private let state = NSLock()
     nonisolated(unsafe) private var answered = false
+    // URLSession can report cancellation after the next test has reset the fake.
+    private var generation: UUID?
 
     static var configuration: URLSessionConfiguration {
         let configuration = URLSessionConfiguration.ephemeral
@@ -141,6 +145,7 @@ final class FakeWeibo: URLProtocol {
 
     override func startLoading() {
         let respond = Self.lock.withLock {
+            generation = Self.generation
             Self.received.append(request)
             return Self.respond
         }
@@ -163,7 +168,11 @@ final class FakeWeibo: URLProtocol {
 
     override func stopLoading() {
         let unanswered = state.withLock { answered ? false : { answered = true; return true }() }
-        if unanswered { Self.lock.withLock { Self.stopped += 1 } }
+        if unanswered {
+            Self.lock.withLock {
+                if generation == Self.generation { Self.stopped += 1 }
+            }
+        }
     }
 }
 
