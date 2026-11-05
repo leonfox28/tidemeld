@@ -4,7 +4,7 @@ import SwiftUI
 
 /// The tabs at the root of the app.
 enum AppTab: Hashable, CaseIterable {
-    case home, search, notifications, me
+    case home, search, notifications, settings
 }
 
 /// A page pushed onto a tab's stack. Like the Android app's routes, a route may
@@ -21,7 +21,6 @@ enum Route: Hashable {
     case searchResults(String)
     /// A web page in the in-app browser.
     case web(URL)
-    case settings
     case textSize
     case about
     case privacy
@@ -37,7 +36,6 @@ enum Route: Hashable {
         case .profileByName(let name): "name:\(name)"
         case .searchResults(let query): "search:\(query)"
         case .web(let url): "web:\(url.absoluteString)"
-        case .settings: "settings"
         case .textSize: "textSize"
         case .about: "about"
         case .privacy: "privacy"

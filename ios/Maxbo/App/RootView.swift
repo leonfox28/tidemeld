@@ -51,8 +51,8 @@ struct RootView: View {
                 }
                 .badge(unread ? Text(verbatim: "") : nil)
             }
-            Tab("我", systemImage: "person", value: AppTab.me) {
-                TabStack(tab: .me) { MePage() }
+            Tab("设置", systemImage: "gearshape", value: AppTab.settings) {
+                TabStack(tab: .settings) { SettingsPage() }
             }
             Tab("搜索", systemImage: "magnifyingglass", value: AppTab.search, role: .search) {
                 TabStack(tab: .search) { SearchPage() }
@@ -120,7 +120,6 @@ struct RouteView: View {
         case .profileByName(let name): ProfilePage(screenName: name)
         case .searchResults(let query): SearchResultsPage(query: query)
         case .web(let url): InAppBrowser(url: url)
-        case .settings: SettingsPage()
         case .textSize: TextSizePage()
         case .about: AboutPage()
         case .privacy: PrivacyPage()

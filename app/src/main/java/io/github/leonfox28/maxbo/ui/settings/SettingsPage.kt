@@ -1,18 +1,29 @@
 package io.github.leonfox28.maxbo.ui.settings
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Login
+import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.outlined.BugReport
 import androidx.compose.material.icons.outlined.CleaningServices
 import androidx.compose.material.icons.outlined.DarkMode
 import androidx.compose.material.icons.outlined.FormatSize
@@ -27,12 +38,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -47,8 +56,10 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import io.github.leonfox28.maxbo.BuildConfig
 import io.github.leonfox28.maxbo.LocalAppGraph
 import io.github.leonfox28.maxbo.MB
+import io.github.leonfox28.maxbo.core.session.SessionState
 import io.github.leonfox28.maxbo.core.settings.AppSettings
 import io.github.leonfox28.maxbo.core.settings.ImageQuality
 import io.github.leonfox28.maxbo.core.settings.ThemeMode
@@ -58,8 +69,6 @@ import io.github.leonfox28.maxbo.ui.navigation.LocalNavigator
 import io.github.leonfox28.maxbo.ui.navigation.Route
 import io.github.leonfox28.maxbo.ui.theme.KeepTextSize
 import io.github.leonfox28.maxbo.ui.widget.AppAlertDialog
-import io.github.leonfox28.maxbo.ui.widget.AppSnackbarHost
-import io.github.leonfox28.maxbo.ui.widget.BackButton
 import io.github.leonfox28.maxbo.ui.widget.LocalSnackbars
 import io.github.leonfox28.maxbo.ui.widget.readingPadding
 import io.github.leonfox28.maxbo.ui.widget.showMessage
@@ -85,16 +94,17 @@ private class Choosing<T>(
     val onChoose: (T) -> Unit,
 )
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsPage() {
+fun SettingsPage(padding: PaddingValues = PaddingValues()) {
     val graph = LocalAppGraph.current
     val navigator = LocalNavigator.current
     val snackbars = LocalSnackbars.current
     val scope = rememberCoroutineScope()
     val settings by graph.settings.settings.collectAsStateWithLifecycle()
+    val session by graph.session.state.collectAsStateWithLifecycle()
     var choosing by remember { mutableStateOf<Choosing<*>?>(null) }
     var confirmingClear by remember { mutableStateOf(false) }
+    var confirmingLogout by remember { mutableStateOf(false) }
     // The cache size, read again after clearing or trimming.
     var sizeReads by remember { mutableIntStateOf(0) }
     var cacheSize by remember { mutableStateOf("计算中…") }
@@ -112,11 +122,16 @@ fun SettingsPage() {
         graph.settings.update(change)
     }
 
-    Scaffold(
-        topBar = { TopAppBar(title = { Text("设置") }, navigationIcon = { BackButton() }) },
-        snackbarHost = { AppSnackbarHost() },
-    ) { padding ->
-        BoxWithConstraints(Modifier.fillMaxSize()) {
+    Column(
+        Modifier.fillMaxSize()
+            .windowInsetsPadding(
+                WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)
+            )
+    ) {
+        Box(Modifier.fillMaxWidth().height(56.dp), contentAlignment = Alignment.Center) {
+            Text("设置", style = MaterialTheme.typography.titleMedium)
+        }
+        BoxWithConstraints(Modifier.fillMaxWidth().weight(1f)) {
             LazyColumn(Modifier.fillMaxSize(), contentPadding = readingPadding(maxWidth, padding)) {
                 item { SectionHeader("外观") }
                 item {
@@ -197,6 +212,30 @@ fun SettingsPage() {
                         navigator.push(Route.About)
                     }
                 }
+                if (BuildConfig.DEBUG) {
+                    item {
+                        Setting(Icons.Outlined.BugReport, "开发者诊断", opensPage = true) {
+                            navigator.push(Route.Diagnostics)
+                        }
+                    }
+                }
+                item { SectionHeader("账号") }
+                item {
+                    if (session is SessionState.SignedIn) {
+                        Setting(Icons.AutoMirrored.Filled.Logout, "退出登录") {
+                            confirmingLogout = true
+                        }
+                    } else {
+                        Setting(
+                            Icons.AutoMirrored.Filled.Login,
+                            "登录微博",
+                            if ((session as? SessionState.SignedOut)?.expired == true) "登录已过期，请重新登录"
+                            else null,
+                        ) {
+                            navigator.push(Route.Login)
+                        }
+                    }
+                }
             }
         }
     }
@@ -222,6 +261,24 @@ fun SettingsPage() {
                 }
             },
             dismissButton = { TextButton(onClick = { confirmingClear = false }) { Text("取消") } },
+        )
+    }
+    if (confirmingLogout) {
+        AppAlertDialog(
+            onDismissRequest = { confirmingLogout = false },
+            title = { Text("退出登录") },
+            text = { Text("将清除本机保存的微博登录状态。") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        confirmingLogout = false
+                        scope.launch { graph.session.logout() }
+                    }
+                ) {
+                    Text("退出")
+                }
+            },
+            dismissButton = { TextButton(onClick = { confirmingLogout = false }) { Text("取消") } },
         )
     }
 }

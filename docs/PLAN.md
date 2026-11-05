@@ -264,6 +264,8 @@ app/src/androidTest/            # 设备测试（读 WebView 的 HttpOnly Cookie
 
 搜索页同日调整为居中标题顶栏，下方直接显示热搜，不再展示游客说明或常驻输入框。登录后右侧显示搜索按钮，点击展开并聚焦输入框，取消收起；返回搜索结果前的页面可继续修改关键词，退出登录则关闭输入。游客仍可点击热搜进入公开网页结果，不能从搜索页输入关键词。
 
+“我”页签改为齿轮图标的“设置”，直接展示原设置页中的外观、图片和关于选项，调试版保留开发者诊断。移除账号头像、昵称和 UID 卡片及其主页入口；本人主页统一从首页左上角头像进入。设置底部的“账号”区保留登录或退出登录，退出仍需确认，游客也可直接修改设置。
+
 - **weibo.com 没有现成的搜索结果接口**：前端脚本里「搜索结果」页用的 `GET /ajax/search/all?containerid=…` 已经下线，带登录态请求也返回 404「你访问的地址不存在」；网页版顶部搜索栏直接打开 `s.weibo.com`。
 - **m.weibo.cn 只能以游客身份用，而游客只能看第一页**：`/api/container/getIndex?containerid=100103type=1&q=…&page_type=searchall`（话题是 `231522type=1&t=10&q=#话题#`）不带 Cookie 时返回 `ok:-100`；带 WebView 浏览 m.weibo.cn 时拿到的游客 Cookie（`SUB`/`SUBP`，`/api/config` 是 `login:false`）能取到第 1 页（10–17 条，`card_type` 9 是微博，11 是一组卡片，话题的 `cardlistInfo.cardlist_head_cards[].head_data` 是话题头），**第 2 页起返回 `ok:-100`**。应用内 WebView 的搜索页往下滚过第一页也会跳到登录页。微博的格式是 m.weibo.cn 的（`pics[]`、`page_info.urls`、`bid`），与 weibo.com 不同。用 weibo.com 的登录态单点登录 m.weibo.cn（`passport.weibo.com/sso/signin?entry=wapsso&source=wapssowb&url=https://m.weibo.cn/`）也不行：直接请求只得到一个由风控脚本（`wbBotDetector`、易盾）驱动的登录页，不能也不该去模拟；在 WebView 里打开显示的是登录表单，没有自动登录（没有做任何输入就退出了）。
 - **`s.weibo.com/weibo?q=`**（桌面 UA，带 weibo.com 的登录态）是已登录的 PC 版 HTML，每页约 20 条，有分页链接，能翻页，但要解析 PC 版 HTML，太脆弱，没有采用。
@@ -411,7 +413,7 @@ app/src/androidTest/            # 设备测试（读 WebView 的 HttpOnly Cookie
   - 详情页：底部条写评论、转发和点赞，点评论回复它，长按自己的评论删除。楼中楼页：底部条回复根评论，点任一条回复它，长按自己的回复删除，改动同时套用到详情页里那条评论的预览上。评论数在详情页本地加减，刷新后以服务端为准。
 - **设置**（`core/settings/`）：`AppGraph.settings` 是 `SettingsController`，状态是 `AppSettings`（主题、`TextSize`、`ImageQuality`、实况照片自动播放、图片缓存上限），存在 DataStore 里，`AppGraph.create()` 在第一帧前读入，避免主题闪一下。改设置用 `settings.update { it.copy(...) }`，会立即生效并在 `appScope` 上保存。测试用 `InMemorySettingsStorage`。
 - **图片磁盘缓存**（`core/media/ImageDiskCache.kt`）：Coil 的磁盘缓存放在 `cacheDir/image_cache`，平时就按 LRU 清理。调整上限时 `ImageDiskCache` 在同一目录上按新上限重建，并立即清到新上限之内。设置页经 `PictureCache` 读大小、清除和改上限，测试用 `FakePictureCache`。
-- **设置页和关于页**：`Route.Settings`（入口是「我」页列表里的「设置」，未登录时也有）、`Route.TextSize`（字体大小）、`Route.About`、`Route.Licenses`（AboutLibraries 插件构建时生成 `res/raw/aboutlibraries.json`）。关于页的声明和隐私文案要与 README 保持一致。界面语言固定中文（`MainActivity.attachBaseContext` 只覆盖语言）。
+- **设置页和关于页**：设置是 `HomeShell` 的根页签（未登录时也可用），子页面为 `Route.TextSize`（字体大小）、`Route.About`、`Route.Licenses`（AboutLibraries 插件构建时生成 `res/raw/aboutlibraries.json`）。关于页的声明和隐私文案要与 README 保持一致。界面语言固定中文（`MainActivity.attachBaseContext` 只覆盖语言）。
 - **调试**：调试版「我」页列表里的「开发者诊断」进入诊断页（`ui/debug/DiagnosticsPage.kt`）：「核对接口（只读）」用应用自己的接口依次读账号、时间线、一条微博和它的评论、主页、热搜、搜索、未读提醒，只记数量（不读通知列表，那会把通知标成已读）；「打开页面」按 `/n/昵称`、`/u/uid`、`/status/id`、`/results?q=` 打开页面（写操作测试时用来找测试微博；adb 输不了中文，昵称可以写成 URL 编码）；「模拟登录过期」把会话的 `SUB` 换成无效值，再加载一次时间线，看续期是否成功、用了多久，logcat 里有 `session renewal` 的每一跳（只有 host 和 path）。日志前缀 `diag:`，tag 是 `maxbo`。Flutter 版为回答 §8 各个问题写的结构探针没有迁过来，要用时从 git 历史（`53b24b0` 及以前的 `lib/features/debug/diagnostics_page.dart`）照着写。
 
 ### 后续要点（M6 之后）

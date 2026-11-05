@@ -23,13 +23,13 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Notifications
-import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -74,8 +74,8 @@ import io.github.leonfox28.maxbo.core.session.SessionState
 import io.github.leonfox28.maxbo.ui.navigation.LocalNavigator
 import io.github.leonfox28.maxbo.ui.navigation.Route
 import io.github.leonfox28.maxbo.ui.notifications.NotificationsPage
-import io.github.leonfox28.maxbo.ui.profile.MePage
 import io.github.leonfox28.maxbo.ui.search.SearchPage
+import io.github.leonfox28.maxbo.ui.settings.SettingsPage
 import io.github.leonfox28.maxbo.ui.theme.KeepTextSize
 import io.github.leonfox28.maxbo.ui.theme.UnreadColor
 import io.github.leonfox28.maxbo.ui.timeline.TimelinePage
@@ -91,7 +91,7 @@ private enum class Tab(val icon: ImageVector, val selectedIcon: ImageVector, val
     Home(Icons.Outlined.Home, Icons.Filled.Home, "首页"),
     Search(Icons.Outlined.Search, Icons.Filled.Search, "搜索"),
     Notifications(Icons.Outlined.Notifications, Icons.Filled.Notifications, "通知"),
-    Me(Icons.Outlined.Person, Icons.Filled.Person, "我"),
+    Settings(Icons.Outlined.Settings, Icons.Filled.Settings, "设置"),
 }
 
 /**
@@ -172,7 +172,7 @@ private fun TabPage(tab: Tab, padding: PaddingValues) {
         Tab.Home -> TimelinePage(padding)
         Tab.Search -> SearchPage(padding)
         Tab.Notifications -> NotificationsPage(padding)
-        Tab.Me -> MePage(padding)
+        Tab.Settings -> SettingsPage(padding)
     }
 }
 

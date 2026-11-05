@@ -45,7 +45,6 @@ import io.github.leonfox28.maxbo.ui.profile.ProfilePage
 import io.github.leonfox28.maxbo.ui.search.SearchResultsPage
 import io.github.leonfox28.maxbo.ui.settings.AboutPage
 import io.github.leonfox28.maxbo.ui.settings.LicensesPage
-import io.github.leonfox28.maxbo.ui.settings.SettingsPage
 import io.github.leonfox28.maxbo.ui.settings.TextSizePage
 import io.github.leonfox28.maxbo.ui.shell.HomeShell
 import io.github.leonfox28.maxbo.ui.status.StatusDetailPage
@@ -127,7 +126,6 @@ private val pages: (Route) -> NavEntry<Route> = entryProvider {
     entry<Route.ProfileByName> { ProfilePage(screenName = it.name) }
     entry<Route.SearchResults> { SearchResultsPage(it.query) }
     entry<Route.Web> { WebPage(it.url) }
-    entry<Route.Settings> { SettingsPage() }
     entry<Route.TextSize> { TextSizePage() }
     entry<Route.About> { AboutPage() }
     entry<Route.Licenses> { LicensesPage() }

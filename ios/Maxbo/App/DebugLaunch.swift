@@ -4,7 +4,7 @@ import Foundation
 /// Opens a page named by the `-maxbo-open` launch argument, in debug builds
 /// only, so a page can be checked without tapping through to it:
 /// `login`, `compose`, `settings`, `about`, `privacy`, `licenses`,
-/// `tab/<home|search|notifications|me>`, `reselect/<home|search|notifications>`
+/// `tab/<home|search|notifications|settings>`, `reselect/<home|search|notifications>`
 /// (the tab tapped again a few seconds after it opens),
 /// `status/<id>`, `u/<uid>`, `n/<screen name>`, `results/<query>`,
 /// `web/<url>` (the in-app browser), and from
@@ -27,12 +27,12 @@ enum DebugLaunch {
         switch parts.first {
         case "login": router.showingLogin = true
         case "compose": router.showingCompose = true
-        case "settings": router.tab = .me; router.push(.settings)
-        case "about": router.tab = .me; router.push(.about)
-        case "privacy": router.tab = .me; router.push(.privacy)
-        case "licenses": router.tab = .me; router.push(.about); router.push(.licenses)
+        case "settings": router.tab = .settings
+        case "about": router.tab = .settings; router.push(.about)
+        case "privacy": router.tab = .settings; router.push(.privacy)
+        case "licenses": router.tab = .settings; router.push(.about); router.push(.licenses)
         case "tab":
-            router.tab = ["search": .search, "notifications": .notifications, "me": .me][rest] ?? .home
+            router.tab = ["search": .search, "notifications": .notifications, "settings": .settings, "me": .settings][rest] ?? .home
         case "reselect":
             let tab: AppTab = ["search": .search, "notifications": .notifications][rest] ?? .home
             router.tab = tab
@@ -49,7 +49,7 @@ enum DebugLaunch {
         case "diag":
             // Runs a check of the diagnostics page: `reads` or `renewal`.
             autorun = rest
-            router.tab = .me
+            router.tab = .settings
             router.push(.diagnostics)
         default: devLog("debug launch: unknown \(path)")
         }

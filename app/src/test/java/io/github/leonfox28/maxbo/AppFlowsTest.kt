@@ -83,12 +83,12 @@ class AppFlowsTest {
     }
 
     @Test
-    fun `settings open from Me, and the about page and licences from there`() {
+    fun `about and licences open from the settings tab`() {
         app.start()
 
-        tab("我").performClick()
+        tab("设置").performClick()
         compose.waitForIdle()
-        tap("设置")
+        compose.onNode(hasScrollToNodeAction()).performScrollToNode(hasText("关于 maxbo"))
         tap("关于 maxbo")
         app.text("maxbo 是非官方客户端", substring = true).assertExists()
 
@@ -102,7 +102,7 @@ class AppFlowsTest {
 
     /** The tabs of the pill, all together. */
     private fun pill(): Rect =
-        listOf("首页", "搜索", "通知", "我")
+        listOf("首页", "搜索", "通知", "设置")
             .map {
                 compose
                     .onNode(hasContentDescription(it, substring = true) and isSelectable())

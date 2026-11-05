@@ -15,6 +15,7 @@ import io.github.leonfox28.maxbo.core.settings.ThemeMode
 import io.github.leonfox28.maxbo.support.FakePictureCache
 import io.github.leonfox28.maxbo.support.InMemorySettingsStorage
 import io.github.leonfox28.maxbo.support.TestHost
+import io.github.leonfox28.maxbo.support.WithSnackbars
 import io.github.leonfox28.maxbo.support.testGraph
 import org.junit.Assert.assertEquals
 import org.junit.Before
@@ -35,7 +36,7 @@ class SettingsPageTest {
 
     @Before
     fun showPage() {
-        compose.setContent { TestHost(graph) { SettingsPage() } }
+        compose.setContent { TestHost(graph) { WithSnackbars { SettingsPage() } } }
         waitFor("已用 450 MB")
     }
 

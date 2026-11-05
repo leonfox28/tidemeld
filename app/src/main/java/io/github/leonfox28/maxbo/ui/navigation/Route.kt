@@ -41,8 +41,6 @@ sealed interface Route {
     /** Writing a new post. */
     data object Compose : Route
 
-    data object Settings : Route
-
     /** The text size, on a slider over sample posts. */
     data object TextSize : Route
 

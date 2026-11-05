@@ -72,8 +72,8 @@ class UnreadChecksTest {
     @Test
     fun `closing a page over the tabs is not coming back to the app`() {
         now += UNREAD_RECHECK_MS
-        compose.onNodeWithContentDescription("我").performClick()
-        compose.onNodeWithText("设置").performClick()
+        compose.onNodeWithContentDescription("设置").performClick()
+        compose.onNodeWithText("字体大小").performClick()
         compose.onNodeWithContentDescription("返回").performClick()
         compose.waitForIdle()
         assertTrue(quietForAMinute())
