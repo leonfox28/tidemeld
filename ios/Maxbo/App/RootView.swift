@@ -45,6 +45,9 @@ struct RootView: View {
             Tab("首页", systemImage: "house", value: AppTab.home) {
                 TabStack(tab: .home) { TimelinePage() }
             }
+            Tab("搜索", systemImage: "magnifyingglass", value: AppTab.search) {
+                TabStack(tab: .search) { SearchPage() }
+            }
             if graph.session.state.uid != nil {
                 Tab("通知", systemImage: "bell", value: AppTab.notifications) {
                     TabStack(tab: .notifications) { NotificationsPage() }
@@ -53,9 +56,6 @@ struct RootView: View {
             }
             Tab("设置", systemImage: "gearshape", value: AppTab.settings) {
                 TabStack(tab: .settings) { SettingsPage() }
-            }
-            Tab("搜索", systemImage: "magnifyingglass", value: AppTab.search, role: .search) {
-                TabStack(tab: .search) { SearchPage() }
             }
         }
         .overlay { ToastHost() }
