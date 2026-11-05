@@ -1,9 +1,67 @@
 import SwiftUI
 import Testing
+import UIKit
 
 @testable import Tidemeld
 
 struct ScrollHiderTests {
+    @MainActor @Test func navigationPreservesTheReadingPagesBarState() async throws {
+        let scene = try #require(UIApplication.shared.connectedScenes.first as? UIWindowScene)
+        let previousWindow = scene.keyWindow
+        let window = UIWindow(windowScene: scene)
+        let fixture = BarNavigationFixture()
+        let host = UIHostingController(rootView: BarNavigationPage(fixture: fixture))
+        window.rootViewController = host
+        window.makeKeyAndVisible()
+        defer {
+            window.isHidden = true
+            previousWindow?.makeKeyAndVisible()
+        }
+        try await Task.sleep(for: .milliseconds(600))
+        let tabs = try #require(descendant(of: host, as: UITabBarController.self))
+        let scroll = try #require(descendant(of: host.view, as: UIScrollView.self))
+        #expect(!tabs.isTabBarHidden)
+        #expect(tabs.tabBar.alpha > 0.99)
+
+        // A visible home stays visible after visiting a detail that hides the bar.
+        withAnimation { fixture.path = [true] }
+        try await Task.sleep(for: .milliseconds(600))
+        #expect(tabs.isTabBarHidden)
+        withAnimation { fixture.path = [] }
+        try await Task.sleep(for: .milliseconds(600))
+        #expect(!tabs.isTabBarHidden)
+        #expect(tabs.tabBar.alpha > 0.99)
+
+        scroll.setContentOffset(CGPoint(x: 0, y: 400), animated: false)
+        try await Task.sleep(for: .milliseconds(600))
+        #expect(tabs.isTabBarHidden)
+        withAnimation { fixture.path = [true] }
+        try await Task.sleep(for: .milliseconds(600))
+        #expect(tabs.isTabBarHidden)
+        let frames = BarVisibilityFrames(tabs: tabs)
+        defer { frames.stop() }
+        withAnimation { fixture.path = [] }
+        try await Task.sleep(for: .milliseconds(800))
+        #expect(!frames.hidden.isEmpty)
+        #expect(frames.hidden.allSatisfy { $0 }, "Returning to a hidden bar must not show it during the transition")
+        frames.stop()
+        #expect(tabs.isTabBarHidden)
+
+        // A new scrolling page owns its own bar; the hidden page underneath
+        // must not hide that page's bar, or lose its state when it comes back.
+        withAnimation { fixture.path = [false] }
+        try await Task.sleep(for: .milliseconds(600))
+        #expect(!tabs.isTabBarHidden)
+        #expect(tabs.tabBar.alpha > 0.99)
+        withAnimation { fixture.path = [] }
+        try await Task.sleep(for: .milliseconds(600))
+        #expect(tabs.isTabBarHidden)
+        scroll.setContentOffset(CGPoint(x: 0, y: 300), animated: false)
+        try await Task.sleep(for: .milliseconds(600))
+        #expect(!tabs.isTabBarHidden, "Scrolling back must still reveal the bar after returning")
+        #expect(tabs.tabBar.alpha > 0.99)
+    }
+
     private func after(_ offsets: [CGFloat]) -> ScrollHider {
         var hider = ScrollHider()
         for offset in offsets { hider.scrolled(to: offset) }
@@ -90,4 +148,61 @@ struct ScrollHiderTests {
         #expect(offset == 0)
         #expect(after([offset]).visible)
     }
+}
+
+@MainActor @Observable private final class BarNavigationFixture {
+    var path: [Bool] = []
+}
+
+private struct BarNavigationPage: View {
+    @Bindable var fixture: BarNavigationFixture
+    var body: some View {
+        TabView {
+            Tab("首页", systemImage: "house") {
+                NavigationStack(path: $fixture.path) {
+                    List(0..<80) { index in Text("合成帖子 \(index)").frame(height: 80) }
+                        .tabBarHidesOnScroll()
+                        .navigationTitle("首页")
+                        .navigationBarTitleDisplayMode(.inline)
+                        .environment(\.isCurrentNavigationPage, fixture.path.isEmpty)
+                        .navigationDestination(for: Bool.self) { detail in
+                            Group {
+                                if detail {
+                                    Text("合成详情").toolbar(.hidden, for: .tabBar)
+                                } else {
+                                    List(0..<80) { index in Text("合成列表 \(index)") }
+                                        .tabBarHidesOnScroll()
+                                }
+                            }
+                            .environment(\.isCurrentNavigationPage, fixture.path.last == detail)
+                        }
+                }
+            }
+            Tab("设置", systemImage: "gearshape") { Text("设置") }
+        }
+    }
+}
+
+@MainActor private func descendant<T>(of controller: UIViewController, as type: T.Type) -> T? {
+    if let result = controller as? T { return result }
+    return controller.children.lazy.compactMap { descendant(of: $0, as: type) }.first
+}
+
+@MainActor private func descendant<T>(of view: UIView, as type: T.Type) -> T? {
+    if let result = view as? T { return result }
+    return view.subviews.lazy.compactMap { descendant(of: $0, as: type) }.first
+}
+
+@MainActor private final class BarVisibilityFrames: NSObject {
+    private let tabs: UITabBarController
+    private var link: CADisplayLink?
+    private(set) var hidden: [Bool] = []
+    init(tabs: UITabBarController) {
+        self.tabs = tabs
+        super.init()
+        link = CADisplayLink(target: self, selector: #selector(sample))
+        link?.add(to: .main, forMode: .common)
+    }
+    func stop() { link?.invalidate() }
+    @objc private func sample() { hidden.append(tabs.isTabBarHidden) }
 }

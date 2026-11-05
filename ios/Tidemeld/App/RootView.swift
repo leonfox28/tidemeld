@@ -102,9 +102,16 @@ private struct TabStack<Root: View>: View {
 
     var body: some View {
         NavigationStack(path: graph.router.path(tab)) {
-            root().navigationDestination(for: Route.self) { route in
-                RouteView(route: route)
-            }
+            root()
+                .environment(
+                    \.isCurrentNavigationPage, graph.router.tab == tab && graph.router.paths[tab, default: []].isEmpty
+                )
+                .navigationDestination(for: Route.self) { route in
+                    RouteView(route: route)
+                        .environment(
+                            \.isCurrentNavigationPage, graph.router.tab == tab && graph.router.paths[tab]?.last == route
+                        )
+                }
         }
     }
 }

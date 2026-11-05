@@ -2,6 +2,12 @@ import SwiftUI
 import UIKit
 import WebKit
 
+extension EnvironmentValues {
+    /// Set by the navigation stack so covered pages keep their own scroll
+    /// state without imposing toolbar preferences on the page above them.
+    @Entry var isCurrentNavigationPage = true
+}
+
 /// Whether bars that give way to reading show, as the content scrolls: they go
 /// as it scrolls on (the finger going up) and come back as it scrolls back,
 /// once it has moved [threshold] one way, so a nudge leaves them as they are;
@@ -79,10 +85,8 @@ extension ScrollGeometry {
     }
 }
 
-/// Keeps [visible] as a [ScrollHider] says while the content scrolls. The bars
-/// show again as the page comes back into view (a tab chosen, a page closed
-/// over it), as the Android app does on choosing a tab, and as it goes out of
-/// view, so that it doesn't keep them hidden over the page put on top of it.
+/// Keeps [visible] as a [ScrollHider] says while the content scrolls. A page
+/// retains its tab bar state while covered; only its own scrolling changes it.
 struct HideOnScroll: ViewModifier {
     @Binding var visible: Bool
     var enabled = true
@@ -91,6 +95,7 @@ struct HideOnScroll: ViewModifier {
     /// Whether [visible] is the tab bar's, which fades out before it hides; see
     /// [TabBarFade].
     var tabBar = false
+    @Environment(\.isCurrentNavigationPage) private var active
     @State private var hider = ScrollHider()
     @State private var fadingOut = false
     /// Bumped by each fade out and by stopping one, so that only the latest
@@ -108,18 +113,29 @@ struct HideOnScroll: ViewModifier {
             }
         }
         .onAppear {
-            hider.show()
-            visible = true
-            if tabBar { TabBarFade.checkShown() }
+            if !tabBar {
+                hider.show()
+                visible = true
+            }
         }
         .onDisappear {
-            stopFading()
-            visible = true
-            if tabBar { TabBarFade.checkShown() }
+            finishScrolling()
+        }
+        .onChange(of: active) { _, active in
+            if !active { finishScrolling() }
         }
     }
 
+    private func finishScrolling() {
+        // Navigation can interrupt the fade before it commits the hidden
+        // state. Save its intended result and ignore its late completion.
+        if tabBar { visible = hider.visible }
+        stopFading(restore: !tabBar)
+        if !tabBar { visible = true }
+    }
+
     private func scrolled(_ position: ScrollHider.Position) {
+        guard active else { return }
         hider.scrolled(to: position)
         if !enabled {
             hider.show()
@@ -149,11 +165,11 @@ struct HideOnScroll: ViewModifier {
         }
     }
 
-    private func stopFading() {
+    private func stopFading(restore: Bool = true) {
         guard fadingOut else { return }
         fadingOut = false
         fades += 1
-        TabBarFade.back()
+        if restore { TabBarFade.back() }
     }
 }
 
@@ -216,11 +232,21 @@ extension View {
     /// Shows or hides the tab bar as [visible] says, for a page whose lists set
     /// it through `HideOnScroll(tabBar: true)`.
     func tabBarVisible(_ visible: Bool) -> some View {
-        // Not `.visible`, which from a page further down the stack would keep
-        // the bar up over a page above that hides it.
-        toolbarVisibility(visible ? .automatic : .hidden, for: .tabBar)
-            .onChange(of: visible) { _, visible in
-                if visible { TabBarFade.checkShown() }
+        modifier(PageTabBarVisibility(visible: visible))
+    }
+}
+
+/// A covered page releases its toolbar preference without changing its saved
+/// scroll state, so that the next page can choose its own visibility.
+private struct PageTabBarVisibility: ViewModifier {
+    let visible: Bool
+    @Environment(\.isCurrentNavigationPage) private var active
+
+    func body(content: Content) -> some View {
+        // `.visible` would override a detail's `.hidden` further up the stack.
+        content.toolbarVisibility(active && !visible ? .hidden : .automatic, for: .tabBar)
+            .onChange(of: active && visible) { _, shown in
+                if shown { TabBarFade.checkShown() }
             }
     }
 }

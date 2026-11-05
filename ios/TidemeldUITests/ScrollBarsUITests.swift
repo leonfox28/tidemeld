@@ -38,7 +38,7 @@ final class ScrollBarsUITests: XCTestCase {
     }
 
     /// The tab bar hidden on 关于, then 开源许可 opened over it and closed
-    /// again: it should show on both.
+    /// again: the new page shows its bar, and About keeps its hidden state.
     @MainActor
     func testBarsOverAPageOpened() throws {
         let shots = ProcessInfo.processInfo.environment["TIDEMELD_SHOTS"] ?? NSTemporaryDirectory()
