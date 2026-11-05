@@ -29,7 +29,8 @@ enum FeedPost: Sendable, Identifiable {
     private(set) var loading = false
     private(set) var hasMore = false
     @ObservationIgnored private let accounts: AccountManager
-    @ObservationIgnored private let fetch: (SocialAccount, String?) async throws -> Paged<FeedPost>
+    // Account lookup and provider selection touch main-actor state before/after network awaits.
+    @ObservationIgnored private let fetch: @MainActor (SocialAccount, String?) async throws -> Paged<FeedPost>
     private struct Source {
         let revision: Int
         var items: [FeedPost] = []
@@ -43,7 +44,7 @@ enum FeedPost: Sendable, Identifiable {
     @ObservationIgnored private var generation = 0
     @ObservationIgnored private var task: Task<Void, Never>?
 
-    init(accounts: AccountManager, fetch: @escaping (SocialAccount, String?) async throws -> Paged<FeedPost>)
+    init(accounts: AccountManager, fetch: @escaping @MainActor (SocialAccount, String?) async throws -> Paged<FeedPost>)
     {
         self.accounts = accounts
         self.fetch = fetch

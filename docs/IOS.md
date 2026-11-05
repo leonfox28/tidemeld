@@ -106,3 +106,7 @@ X 使用官方网页登录和原生 `XWebAPI`，协议配置与 Android 共用 `
 ### 2026-11-05：微博与 X 复用展示组件
 
 将微博现有卡片、作者栏、引用框、宽屏布局、互动计数、详情列表与底栏、评论输入及发送状态抽入 `UI/Post/`。`StatusCard` / `XPostCard` 只提供平台内容，`PostInteractionActions` 持有绑定来源账号的操作回调；`PostResponseHeader` 只展示可加载的列表，`PostComposerRequest.attachments` 显式提供可选附件能力。微博的评论图片支持检查/上传留在适配器，X 不提供该能力。接口、凭据与互动状态继续按平台隔离，新增平台应复用这些组件。94 项回归通过，保留登录更新 `Tidemeld test` 后核对了真实卡片、评论详情、底部互动栏与发送弹层。
+
+### 2026-11-05：更新 Tidemeld iPhone 并修复启动崩溃
+
+覆盖更新保存真实微博登录的 `Tidemeld iPhone` 时，发现聚合信息流的异步 provider 丢失主执行器隔离，调用 `AppGraph.forAccount()` 读取账号时触发运行时断言。`SocialFeedController.fetch` 现显式标为 `@MainActor`，由 `AppGraph` 的隔离工厂方法创建。新增回归直接使用生产 provider，覆盖恢复旧微博会话、多账号凭据隔离、加载与刷新；空白 `Tidemeld regression` 的 95 项测试通过。修复后再次保留数据覆盖安装，已从界面确认微博信息流正常加载、账号仍已登录，并打开账号管理供用户添加 X。未执行真实写操作。

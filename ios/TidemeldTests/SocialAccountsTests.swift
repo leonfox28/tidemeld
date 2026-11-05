@@ -14,6 +14,26 @@ private func socialSession(_ id: String, x: Bool = false) -> StoredSession {
 
 extension FakeWeiboTests {
     @MainActor @Suite struct SocialAccountsTests {
+        @Test func productionFeedLoadsRestoredWeiboAccountsWithoutLeavingTheMainActor() async throws {
+            FakeWeibo.reset { request in
+                let id = request.value(forHTTPHeaderField: "Cookie")?.contains("synthetic-8") == true ? "8" : "7"
+                return .init(body: "{\"ok\":1,\"statuses\":[{\"idstr\":\"\(id)\",\"text\":\"合成内容\"}],\"max_id\":0}")
+            }
+            let graph = testGraph(restored: socialSession("7"), configuration: FakeWeibo.configuration)
+            try graph.accounts.add(.weibo, session: socialSession("8"))
+            // Exercise the production provider closure, including forAccount(), instead of replacing it.
+            graph.socialFeed.select(.all)
+            await graph.socialFeed.waitForIdle()
+            #expect(graph.socialFeed.errors.isEmpty)
+            #expect(Set(graph.socialFeed.items.map(\.id)) == ["weibo:7", "weibo:8"])
+            #expect(Set(graph.socialFeed.items.map(\.owner)) == ["weibo:7", "weibo:8"])
+            #expect(FakeWeibo.requests.map { $0.value(forHTTPHeaderField: "Cookie") } == ["SUB=synthetic-7", "SUB=synthetic-8"])
+            graph.socialFeed.refresh()
+            await graph.socialFeed.waitForIdle()
+            #expect(graph.socialFeed.items.count == 2)
+            #expect(FakeWeibo.requests.count == 4)
+        }
+
         @Test func migrationMultipleAccountsReauthenticationAndSelectiveRemoval() async throws {
             let (session, _) = testSession(restored: socialSession("7"))
             let web = FakeWebCookies()

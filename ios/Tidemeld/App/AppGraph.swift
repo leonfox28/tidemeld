@@ -27,23 +27,27 @@ final class AppGraph {
     @ObservationIgnored let xAPI: XWebAPI?
     @ObservationIgnored private var accountGraphs: [String: (Int, AppGraph)] = [:]
     @ObservationIgnored lazy var xInteractions = XInteractions(accounts: accounts, api: xAPI)
-    @ObservationIgnored lazy var socialFeed = SocialFeedController(accounts: accounts) { [weak self] account, cursor in
-        guard let self else { throw WeiboError.cancelled }
-        switch account.platform {
-        case .weibo:
-            guard let context = self.forAccount(account.id) else { throw WeiboError.sessionExpired }
-            let page = try await context.api.fetchHomeTimeline(uid: account.session.account.uid, maxId: cursor)
-            return Paged(items: page.items.map { .weibo(owner: account.id, $0) }, nextCursor: page.nextCursor)
-        case .x:
-            guard let api = self.xAPI else { throw WeiboError.api("X 接口配置不可用") }
-            let started = await MainActor.run { self.xInteractions.readStamp }
-            let page = try await api.timeline(account.session, cursor: cursor) { [weak accounts = self.accounts] cookies in
-                await MainActor.run {
-                    if accounts?.find(account.id)?.revision == account.revision { accounts?.updateCookies(account.id, cookies: cookies) }
+    @ObservationIgnored lazy var socialFeed = makeSocialFeed()
+
+    private func makeSocialFeed() -> SocialFeedController {
+        SocialFeedController(accounts: accounts) { [weak self] account, cursor in
+            guard let self else { throw WeiboError.cancelled }
+            switch account.platform {
+            case .weibo:
+                guard let context = self.forAccount(account.id) else { throw WeiboError.sessionExpired }
+                let page = try await context.api.fetchHomeTimeline(uid: account.session.account.uid, maxId: cursor)
+                return Paged(items: page.items.map { .weibo(owner: account.id, $0) }, nextCursor: page.nextCursor)
+            case .x:
+                guard let api = self.xAPI else { throw WeiboError.api("X 接口配置不可用") }
+                let started = self.xInteractions.readStamp
+                let page = try await api.timeline(account.session, cursor: cursor) { [weak accounts = self.accounts] cookies in
+                    await MainActor.run {
+                        if accounts?.find(account.id)?.revision == account.revision { accounts?.updateCookies(account.id, cookies: cookies) }
+                    }
                 }
+                self.xInteractions.ingest(account, posts: page.items, started: started)
+                return Paged(items: page.items.map { .x(owner: account.id, $0) }, nextCursor: page.nextCursor)
             }
-            await MainActor.run { self.xInteractions.ingest(account, posts: page.items, started: started) }
-            return Paged(items: page.items.map { .x(owner: account.id, $0) }, nextCursor: page.nextCursor)
         }
     }
     @ObservationIgnored let toasts: Toasts
