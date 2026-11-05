@@ -28,6 +28,6 @@ cookies*.json
 
 # iOS (Xcode project generated from ios/project.yml by xcodegen)
 ios/build/
-ios/Maxbo.xcodeproj/
+ios/Tidemeld.xcodeproj/
 xcuserdata/
 *.xcresult

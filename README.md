@@ -1,6 +1,6 @@
-# maxbo
+# 叠澜 · Tidemeld
 
-一个开源、非商业的第三方微博阅读客户端。Android 版使用 Kotlin 和 Jetpack Compose 开发；iOS 版使用 SwiftUI 开发，还在测试中。
+叠澜（Tidemeld，原名 maxbo）是一个开源、非商业的社交媒体聚合客户端。当前已支持微博，下一步计划接入 X（x.com）；X 功能尚未实现。Android 版使用 Kotlin 和 Jetpack Compose，iOS 版使用 SwiftUI。
 
 > **状态：早期测试版。Android 版在 Releases 发布；iOS 版还没有发布，只能从源码构建。** 方案与进度见 [docs/PLAN.md](docs/PLAN.md)。
 
@@ -25,9 +25,11 @@
 
 ### Android
 
-在 [Releases](https://github.com/leonfox28/maxbo/releases) 页面下载 `maxbo-vX.Y.Z.apk`，所有手机都用这一个（需要 Android 7.0 及以上）。鸿蒙 HarmonyOS 5/6 可以通过卓易通安装 APK。每个 Release 都附有 `SHA256SUMS.txt`，可以用来核对下载的文件。
+在 [Releases](https://github.com/leonfox28/tidemeld/releases) 页面下载 APK（新版本命名为 `tidemeld-vX.Y.Z.apk`，改名前的历史版本仍为 `maxbo-vX.Y.Z.apk`），所有手机都用这一个（需要 Android 7.0 及以上）。鸿蒙 HarmonyOS 5/6 可以通过卓易通安装 APK。每个 Release 都附有 `SHA256SUMS.txt`，可以用来核对下载的文件。
 
-从 v0.12.0 起应用用 Kotlin 重写。可以直接覆盖安装旧版，但装上后要重新登录、重新设置。
+本次更名保留原安装标识和签名，已有用户可覆盖安装，登录状态与设置继续保留。
+
+从 v0.12.0 起 Android 应用用 Kotlin 重写。从更早的 Flutter 版本升级时，需要重新登录、重新设置。
 
 ### iOS
 
@@ -49,7 +51,7 @@ iOS 版需要 Xcode 27 和 [XcodeGen](https://github.com/yonaskolb/XcodeGen)：
 ```sh
 cd ios
 xcodegen generate
-xcodebuild -project Maxbo.xcodeproj -scheme Maxbo -destination 'generic/platform=iOS Simulator' build
+xcodebuild -project Tidemeld.xcodeproj -scheme Tidemeld -destination 'generic/platform=iOS Simulator' build
 ```
 
 ## 隐私

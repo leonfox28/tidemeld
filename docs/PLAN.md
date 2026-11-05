@@ -1,4 +1,4 @@
-# maxbo 技术方案（v0.1，2026-10-12）
+# 叠澜 · Tidemeld 技术方案（v0.1，2026-10-12）
 
 ## 1. 目标与范围
 
@@ -24,14 +24,14 @@
 
 | 原则 | 具体落地 |
 |---|---|
-| 纯客户端，无服务器 | 没有后端，不聚合、不缓存到云端、不转发任何微博数据；没有统计、埋点和第三方崩溃上报 |
+| 纯客户端，无服务器 | 没有后端，不在云端聚合、缓存或转发任何社交平台数据；多平台聚合在设备本地完成；没有统计、埋点和第三方崩溃上报 |
 | 登录态只在本机 | 用户在**微博官方登录页**中输入密码，应用接触不到密码；会话用 Android Keystore 里的密钥加密后存在本机 |
 | 访问方式与浏览器相同 | 只调用网页端接口（`weibo.com/ajax/*`，必要时 `m.weibo.cn`），使用浏览器 UA；**不破解、不伪装官方 App**（不用其 appkey 或签名） |
 | 不碰广告 | 时间线原样展示接口返回的内容；识别出的广告只用来打"广告"标签，**不提供过滤开关** |
 | 克制的请求量 | API 并发 ≤ 2，相邻请求最小间隔约 500ms；只在用户操作时请求，**不做后台轮询和预取**（长文、评论都是点开后才加载）；遇到 432/418/429 自动退避并提示 |
 | 不绕过风控 | 出现验证码时打开 WebView 让用户本人处理，**绝不自动识别或绕过验证码** |
 | 写操作克制 | 只有用户主动点击才会点赞、评论、发微博、删除；按钮在请求期间禁用；不提供任何批量或自动化互动 |
-| 品牌隔离 | 名称为 maxbo，使用自己的图标，不用微博的名称或 Logo；README 写明非官方并附免责声明 |
+| 品牌隔离 | 名称为叠澜（Tidemeld），使用自己的图标，不用微博的名称或 Logo；README 写明非官方并附免责声明 |
 | 代码洁净 | 参考项目 Android_16_Weibo 和 weiboX **没有 License**（即保留所有权利），只学习其接口形态，**不复制代码** |
 | 测试数据 | 测试只用手写的合成数据；真实抓包放在 `captured/`，已加入 gitignore，永不提交 |
 
@@ -75,8 +75,8 @@ iOS：2026-10-30 起另有一个原生 SwiftUI 版（`ios/`），功能和交互
 ### 4.1 目录结构
 
 ```
-app/src/main/java/io/github/leonfox28/maxbo/
-  MaxboApplication / MainActivity / MaxboApp / AppGraph   # 入口、根部 Composable、依赖容器
+app/src/main/java/io/github/leonfox28/tidemeld/
+  TidemeldApplication / MainActivity / TidemeldApp / AppGraph   # 入口、根部 Composable、依赖容器
   core/
     net/                        # OkHttp（请求头/Cookie/XSRF/限流）、Cookie jar、错误映射
     session/                    # 读 WebView Cookie、SessionController、续期、加密存储
@@ -227,34 +227,34 @@ app/src/androidTest/            # 设备测试（读 WebView 的 HttpOnly Cookie
 - **赞的条目**：`{id(int), idStr, created_at, user(点赞的人), status, attitude:"heart", attitude_type, last_attitude, source_type, …}`，注意是 `idStr` 而不是 `idstr`。`status` 有时完整（74 个字段），有时是精简版（22 个字段，只有 `text`、`user`、`mblogid` 等，没有图片和计数），两种 `Status.tryFromJson` 都能解析。网页版的赞条目也可能是评论（`comment` 里再套 `status`），这次没见到。
 - **@我的微博里的转发**（2026-10-15 补测）：外层微博完整，但 `retweeted_status`（45 个字段）**没有 `user`，`text` 是空字符串**，正文只在 `text_raw`（纯文本）里。长微博的 `text_raw` 被截断，末尾没有省略号（`isLongText=true`）。`page_info`、计数、`created_at`、`mblogid` 都在。原微博没有 `url_struct`，它正文里的短链接（如「微博正文」）在**外层**的 `url_struct` 里；`url_type_pic` 指向的图标不存在（NoSuchKey）。原微博里没有作者，但**外层**的 `page_info` 是网页版专为消息列表生成的原微博卡片：`{object_type:"meaasgeObjType"（原文如此）, content1:"@作者名", content2(摘要，与 text_raw 不同), page_pic, uidPageInfo(作者 uid), mblogid(原微博的)}`，网页版的消息列表用它（`FeedCardLink`）代替原微博显示，所以能看到作者名。（视频微博的 `page_info.media_info.author_info` 是视频作者，不一定是发微博的人；网页版请求带的 `client-version`/`server-version` 头不影响返回内容，已核对。）m.weibo.cn 的 `message/mentionsAt` 返回 `ok:-100`，用不了。`Status.tryFromJson` 在 `text` 为空时把 `text_raw` 转成 HTML：短链接按外层 `url_struct` 加上标题，`@昵称`、`#话题#` 变成链接，长微博补上「展开」；作者取自外层卡片（`mblogid` 对得上、`content1` 以 @ 开头时），只有 uid 和昵称，没有头像；卡片缺失时原微博没有作者，但有发布时间，仍然可以点开，详情页用 `statuses/show` 取完整内容（有作者）。已删除的原微博既没有作者也没有时间，仍不能点开。
 - **未读数**：网页版用 JSONP 每 30 秒请求一次 `https://rm.api.weibo.com/2/remind/push_count.json`（带网页版自己的 `source=339644097`）。不带 callback 时直接返回 JSON，`.weibo.com` 的 Cookie 有效。计数在顶层而不是 `data` 里：`cmt`/`all_cmt`/`attention_cmt`（收到的评论）、`mention_status`/`mention_cmt`（@我）、`attitude`（赞）、`messages`（合计）等；`trim_null=1` 时为 0 的键会被省略。在自己微博下的评论即使带 @，也只计入 `cmt`，`mention_cmt` 仍是 0。
-- **请求列表会清掉未读**：取一次 `message/cmt` 后 `cmt`、`all_cmt`、`attention_cmt` 都从 2 变为 0，取一次 `message/attitudes` 后 `attitude` 从 1 变为 0，没有另外的清除请求（网页版也只是把本地计数清零）。所以在 maxbo 里看过之后，官方 App 和网页版的红点也会消失，与在网页版里看一样。
+- **请求列表会清掉未读**：取一次 `message/cmt` 后 `cmt`、`all_cmt`、`attention_cmt` 都从 2 变为 0，取一次 `message/attitudes` 后 `attitude` 从 1 变为 0，没有另外的清除请求（网页版也只是把本地计数清零）。所以在 tidemeld 里看过之后，官方 App 和网页版的红点也会消失，与在网页版里看一样。
 
 **发微博实测结论（2026-10-18，用户同意后在测试账号上发了两条「仅自己可见」的测试微博，测完都已删除）：**
 
 - **接口来源**：weibo.com 前端脚本（`index-*.js`，以游客身份用无头 Chrome 取得，只看接口形态）里的发布框。发布是 `POST /ajax/statuses/update`，表单字段 `content`、`pic_id`（JSON 数组，每张图 `{type:"pic", pid}`，按顺序）、`visible`，网页版还会发空的 `share_id`/`media`/`vote`，我们不发（空字段不发）。和点赞、评论一样，网页版会附 `fp`，我们不带（见 M5 实测结论）。正文上限取 `$CONFIG.flags.input_limits`，没有时是 5000（中文算 1、英文算半个、链接算 10），客户端不限制，超长时显示服务端的错误。网页版正文为空时不能发，带图也一样。
-- **可见范围**：`visible` 为 0 公开、6 好友圈、1 仅自己可见、10 粉丝（另有 5 群可见）；微博本身的 `visible.type` 用同一套数字，刷新后从时间线读回的测试微博是 `1`。maxbo 提供公开、好友圈、仅自己可见三档，非公开的微博在卡片右上角带标签。网页版发完会把可见范围重置为公开，maxbo 也一样。
+- **可见范围**：`visible` 为 0 公开、6 好友圈、1 仅自己可见、10 粉丝（另有 5 群可见）；微博本身的 `visible.type` 用同一套数字，刷新后从时间线读回的测试微博是 `1`。tidemeld 提供公开、好友圈、仅自己可见三档，非公开的微博在卡片右上角带标签。网页版发完会把可见范围重置为公开，tidemeld 也一样。
 - **返回**：`{ok:1, msg:"…", data:<微博>}`，`data` 是完整的微博（含 `user`、`pic_infos`），`Status.tryFromJson` 能直接解析；来源显示为「微博网页版」。刚发出时 `data` 里没有 `region_name`，刷新后才有。时间线（`friendstimeline`）里能看到自己「仅自己可见」的微博。
-- **上传图片**：网页版发布框用较新的 `picupload.weibo.com/interface/upload.php`（octet-stream，参数里带网页版的 `appid=339644097`、crc32、md5 等）；脚本里还有经典的 `interface/pic_upload.php?app=miniblog&s=json&p=1&data=1`（`Content-Type: multipart/form-data` 但不带 boundary，请求体就是文件本身），实测可用，所以只用它，不带任何 appid。请求跨域：带 `.weibo.com` 的 Cookie 和 `Origin`，**不带** `X-Requested-With` 和 `X-XSRF-TOKEN`（网页版特意去掉；拦截器用 `kPlainCrossOrigin` 区分）。返回 `{"code":"A00006","data":{"count":1,"pics":{"pic_1":{"pid":…}}}}`；失败时 `code` 不同，`data.count` 是负的错误码（如 -10 文件过大，-9 类型不支持）。网页版不压缩图片（GIF 原样），我们也直接传原文件；水印参数（`$CONFIG.user.watermark`）没有带，所以 maxbo 发的图没有水印。dio 的请求体要用字节流（`Stream`），直接给 `List<int>` 会被当成 JSON 文本发出去。
+- **上传图片**：网页版发布框用较新的 `picupload.weibo.com/interface/upload.php`（octet-stream，参数里带网页版的 `appid=339644097`、crc32、md5 等）；脚本里还有经典的 `interface/pic_upload.php?app=miniblog&s=json&p=1&data=1`（`Content-Type: multipart/form-data` 但不带 boundary，请求体就是文件本身），实测可用，所以只用它，不带任何 appid。请求跨域：带 `.weibo.com` 的 Cookie 和 `Origin`，**不带** `X-Requested-With` 和 `X-XSRF-TOKEN`（网页版特意去掉；拦截器用 `kPlainCrossOrigin` 区分）。返回 `{"code":"A00006","data":{"count":1,"pics":{"pic_1":{"pid":…}}}}`；失败时 `code` 不同，`data.count` 是负的错误码（如 -10 文件过大，-9 类型不支持）。网页版不压缩图片（GIF 原样），我们也直接传原文件；水印参数（`$CONFIG.user.watermark`）没有带，所以 tidemeld 发的图没有水印。dio 的请求体要用字节流（`Stream`），直接给 `List<int>` 会被当成 JSON 文本发出去。
 - **删除**：`POST /ajax/statuses/destroy`（`id=`），返回 `{ok:1, <被删的微博的全部字段>}`（微博字段直接在顶层）。删除后刷新时间线和主页都不再出现。
 
 **转发实测结论（2026-10-21，用户同意后用测试账号转发了一次测试微博，选「仅自己可见」并勾了「同时评论」，测完删除了这条转发和产生的评论）：**
 
-- **接口来源**：weibo.com 前端脚本（`index-*.js`，以游客身份用无头 Chrome 取得，只看接口形态）里的转发框。转发是 `POST /ajax/statuses/normal_repost`，表单字段：`id` 是被转发的那条（转发的转发传中间那条，不是原微博）；`comment` 是转发理由，为空时网页版不发，微博自动填「转发微博」；`is_comment=1` 表示同时评论给被转发的那条；`comment_ori`、`is_repost` 都发 0；`visible` 与发微博同一套数字。网页版另有空的 `pic_id`/`share_id`（我们不发），也会附 `fp`（我们不带，见 M5 实测结论）。网页版还有「快转」：`POST /ajax/statuses/repost`（`id`、`status`、`is_comment=0`、`is_fast=1`），maxbo 没有做。转发理由上限 140 字，A/B 测试里取 `push_active.repost_input_limits`（默认 1000）；客户端不限制。
+- **接口来源**：weibo.com 前端脚本（`index-*.js`，以游客身份用无头 Chrome 取得，只看接口形态）里的转发框。转发是 `POST /ajax/statuses/normal_repost`，表单字段：`id` 是被转发的那条（转发的转发传中间那条，不是原微博）；`comment` 是转发理由，为空时网页版不发，微博自动填「转发微博」；`is_comment=1` 表示同时评论给被转发的那条；`comment_ori`、`is_repost` 都发 0；`visible` 与发微博同一套数字。网页版另有空的 `pic_id`/`share_id`（我们不发），也会附 `fp`（我们不带，见 M5 实测结论）。网页版还有「快转」：`POST /ajax/statuses/repost`（`id`、`status`、`is_comment=0`、`is_fast=1`），tidemeld 没有做。转发理由上限 140 字，A/B 测试里取 `push_active.repost_input_limits`（默认 1000）；客户端不限制。
 - **转发的转发**：网页版把输入框预填为 `//@中间人:中间人的原文`（取 `longTextContent_raw || text_raw`，表情是 `[流鼻血]` 这样的代码），光标放在最前面；转发原创微博时预填为空。实测预填的转发链发出后，@、链接和表情都正常显示。
-- **返回**：`{ok:1, msg, data}`，网页版从 `data.statuses` 读出新微博；maxbo 两种位置都认，实测解析出了完整的转发（作者、正文、「仅自己可见」标签）。返回里被转发的原微博与时间线里的不一样：视频变成了一张「某某的微博」链接卡片，正文里少了「微博正文」链接，外层也没有 `region_name`。刷新时间线后，同一条转发就显示正常了。
+- **返回**：`{ok:1, msg, data}`，网页版从 `data.statuses` 读出新微博；tidemeld 两种位置都认，实测解析出了完整的转发（作者、正文、「仅自己可见」标签）。返回里被转发的原微博与时间线里的不一样：视频变成了一张「某某的微博」链接卡片，正文里少了「微博正文」链接，外层也没有 `region_name`。刷新时间线后，同一条转发就显示正常了。
 - **计数**：转发后，`statuses/show` 立即显示 `reposts_count` +1；勾了「同时评论」时 `comments_count` 也 +1。`repostTimeline` 立即包含这条「仅自己可见」的转发（自己看得到）。同时评论产生的评论，正文与转发理由相同，可以照常用 `destroyComment` 删除。用 `statuses/destroy` 删除转发后，计数恢复为 0。
 
 **评论带图实测结论（2026-10-22，用户同意后在测试微博上发了一条带文字和图片的评论、一条只有图片的回复，修正显示后又发了一条带图评论核对，测完三条都已删除；图片是本地生成的纯色块）：**
 
-- **接口来源**：weibo.com 前端脚本（`index-*.js`，以游客身份用无头 Chrome 取得，只看接口形态）里的评论框。评论和回复仍是 `comments/create`、`comments/reply`，多一个表单字段 `pic_id`，值是图片的 pid，多张时用逗号连接（不是发微博那样的 JSON 数组）。网页版默认只能带一张，`$CONFIG.flags.pc_comment_pics` 为 `"true"` 时才能多选（最多 18 张），maxbo 只做一张。有图时正文可以为空（网页版照发 `comment=`），微博把正文显示为「图片评论」。
-- **能否带图**：网页版打开评论框时（转发框除外）请求 `GET /ajax/statuses/checkAllowCommentWithPic?id=<微博 id>`，返回 `{ok:1, result:bool}`；`false` 时图片按钮不可用（作者可以关掉评论配图），请求失败时当作可以。maxbo 等用户第一次点图片按钮时才请求，每次打开弹层最多一次。测试微博返回的是可以，`false` 的情况还没见到。
-- **上传**：网页版评论框用较新的 `upload.php`（`file_source=3`）。maxbo 沿用发微博用的经典 `pic_upload.php`（见发微博实测结论），得到的 pid 评论和回复都能用，刷新后图片正常显示。
-- **返回**：`data` 仍是一条评论，但**没有 `url_struct`**，图片只体现在 `pic_ids:[pid]` 和 `pic_num:1` 上（另有 `mix_media_ids`）。带文字的评论，`text` 末尾多一个指向图片的 `t.cn` 短链（`<a>` 只有 `target`、`href` 两个属性，没有 `data-pid`）；因为没有 `url_struct`，这个短链显示成「网页链接」。网页版发完也是用自己的 pid 拼出图片（`pidToImgs(pic_ids)`）。maxbo 的 `Comment` 在 `url_struct` 里没有图片时，就从 `pic_ids` 拼出图片（`PicInfo.tryFromPid()`）。pid 第 10 位是 `y` 时，地址为 `https://wx{n}.sinaimg.cn/{thumbnail|bmiddle|large|woriginal}/{pid}.{jpg|gif}`，其中 `n = (crc32(pid) & 3) + 1`；第 22 位是 `g` 时是 GIF。这和 `buildComments` 里两条测试评论的地址一致，wx1–wx4 都能取到同一张图。其他老式 pid 不处理。同时去掉 `text` 末尾的 `t.cn` 链接，每张图去掉一个。
+- **接口来源**：weibo.com 前端脚本（`index-*.js`，以游客身份用无头 Chrome 取得，只看接口形态）里的评论框。评论和回复仍是 `comments/create`、`comments/reply`，多一个表单字段 `pic_id`，值是图片的 pid，多张时用逗号连接（不是发微博那样的 JSON 数组）。网页版默认只能带一张，`$CONFIG.flags.pc_comment_pics` 为 `"true"` 时才能多选（最多 18 张），tidemeld 只做一张。有图时正文可以为空（网页版照发 `comment=`），微博把正文显示为「图片评论」。
+- **能否带图**：网页版打开评论框时（转发框除外）请求 `GET /ajax/statuses/checkAllowCommentWithPic?id=<微博 id>`，返回 `{ok:1, result:bool}`；`false` 时图片按钮不可用（作者可以关掉评论配图），请求失败时当作可以。tidemeld 等用户第一次点图片按钮时才请求，每次打开弹层最多一次。测试微博返回的是可以，`false` 的情况还没见到。
+- **上传**：网页版评论框用较新的 `upload.php`（`file_source=3`）。tidemeld 沿用发微博用的经典 `pic_upload.php`（见发微博实测结论），得到的 pid 评论和回复都能用，刷新后图片正常显示。
+- **返回**：`data` 仍是一条评论，但**没有 `url_struct`**，图片只体现在 `pic_ids:[pid]` 和 `pic_num:1` 上（另有 `mix_media_ids`）。带文字的评论，`text` 末尾多一个指向图片的 `t.cn` 短链（`<a>` 只有 `target`、`href` 两个属性，没有 `data-pid`）；因为没有 `url_struct`，这个短链显示成「网页链接」。网页版发完也是用自己的 pid 拼出图片（`pidToImgs(pic_ids)`）。叠澜的 `Comment` 在 `url_struct` 里没有图片时，就从 `pic_ids` 拼出图片（`PicInfo.tryFromPid()`）。pid 第 10 位是 `y` 时，地址为 `https://wx{n}.sinaimg.cn/{thumbnail|bmiddle|large|woriginal}/{pid}.{jpg|gif}`，其中 `n = (crc32(pid) & 3) + 1`；第 22 位是 `g` 时是 GIF。这和 `buildComments` 里两条测试评论的地址一致，wx1–wx4 都能取到同一张图。其他老式 pid 不处理。同时去掉 `text` 末尾的 `t.cn` 链接，每张图去掉一个。
 - **列表里的样子**：刷新后，带图评论的 `text` 里没有这个链接，图片在 `url_struct` 里（与 M3 实测结论一致）。只有图片的回复，正文是「图片评论」，后面跟一个「查看图片」链接。
 
 **搜索实测结论（2026-10-20，诊断页「搜索结构」，只读）：**
 
-**2026-11-05 游客补测及实现**：全新 HTTP CookieJar 请求 `weibo.com/ajax/side/hotSearch` 返回 `ok:1`，原生搜索 `ajax/statuses/search` 返回 `ok:-100`。在无真实账号的 iOS `maxbo test` 中直接打开 `m.weibo.cn/search?containerid=100103&q=天气`，微博自身游客流程完成后能显示真实搜索结果；继续下滑时跳到官方登录页，与下文第一页限制相符。iOS / Android 现都允许未登录打开原生热搜榜，点击条目或提交搜索词进入现有应用内微博网页；已登录继续打开原生搜索结果。界面说明游客限制，主页登录提示告知可先去“搜索”；没有同步游客 Cookie 为账号、没有绕过翻页或登录限制。这不是完整游客原生时间线，也不代表 Apple 已认可免登录审核。
+**2026-11-05 游客补测及实现**：全新 HTTP CookieJar 请求 `weibo.com/ajax/side/hotSearch` 返回 `ok:1`，原生搜索 `ajax/statuses/search` 返回 `ok:-100`。在无真实账号的 iOS `Tidemeld test` 中直接打开 `m.weibo.cn/search?containerid=100103&q=天气`，微博自身游客流程完成后能显示真实搜索结果；继续下滑时跳到官方登录页，与下文第一页限制相符。iOS / Android 现都允许未登录打开原生热搜榜，点击条目或提交搜索词进入现有应用内微博网页；已登录继续打开原生搜索结果。界面说明游客限制，主页登录提示告知可先去“搜索”；没有同步游客 Cookie 为账号、没有绕过翻页或登录限制。这不是完整游客原生时间线，也不代表 Apple 已认可免登录审核。
 
 **同日追加：首页原生游客时间线**：用户要求未登录首页使用与登录后相同的原生微博卡片。通过微博正常游客流程取得 Cookie，确认 `m.weibo.cn/api/config` 的 `data.login == false` 后，`GET /api/container/getIndex?containerid=102803` 返回 `ok:1`、15 个含 `mblog` 的 `card_type:9` 条目；`page=2` 返回 `ok:-100`。独立的 iOS 临时网页存储从零取得游客 Cookie 也能复现，未使用真实账号。`weibo.com/ajax/feed/hottimeline` 即使带游客 Cookie 仍返回 `ok:-100`。
 
@@ -274,7 +274,7 @@ app/src/androidTest/            # 设备测试（读 WebView 的 HttpOnly Cookie
 
 **会话续期实测结论（2026-10-21，用户同意后在模拟器的真实登录态上实验，只看 Cookie 的名字和有效期，没有读值）：**
 
-- **为什么约 7 天就要重新登录**：`.weibo.com` 的 `SUB` 在客户端的有效期是 1 年，但服务端只认约 7 天（10-14 登录，10-21 失效）。登录时还会写下两个 30 天的自动登录凭证，和 `SUB` 是同一时刻写入的：一个是 `.weibo.com` 的 `ALF`，值为 `02_<到期时间戳>`，时间戳与它的有效期一致；另一个是 `.passport.weibo.com` 的 HttpOnly `ALC`。`.sina.com.cn` 上一个 Cookie 都没有（登录的最后一跳是 403，见第 1 项）。原来的 maxbo 有两个问题：接口请求直接打 `/ajax/*`，收到 `-100` 就退出登录；登录页直接打开 passport 的登录表单，而这个表单不会尝试自动登录，所以每次都要短信和人机验证。
+- **为什么约 7 天就要重新登录**：`.weibo.com` 的 `SUB` 在客户端的有效期是 1 年，但服务端只认约 7 天（10-14 登录，10-21 失效）。登录时还会写下两个 30 天的自动登录凭证，和 `SUB` 是同一时刻写入的：一个是 `.weibo.com` 的 `ALF`，值为 `02_<到期时间戳>`，时间戳与它的有效期一致；另一个是 `.passport.weibo.com` 的 HttpOnly `ALC`。`.sina.com.cn` 上一个 Cookie 都没有（登录的最后一跳是 403，见第 1 项）。原来的 tidemeld 有两个问题：接口请求直接打 `/ajax/*`，收到 `-100` 就退出登录；登录页直接打开 passport 的登录表单，而这个表单不会尝试自动登录，所以每次都要短信和人机验证。
 - **浏览器怎么续期**（以游客身份看 passport 页面的脚本，只看接口形态）：
   1. weibo.com 把没有有效 `SUB` 的请求 302 到 `passport.weibo.com/visitor/visitor`。
   2. 页面脚本用微博自己的 `wbBotDetector` 取得风控 `rid`，再 POST `/visitor/genvisitor2`。这个请求带着 passport 域的 `ALC`。
@@ -298,11 +298,11 @@ app/src/androidTest/            # 设备测试（读 WebView 的 HttpOnly Cookie
 
 ## 9. 分发
 
-- **Android**：GitHub Releases 发布一个通用 APK `maxbo-vX.Y.Z.apk`（`./gradlew assembleRelease`；v0.11.0 及以前的 Flutter 版按 ABI 拆成三个）。签名密钥不进 git：本地密钥库是 `~/.config/maxbo/release.jks`（别名 `maxbo`），密码在仓库根目录的 `key.properties`（已 gitignore，Flutter 时期在 `android/key.properties`）；CI 用的副本存在 GitHub 仓库 `release` 环境的 Secrets 里（见下方 CI）。Secrets 写入后读不回来，不能当备份。证书 SHA-256 是 `A1:7A:66:0B:CA:65:D7:BB:89:D6:F3:07:AB:A4:61:06:F3:F8:AF:CB:90:F5:D0:B3:EC:40:EB:28:6D:71:79:E2`。**密钥丢了，已安装的用户就无法覆盖升级**，这两个文件要另外备份。没有 `key.properties` 时 release 包退回调试密钥签名。调试版的包名带 `.debug` 后缀，名称是「maxbo debug」，和 release 版可以同时安装。国行手机通常没有 GMS，暂不受 Google 开发者验证影响；2027 年该政策全球生效后再评估。
+- **Android**：GitHub Releases 发布一个通用 APK `tidemeld-vX.Y.Z.apk`（`./gradlew assembleRelease`；v0.11.0 及以前的 Flutter 版按 ABI 拆成三个）。签名密钥不进 git：本地密钥库是 `~/.config/tidemeld/release.jks`（别名 `tidemeld`），密码在仓库根目录的 `key.properties`（已 gitignore，Flutter 时期在 `android/key.properties`）；CI 用的副本存在 GitHub 仓库 `release` 环境的 Secrets 里（见下方 CI）。Secrets 写入后读不回来，不能当备份。证书 SHA-256 是 `A1:7A:66:0B:CA:65:D7:BB:89:D6:F3:07:AB:A4:61:06:F3:F8:AF:CB:90:F5:D0:B3:EC:40:EB:28:6D:71:79:E2`。**密钥丢了，已安装的用户就无法覆盖升级**，这两个文件要另外备份。没有 `key.properties` 时 release 包退回调试密钥签名。调试版的包名带 `.debug` 后缀，名称是「tidemeld debug」，和 release 版可以同时安装。国行手机通常没有 GMS，暂不受 Google 开发者验证影响；2027 年该政策全球生效后再评估。
 - **iOS**：v0.2.0 到 v0.11.0（Flutter 版）的 Release 附有无签名 IPA，v0.12.0 起没有。2026-10-30 起有原生 SwiftUI 版（§10）；2026-11-05 用户决定准备 App Store 美区首发，免费、中文界面，详见 [APP_STORE.md](APP_STORE.md)。准备不等于已经提审或获批。
 - **CI**（`.github/workflows/`）：
   - `ci.yml`：push 到 main 和每个 PR 时运行 `./gradlew spotlessCheck lint testDebugUnitTest assembleDebug`。不接触签名密钥。
-  - `release.yml`：推送 `v*` tag 时触发，分两个 job。`android`：先核对 tag 和 `app/build.gradle.kts` 的 `versionName` 一致，再跑格式检查、lint 和测试，然后用 Secrets 里的密钥打 release APK，核对签名证书指纹必须等于上面的 SHA-256（防止误用调试密钥），改名为 `maxbo-vX.Y.Z.apk`。`release`：等 `android` 完成，下载产物，生成 `SHA256SUMS.txt`，建一个**草稿** Release。只有 `release` 有写仓库的权限。发布说明手写，确认后手动发布。
+  - `release.yml`：推送 `v*` tag 时触发，分两个 job。`android`：先核对 tag 和 `app/build.gradle.kts` 的 `versionName` 一致，再跑格式检查、lint 和测试，然后用 Secrets 里的密钥打 release APK，核对签名证书指纹必须等于上面的 SHA-256（防止误用调试密钥），改名为 `tidemeld-vX.Y.Z.apk`。`release`：等 `android` 完成，下载产物，生成 `SHA256SUMS.txt`，建一个**草稿** Release。只有 `release` 有写仓库的权限。发布说明手写，确认后手动发布。
   - Secrets（放在 `release` 环境里，只允许 `v*` tag 使用）：`ANDROID_KEYSTORE_BASE64`（`base64 -i release.jks`）、`ANDROID_STORE_PASSWORD`、`ANDROID_KEY_ALIAS`、`ANDROID_KEY_PASSWORD`。
   - 发版流程：改 `app/build.gradle.kts` 的 `versionName`，**同时把 `versionCode` 加 1**（关于页显示 `BuildConfig.VERSION_NAME`）→ 提交 → `git tag vX.Y.Z && git push origin vX.Y.Z` → 在 GitHub 上编辑草稿并发布。Release 标题就用 tag 名 `vX.Y.Z`（workflow 默认如此，不要改成别的格式）。
 
@@ -315,9 +315,11 @@ app/src/androidTest/            # 设备测试（读 WebView 的 HttpOnly Cookie
 - **平板/折叠屏不做列表加详情的双栏**（2026-10-16 用户决定，10-17 调整）：不做左边列表、右边详情的双栏布局。10-17 改为：导航用悬浮胶囊放在右下角（去掉左侧导航栏）；详情页在 expanded 档把正文和评论/转发左右并排；首页时间线不做瀑布流（会打乱时间顺序），改为卡片加宽、媒体放到正文右侧。
 - ~~**不再支持 iOS**~~（2026-10-22 用户决定，**2026-10-30 推翻**，见下一条）：第三方微博客户端几乎不可能上架 App Store（审核条款 5.2.2 要求第三方服务的授权，国区还要 ICP 备案），只能发无签名 IPA 让用户自签，用免费 Apple ID 签的每 7 天要重签，门槛很高；而且 iOS 一直只验证过能编译和启动。删掉了 `ios/` 工程、CI 和 `release.yml` 的 iOS 构建、侧载文档，以及只对 iOS 有用的代码（Keychain 残留登录态的清理、选图的 `requestFullMetadata`、iOS 的页面转场配置和对应测试）。v0.11.0 是最后一个带 IPA 的版本。框架仍是 Flutter，是否改用 Kotlin 原生还在讨论。
 - **重新做 iOS，原生 SwiftUI**（2026-10-30 用户决定）：用 SwiftUI 和系统控件，按钮和导航栏用系统的液态玻璃，深浅色用 voytty iOS 版的整套配色，不做预测性返回（用 iOS 的右滑返回）。部署目标 iOS 26，只用 Apple 的框架。代码在 `ios/`，说明在 IOS.md。当时分发未定，现由下一条更新。
-- **准备 App Store 美区首发**（2026-11-05 用户决定）：免费，界面保持中文，使用当前 Mac 的付费 Apple Developer 账号。历史记录中“第三方微博客户端几乎不可能上架”的判断过于绝对，撤回；上架先例不代表 maxbo 已取得微博许可或必然通过审核。按 [APP_STORE.md](APP_STORE.md) 完成内容安全、隐私、审核登录和发布资料。
+- **准备 App Store 美区首发**（2026-11-05 用户决定）：免费，界面保持中文，使用当前 Mac 的付费 Apple Developer 账号。历史记录中“第三方微博客户端几乎不可能上架”的判断过于绝对，撤回；上架先例不代表 tidemeld 已取得微博许可或必然通过审核。按 [APP_STORE.md](APP_STORE.md) 完成内容安全、隐私、审核登录和发布资料。
 
 ## 11. 进度与交接（更新于 2026-10-30，换成 Kotlin 之后；iOS 版另见 IOS.md）
+
+**2026-11-05 更名**：项目改名为叠澜（Tidemeld），GitHub 仓库及本地目录使用 `tidemeld`，两端源码、构建目标、公开链接和发布产物名称同步调整。安装标识、签名与会话存储键保留，兼容旧版覆盖更新。当前功能仍为微博；X 接入属于下一阶段，不在本次更名中实现。Android 格式、lint、构建及 385 项测试通过，iOS 79 项测试通过，App Store 归档、导出与签名校验通过。在保留真实登录态的 iOS 模拟器上覆盖安装后，关于页显示新名称，通知页签仍可见。
 
 下表 v0.11.0 及以前的各行写的是 Flutter 版的实现（`lib/` 下的文件名、provider 等），行为在 Kotlin 版里照样保留；Kotlin 版的对应文件见 KOTLIN_MIGRATION.md §4，当前代码的结构见 CLAUDE.md「架构速览」和下方「已有的基础设施」。
 
@@ -385,7 +387,7 @@ app/src/androidTest/            # 设备测试（读 WebView 的 HttpOnly Cookie
 
 ### 已有的基础设施
 
-代码结构见 CLAUDE.md「架构速览」，这里记的是用法和容易弄错的规则。路径相对于 `app/src/main/java/io/github/leonfox28/maxbo/`。
+代码结构见 CLAUDE.md「架构速览」，这里记的是用法和容易弄错的规则。路径相对于 `app/src/main/java/io/github/leonfox28/tidemeld/`。
 
 - **网络**：`AppGraph.api`（`data/api/WeiboApi.kt`）。新端点加成 `WeiboApi` 的方法，读用 `getJson()` / `getPage()`，写用 `postForm()`（表单提交，`ok=1` 但带 `error` 的也当失败），统一完成错误映射和登录过期处理。请求头、Cookie、XSRF、限流都由 `WeiboHttp` 负责，调用方不用操心。诊断类的只读请求用 `api.withoutRenewal()`，异常的回应不会让用户退出登录。
 - **会话**：`AppGraph.session.state` 为 `SessionState.SignedIn(account)` 时可拿到 `account.uid`。接口报登录过期时，`WeiboApi` 先调 `SessionController.renewOrExpire()` 续期（见 §8「会话续期实测结论」）：
@@ -414,7 +416,7 @@ app/src/androidTest/            # 设备测试（读 WebView 的 HttpOnly Cookie
 - **设置**（`core/settings/`）：`AppGraph.settings` 是 `SettingsController`，状态是 `AppSettings`（主题、`TextSize`、`ImageQuality`、实况照片自动播放、图片缓存上限），存在 DataStore 里，`AppGraph.create()` 在第一帧前读入，避免主题闪一下。改设置用 `settings.update { it.copy(...) }`，会立即生效并在 `appScope` 上保存。测试用 `InMemorySettingsStorage`。
 - **图片磁盘缓存**（`core/media/ImageDiskCache.kt`）：Coil 的磁盘缓存放在 `cacheDir/image_cache`，平时就按 LRU 清理。调整上限时 `ImageDiskCache` 在同一目录上按新上限重建，并立即清到新上限之内。设置页经 `PictureCache` 读大小、清除和改上限，测试用 `FakePictureCache`。
 - **设置页和关于页**：设置是 `HomeShell` 的根页签（未登录时也可用），子页面为 `Route.TextSize`（字体大小）、`Route.About`、`Route.Licenses`（AboutLibraries 插件构建时生成 `res/raw/aboutlibraries.json`）。关于页的声明和隐私文案要与 README 保持一致。界面语言固定中文（`MainActivity.attachBaseContext` 只覆盖语言）。
-- **调试**：调试版「我」页列表里的「开发者诊断」进入诊断页（`ui/debug/DiagnosticsPage.kt`）：「核对接口（只读）」用应用自己的接口依次读账号、时间线、一条微博和它的评论、主页、热搜、搜索、未读提醒，只记数量（不读通知列表，那会把通知标成已读）；「打开页面」按 `/n/昵称`、`/u/uid`、`/status/id`、`/results?q=` 打开页面（写操作测试时用来找测试微博；adb 输不了中文，昵称可以写成 URL 编码）；「模拟登录过期」把会话的 `SUB` 换成无效值，再加载一次时间线，看续期是否成功、用了多久，logcat 里有 `session renewal` 的每一跳（只有 host 和 path）。日志前缀 `diag:`，tag 是 `maxbo`。Flutter 版为回答 §8 各个问题写的结构探针没有迁过来，要用时从 git 历史（`53b24b0` 及以前的 `lib/features/debug/diagnostics_page.dart`）照着写。
+- **调试**：调试版「我」页列表里的「开发者诊断」进入诊断页（`ui/debug/DiagnosticsPage.kt`）：「核对接口（只读）」用应用自己的接口依次读账号、时间线、一条微博和它的评论、主页、热搜、搜索、未读提醒，只记数量（不读通知列表，那会把通知标成已读）；「打开页面」按 `/n/昵称`、`/u/uid`、`/status/id`、`/results?q=` 打开页面（写操作测试时用来找测试微博；adb 输不了中文，昵称可以写成 URL 编码）；「模拟登录过期」把会话的 `SUB` 换成无效值，再加载一次时间线，看续期是否成功、用了多久，logcat 里有 `session renewal` 的每一跳（只有 host 和 path）。日志前缀 `diag:`，tag 是 `tidemeld`。Flutter 版为回答 §8 各个问题写的结构探针没有迁过来，要用时从 git 历史（`53b24b0` 及以前的 `lib/features/debug/diagnostics_page.dart`）照着写。
 
 ### 后续要点（M6 之后）
 
@@ -436,7 +438,7 @@ app/src/androidTest/            # 设备测试（读 WebView 的 HttpOnly Cookie
 - **测试写操作**：测试目标由用户指定。2026-10-13 指定的是测试账号关注的用户大号主页上的第一条微博（2025-08-29 发布），昵称问用户，诊断页里用 `@昵称` 定位。每次真实点赞或评论前仍要先问用户；测试完把它恢复成未赞、无测试评论。2026-10-21 时那条微博已不在主页列表里，只出现在用户 10-15 为测试通知发的一条转发的转发链里。转发测试经用户同意，改用主页当前的第一条，即这条 10-15 的测试转发。10-22 起主页第一条换成了一条真实的转发，所以测试微博要按发布时间「10-15 17:24」找，不要再按「第一条」找。
 - **测试里的线程**：`createComposeRule()`（v1 的 API）给组合用的是 `UnconfinedTestDispatcher`，`testGraph()` 的 `appScope` 也是 `Dispatchers.Unconfined`，所以测试里 `LaunchedEffect`、`rememberCoroutineScope()` 和应用级的协程等到网络回复后，会在 OkHttp 的线程上接着跑（真实应用里它们回到主线程）。10-24 CI 上 `AppFlowsTest` 偶发的 `CalledFromWrongThreadException` 推测就是这样来的，但没拿到完整调用栈，本地也没复现。测试失败时现在会打印完整调用栈，再出现时据此定位。可能的修法是改用 `androidx.compose.ui.test.junit4.v2` 的规则（`StandardTestDispatcher`），以及 `testGraph()` 在 Robolectric 下改用 `Dispatchers.Main.immediate`，两者都会改变所有页面测试的时序。
 - **平板/折叠屏**：WebView（登录页、应用内网页）、图片查看器、视频播放仍占满窗口。
-- **应用图标**：图标是代码画的：手写体的大写 M，底色和 M 的颜色照 voytty 的 iOS 图标（米白 `#F5F0E8` 上豆沙红 `#9F6561`；iOS 另有深色和着色两版）。2026-11-04 用户要求换掉原来靛蓝底 `#3F51B5` 上两段圆弧的小写 m。所有副本都由 `swift tools/render-icons.swift` 从脚本里同一支笔的轨迹（几个点、各处粗细、弯曲、收细、倾斜）生成：Android 的矢量前景 `drawable/ic_launcher_foreground.xml`（也是主题图标的单色层）、`mipmap-*` 的旧版 PNG、iOS 的三张 `AppIcon*.png`。改图形时改脚本再重跑，不要手改生成的文件；自适应图标的底色 `ic_launcher_background` 在 `values/colors.xml` 里，要和脚本一致。
+- **应用图标**：图标是代码画的：手写体的大写 T（2026-11-05 更名时由 M 改为 T），底色和字母的颜色照 voytty 的 iOS 图标（米白 `#F5F0E8` 上豆沙红 `#9F6561`；iOS 另有深色和着色两版）。2026-11-04 用户要求换掉原来靛蓝底 `#3F51B5` 上两段圆弧的小写 m。所有副本都由 `swift tools/render-icons.swift` 从脚本里同一支笔的轨迹（几个点、各处粗细、弯曲、收细、倾斜）生成：Android 的矢量前景 `drawable/ic_launcher_foreground.xml`（也是主题图标的单色层）、`mipmap-*` 的旧版 PNG、iOS 的三张 `AppIcon*.png`。改图形时改脚本再重跑，不要手改生成的文件；自适应图标的底色 `ic_launcher_background` 在 `values/colors.xml` 里，要和脚本一致。
 
 ### 开发环境注意
 
@@ -455,5 +457,5 @@ app/src/androidTest/            # 设备测试（读 WebView 的 HttpOnly Cookie
 - 操作模拟器：Compose 的文字能在 `adb exec-out uiautomator dump /dev/tty` 里看到（带坐标），点文字按钮优先用它找坐标。截图是 1080×2424，按缩小后的图量出的坐标要乘回原始比例；点小目标（如正文里的 @）前先用 `sips -c <高> <宽> --cropOffset <y> <x>` 裁出原图对应区域核对。
 - 核对深色主题可用 `adb -s emulator-5554 shell cmd uimode night yes`，看完记得改回 `no`。
 - `adb shell input text` 只能输入 ASCII（空格写成 `%s`），测试评论用英文。
-- 调试版崩溃时，异常在 `adb logcat -s AndroidRuntime` 里；应用自己的日志 tag 是 `maxbo`（`devLog()`）。
+- 调试版崩溃时，异常在 `adb logcat -s AndroidRuntime` 里；应用自己的日志 tag 是 `tidemeld`（`devLog()`）。
 - 测写操作时注意点击位置：卡片里的转发框打开的是**原微博**（别人的），不是测试微博。

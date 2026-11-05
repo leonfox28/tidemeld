@@ -1,8 +1,14 @@
-# maxbo
+# 叠澜 · Tidemeld
 
-开源、非商业的第三方微博阅读客户端：Android 版（Kotlin + Jetpack Compose，仓库根目录），以及 2026-10-30 起的 iOS 版（SwiftUI，`ios/`，见 [docs/IOS.md](docs/IOS.md)）。方案、合规边界、接口实测结论和当前进度都在 [docs/PLAN.md](docs/PLAN.md)；**开工前先读第 2 节（合规边界）、第 8 节（实测结论）和第 11 节（进度与交接）**。
+开源、非商业的社交媒体聚合客户端（原名 maxbo）：当前支持微博，X 接入待实现。Android 版（Kotlin + Jetpack Compose，仓库根目录），以及 2026-10-30 起的 iOS 版（SwiftUI，`ios/`，见 [docs/IOS.md](docs/IOS.md)）。方案、合规边界、接口实测结论和当前进度都在 [docs/PLAN.md](docs/PLAN.md)；**开工前先读第 2 节（合规边界）、第 8 节（实测结论）和第 11 节（进度与交接）**。
 
 v0.11.0 及以前是 Flutter 版，2026-10-23 起换成 Kotlin 重写的版本（v0.12.0）。迁移的经过和各处设计的理由记在 [docs/KOTLIN_MIGRATION.md](docs/KOTLIN_MIGRATION.md) 的 §11；Flutter 代码只在 git 历史里（`53b24b0` 及以前）。
+
+## 品牌与兼容性
+
+- 中文名「叠澜」，英文名 `Tidemeld`，仓库与目录名 `tidemeld`。
+- Android 源码 namespace 为 `io.github.leonfox28.tidemeld`；安装用的 applicationId、iOS Bundle ID 保留 `io.github.leonfox28.maxbo`（Debug 带 `.debug`），Android Keystore 的 `maxbo.session` 也保留，以延续更新、登录态及现有 App Store 记录。不要因为更名去替换这些兼容标识。
+- 当前版本只实现微博，不应在应用或商店文案中声称已支持 X。无需注册域名，支持和隐私政策继续使用 GitHub。
 
 ## 常用命令
 
@@ -20,10 +26,10 @@ iOS 版（在 `ios/` 下；工程由 xcodegen 生成，不进 git）：
 
 ```sh
 xcodegen generate                                                       # 改了 project.yml 或增删文件后
-xcodebuild -project Maxbo.xcodeproj -scheme Maxbo -destination 'generic/platform=iOS Simulator' -derivedDataPath build/dd build
-xcodebuild test -project Maxbo.xcodeproj -scheme Maxbo -destination 'id=<没有真实登录的模拟器>' -derivedDataPath build/dd -collect-test-diagnostics never
-xcrun simctl install <模拟器> build/dd/Build/Products/Debug-iphonesimulator/Maxbo.app   # 覆盖安装，数据保留
-xcrun simctl launch <模拟器> io.github.leonfox28.maxbo.debug -maxbo-open first/status    # 调试版直接打开页面，见 IOS.md §5
+xcodebuild -project Tidemeld.xcodeproj -scheme Tidemeld -destination 'generic/platform=iOS Simulator' -derivedDataPath build/dd build
+xcodebuild test -project Tidemeld.xcodeproj -scheme Tidemeld -destination 'id=<没有真实登录的模拟器>' -derivedDataPath build/dd -collect-test-diagnostics never
+xcrun simctl install <模拟器> build/dd/Build/Products/Debug-iphonesimulator/Tidemeld.app   # 覆盖安装，数据保留
+xcrun simctl launch <模拟器> io.github.leonfox28.maxbo.debug -tidemeld-open first/status    # 调试版直接打开页面，见 IOS.md §5
 ```
 
 工具链：AGP 9.4.1、Gradle 9.8.2（wrapper）、Kotlin 2.4.21、JDK 17（Temurin）；compileSdk 37、targetSdk 36、minSdk 24。版本统一写在 `gradle/libs.versions.toml`。Robolectric 跑 SDK 34（35 以上要 Java 21）。
@@ -38,16 +44,16 @@ xcrun simctl launch <模拟器> io.github.leonfox28.maxbo.debug -maxbo-open firs
 - **参考项目不能复制代码**：Android_16_Weibo、weiboX 没有 License，只能参考它们的接口形态。
 - **测试数据**：只用手写的合成数据。真实响应放在 `captured/`（已 gitignore），不得提交。
 - **日志**：日志和诊断输出里不得出现 Cookie 值或微博正文。调试日志用 `devLog()`，它只在调试版输出。
-- **保护真实登录态**：真实登录需要短信验证码和人机验证。保存着登录态的设备只能用 `install -r` 更新（调试版包名是 `io.github.leonfox28.maxbo.debug`），不要卸载或清除数据，也不要在上面跑 `connectedDebugAndroidTest`（它会清空 WebView Cookie，跑完还会卸载应用）。设备测试用没有真实登录的 AVD `maxbo_test`。iOS 同理：iOS 模拟器 `maxbo iPhone` 上有真实登录，只用 `simctl install` 覆盖安装，不卸载、不 `erase`、不在上面跑测试；测试用 `maxbo test`。
+- **保护真实登录态**：真实登录需要短信验证码和人机验证。保存着登录态的设备只能用 `install -r` 更新（调试版包名是 `io.github.leonfox28.maxbo.debug`），不要卸载或清除数据，也不要在上面跑 `connectedDebugAndroidTest`（它会清空 WebView Cookie，跑完还会卸载应用）。设备测试用没有真实登录的 AVD `maxbo_test`。iOS 同理：iOS 模拟器 `Tidemeld iPhone` 上有真实登录，只用 `simctl install` 覆盖安装，不卸载、不 `erase`、不在上面跑测试；测试用 `Tidemeld test`。
 - **先问用户**：完成人机验证、勾选用户协议、以用户身份对外操作（关注、点赞、评论），都必须先得到用户确认。写操作只在用户指定的测试微博上测，测完恢复原状。
 
 ## 架构速览
 
 下面是 Android 版。iOS 版的结构和与 Android 版的差异见 [docs/IOS.md](docs/IOS.md) §2、§3：分层和名字一一对应，行为以 Kotlin 版为准；改了一边的行为，另一边也要跟着改。
 
-源码在 `app/src/main/java/io/github/leonfox28/maxbo/`，单个 `:app` 模块，按包分层。
+源码在 `app/src/main/java/io/github/leonfox28/tidemeld/`，单个 `:app` 模块，按包分层。
 
-- 根包：`MaxboApplication` 在第一帧之前用 `AppGraph.create()` 读入设置和会话；`MainActivity`（edge-to-edge，界面语言固定中文）；`MaxboApp` 是根部的 Composable（主题、字体大小、`Navigator`、`Overlays`、提示条、`UnreadChecks`）。
+- 根包：`TidemeldApplication` 在第一帧之前用 `AppGraph.create()` 读入设置和会话；`MainActivity`（edge-to-edge，界面语言固定中文）；`TidemeldApp` 是根部的 Composable（主题、字体大小、`Navigator`、`Overlays`、提示条、`UnreadChecks`）。
 - `AppGraph`：手写的依赖容器（不用 Hilt/Koin），持有设置、会话、`WeiboApi`、时间线、未读、点赞、草稿、`OpenLists`、图片加载器等全应用共用的对象，经 `LocalAppGraph` 取用。页面状态用 ViewModel + `StateFlow`。
 - `core/net/`：网络层
   - `WeiboHttp`：OkHttp，浏览器 UA、Cookie（`WeiboCookieJar`，按站点 weibo.com / weibo.cn 保存）、Referer/XSRF 等请求头、`RequestThrottle` 限流。读请求和写请求各用一个 client，写请求关掉 `retryOnConnectionFailure`；picupload 跨域上传用 `PlainCrossOrigin` 去掉 XHR/XSRF 头。
@@ -74,7 +80,7 @@ xcrun simctl launch <模拟器> io.github.leonfox28.maxbo.debug -maxbo-open firs
 
 - **语言**：代码注释用英文，界面文案用中文（只有中文，不做多语言）。
 - **数据**：ID 一律用字符串；JSON 手写容错解析，不用代码生成。
-- **测试**（`app/src/test/`，JUnit 4 + Robolectric + Compose UI Test；iOS 在 `ios/MaxboTests/`，Swift Testing）：
+- **测试**（`app/src/test/`，JUnit 4 + Robolectric + Compose UI Test；iOS 在 `ios/TidemeldTests/`，Swift Testing）：
   - `support/TestGraph.kt` 的 `testGraph()` 用假实现（`support/Fakes.kt`）拼出一个 `AppGraph`，`restored = signedIn` 就是已登录（uid 7）。不传 `web` 时请求一律按离线失败，不会碰到真实的微博；
   - `support/FakeWeibo.kt` 是本地的 HTTPS MockWebServer，DNS 全部指向它，用到它的测试类要跑在 Robolectric 下；
   - 页面测试用 `TestHost`，整个应用的流程用 `AppHarness`，合成数据的构造函数在 `support/Statuses.kt`。

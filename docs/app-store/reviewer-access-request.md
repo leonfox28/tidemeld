@@ -4,13 +4,13 @@
 
 ## Subject
 
-Request for guidance on demo-mode review access — maxbo (6830942092)
+Request for guidance on demo-mode review access — Tidemeld (6830942092)
 
 ## Message
 
 Hello App Review team,
 
-I am preparing the first iOS release of maxbo, a free, open-source, independent Weibo client.
+I am preparing the first iOS release of Tidemeld, a free, open-source, independent Weibo client.
 
 App Apple ID: 6830942092
 Bundle ID: io.github.leonfox28.maxbo

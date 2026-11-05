@@ -16,10 +16,11 @@ val keyProperties =
     }
 
 android {
-    namespace = "io.github.leonfox28.maxbo"
+    namespace = "io.github.leonfox28.tidemeld"
     compileSdk = 37
 
     defaultConfig {
+        // Keep the installed identity so existing apps and their sessions can be upgraded.
         applicationId = "io.github.leonfox28.maxbo"
         minSdk = 24
         targetSdk = 36
@@ -27,7 +28,7 @@ android {
         // to 4021 (ABI × 1000 + build number), so this installs over them.
         versionCode = 5029
         versionName = "0.13.1"
-        manifestPlaceholders["appLabel"] = "maxbo"
+        manifestPlaceholders["appLabel"] = "叠澜"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -47,7 +48,7 @@ android {
         // mismatch never forces an uninstall (and the login state with it).
         debug {
             applicationIdSuffix = ".debug"
-            manifestPlaceholders["appLabel"] = "maxbo debug"
+            manifestPlaceholders["appLabel"] = "叠澜 Debug"
         }
         release {
             signingConfig =
@@ -64,7 +65,7 @@ android {
         create("benchmark") {
             initWith(getByName("release"))
             applicationIdSuffix = ".debug"
-            manifestPlaceholders["appLabel"] = "maxbo debug"
+            manifestPlaceholders["appLabel"] = "叠澜 Debug"
             signingConfig = signingConfigs.getByName("debug")
             matchingFallbacks += "release"
         }

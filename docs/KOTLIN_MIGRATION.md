@@ -1,5 +1,7 @@
 # maxbo 迁移到 Kotlin + Jetpack Compose 的计划
 
+> 历史记录：本文保留迁移当时的 maxbo 名称。项目于 2026-11-05 更名为叠澜（Tidemeld）；当前源码 namespace 为 `io.github.leonfox28.tidemeld`，安装标识不变。现行结构与命令见 [CLAUDE.md](../CLAUDE.md)。
+
 写于 2026-10-22，基于 v0.11.0 和去掉 iOS 之后的代码（`2ad832e`）。用户决定把 maxbo 从 Flutter 整体迁移到 Kotlin + Jetpack Compose，只做 Android（PLAN §10）。
 
 > **已完成（2026-10-23，v0.12.0）**。本文现在只是迁移的记录，§11 各阶段的备注说明了 Kotlin 版各处为什么这样做。当前的开发说明以 CLAUDE.md 和 PLAN §11 为准。文中的 `kotlin/` 目录已经移到仓库根目录；`lib/`、`test/` 等 Flutter 代码已删掉，要对照时看 git 历史（`53b24b0` 是最后一个带 Flutter 代码的提交）。

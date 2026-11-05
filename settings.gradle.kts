@@ -14,6 +14,6 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "maxbo"
+rootProject.name = "tidemeld"
 
 include(":app")

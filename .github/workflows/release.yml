@@ -81,12 +81,12 @@ jobs:
             exit 1
           fi
           mkdir dist
-          cp "$apk" "dist/maxbo-$GITHUB_REF_NAME.apk"
+          cp "$apk" "dist/tidemeld-$GITHUB_REF_NAME.apk"
 
       - uses: actions/upload-artifact@v7
         with:
           name: android
-          path: dist/maxbo-*.apk
+          path: dist/tidemeld-*.apk
           if-no-files-found: error
 
   release:
@@ -105,8 +105,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           cd dist
-          sha256sum maxbo-*.apk > SHA256SUMS.txt
+          sha256sum tidemeld-*.apk > SHA256SUMS.txt
           gh release create "$GITHUB_REF_NAME" --draft --verify-tag \
             --repo "$GITHUB_REPOSITORY" --title "$GITHUB_REF_NAME" \
             --notes "Draft created by CI. Write the release notes before publishing." \
-            maxbo-*.apk SHA256SUMS.txt
+            tidemeld-*.apk SHA256SUMS.txt

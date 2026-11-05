@@ -1,4 +1,4 @@
-# maxbo iOS 版（SwiftUI）
+# 叠澜 · Tidemeld iOS 版（SwiftUI）
 
 写于 2026-10-30。用户要求在 Android 版之外做一个原生 iOS 版：用 SwiftUI，能用系统控件的就用系统控件，按钮和导航栏用系统的液态玻璃（Liquid Glass），深浅色用 voytty iOS 版的整套配色，不做预测性返回（iOS 用系统自带的右滑返回）。这推翻了 PLAN §10 里 2026-10-22「不再支持 iOS」的决定；分发方式还没定（见 §6）。
 
@@ -6,26 +6,26 @@
 
 ## 1. 工程
 
-- 目录 `ios/`，工程由 xcodegen 从 `ios/project.yml` 生成（`Maxbo.xcodeproj` 已 gitignore）。Xcode 27.2（2026-11-04 从 27.1 更新），Swift 6 语言模式（完整并发检查），部署目标 iOS 26.0（液态玻璃、SwiftUI 的 `WebView`/`WebPage` 都要 26）。
-- 包名 `io.github.leonfox28.maxbo`，调试版 `io.github.leonfox28.maxbo.debug`（名称「maxbo debug」）。版本号 `MARKETING_VERSION` 跟 `app/build.gradle.kts` 的 `versionName` 一致，改版本时两处一起改。
-- **只用 Apple 自带的框架**，没有第三方依赖：网络 URLSession，网页 WebKit（SwiftUI 的 `WebView` + `WebPage`），视频 AVKit，选图 PhotosUI，图片解码 ImageIO，登录态 Keychain，设置 UserDefaults。开源许可页因此只列 maxbo 自己的 GPL-3.0（`LICENSE` 打包进应用）。
+- 目录 `ios/`，工程由 xcodegen 从 `ios/project.yml` 生成（`Tidemeld.xcodeproj` 已 gitignore）。Xcode 27.2（2026-11-04 从 27.1 更新），Swift 6 语言模式（完整并发检查），部署目标 iOS 26.0（液态玻璃、SwiftUI 的 `WebView`/`WebPage` 都要 26）。
+- 包名 `io.github.leonfox28.maxbo`，调试版 `io.github.leonfox28.maxbo.debug`（名称「叠澜 Debug」）。版本号 `MARKETING_VERSION` 跟 `app/build.gradle.kts` 的 `versionName` 一致，改版本时两处一起改。
+- **只用 Apple 自带的框架**，没有第三方依赖：网络 URLSession，网页 WebKit（SwiftUI 的 `WebView` + `WebPage`），视频 AVKit，选图 PhotosUI，图片解码 ImageIO，登录态 Keychain，设置 UserDefaults。开源许可页因此只列 tidemeld 自己的 GPL-3.0（`LICENSE` 打包进应用）。
 - 图标与 Android 版是同一个手写的 M，由 `tools/render-icons.swift` 画成 1024 px 的满幅方图（`Resources/Assets.xcassets/AppIcon.appiconset/`），圆角由系统加。配色照 voytty 的 iOS 图标：浅色 `AppIcon.png` 米白底豆沙红，深色 `AppIconDark.png` 是 `#191613` 底 `#C69891`，着色 `AppIconTinted.png` 是灰度图（见 PLAN §11「应用图标」）。
 
 ```sh
 cd ios && xcodegen generate
-xcodebuild -project Maxbo.xcodeproj -scheme Maxbo -destination 'generic/platform=iOS Simulator' -derivedDataPath build/dd build
-xcodebuild test -project Maxbo.xcodeproj -scheme Maxbo -destination 'id=<没有真实登录的模拟器>' -derivedDataPath build/dd -collect-test-diagnostics never
-xcrun simctl install <模拟器> build/dd/Build/Products/Debug-iphonesimulator/Maxbo.app   # 覆盖安装，数据保留
-xcrun simctl launch <模拟器> io.github.leonfox28.maxbo.debug -maxbo-open first/status
+xcodebuild -project Tidemeld.xcodeproj -scheme Tidemeld -destination 'generic/platform=iOS Simulator' -derivedDataPath build/dd build
+xcodebuild test -project Tidemeld.xcodeproj -scheme Tidemeld -destination 'id=<没有真实登录的模拟器>' -derivedDataPath build/dd -collect-test-diagnostics never
+xcrun simctl install <模拟器> build/dd/Build/Products/Debug-iphonesimulator/Tidemeld.app   # 覆盖安装，数据保留
+xcrun simctl launch <模拟器> io.github.leonfox28.maxbo.debug -tidemeld-open first/status
 ```
 
 `-collect-test-diagnostics never`：不加的话，测试一失败 xcodebuild 就跑 `simctl diagnose` 收集诊断，最长 10 分钟，看起来像卡住了。
 
 ## 2. 代码结构
 
-源码在 `ios/Maxbo/`，分层和 Android 版对应（括号里是对应的 Kotlin 文件或库）：
+源码在 `ios/Tidemeld/`，分层和 Android 版对应（括号里是对应的 Kotlin 文件或库）：
 
-- `App/`：`MaxboApp`（入口）、`AppGraph`（手写的依赖容器，经 `@Environment(AppGraph.self)` 取用；路由 `Router` 和提示 `Toasts` 也在里面，应用只有一个窗口）、`RootView`（`TabView` 四个页签、各页签自己的 `NavigationStack`、整个应用上方的弹层和全屏页、主题和字体大小、未读检查）、`DebugLaunch`（见 §5）。
+- `App/`：`TidemeldApp`（入口）、`AppGraph`（手写的依赖容器，经 `@Environment(AppGraph.self)` 取用；路由 `Router` 和提示 `Toasts` 也在里面，应用只有一个窗口）、`RootView`（`TabView` 四个页签、各页签自己的 `NavigationStack`、整个应用上方的弹层和全屏页、主题和字体大小、未读检查）、`DebugLaunch`（见 §5）。
 - `Core/Net/`：`WeiboHTTP`（OkHttp 的拦截器 → 每一跳由 `HopHeaders` 重新放 Cookie、Referer、XSRF 等请求头，重定向的 `Set-Cookie` 也存下）、`WeiboCookieJar`、`WeiboError`（`WeiboException.kt` 的几种异常合成一个 enum，`unwrapResponse` 照搬）、`RequestThrottle`（actor，并发 2、间隔 500 ms、432/418/429 退避）。URLSession 关掉了自己的 Cookie 和缓存。
 - `Core/Session/`：`SessionController`、`WebCookies`（`WKHTTPCookieStore`，读得到 HttpOnly 的 `SUB`）、`SessionRenewer`（不挂到界面上的 `WebPage` 打开 weibo.com；每次 `isLoading` 变回 false 就读一次 Cookie，等于 Android 的 `onPageFinished`/`onReceivedError`）、`SessionStorage`（Keychain，`AfterFirstUnlockThisDeviceOnly`，不进备份）。
 - `Core/Media/`：`ImageLoader`（代替 Coil：带 Referer、http 改 https、缓存 key 去掉签名参数；磁盘缓存是自己管的 `URLCache`，上限跟设置走；ImageIO 按显示尺寸降采样，GIF 解成动图）、`VideoSource`（选地址、判断过期、重新请求 `statuses/show`）、`VideoAsset`（公开的 `AVAssetResourceLoader` + `URLSession` 加载 MP4/MOV，带 Referer 和浏览器 UA；流式提供所需字节，支持 Range、重定向和取消；播放器持有它，保证弱引用的 loader delegate 不提前释放）。
@@ -49,35 +49,35 @@ xcrun simctl launch <模拟器> io.github.leonfox28.maxbo.debug -maxbo-open firs
 - **登录页**：SwiftUI 的 `WebView`。浏览器 UA 和 Android 一样是桌面 Chrome，但要把 `preferredContentMode` 设成 `.mobile`，否则 passport 按桌面布局排成两栏、右边被截掉。http 的页面由 WebKit 升级成 https（`preferredHTTPSNavigationPolicy`），不认识的协议（`sinaweibo://`）一律拦下。
 - **退出登录**：清 WebKit 的 Cookie（`WKWebsiteDataStore.removeData`）。**Keychain 在卸载应用后还在**，所以第一次启动时（UserDefaults 里没有 `installed` 标记）先清掉旧的登录态，免得重装后用上一次的会话。
 - **宽屏**：时间线卡片在宽度 ≥ 840 时把媒体放到正文右侧（自定义 `Layout`，和 Android 的 `CardLayout` 同一套尺寸），各页正文限宽 640、首页 1000。**详情页在宽屏上不分左右两栏**，Android 的 `ReadingPanes` 没有移植。
-- **视频**：系统的 `AVPlayerViewController`（自带控件、画中画）。2026-11-04 核实[苹果官方回复](https://developer.apple.com/forums/thread/671139)后移除了不受支持的 HTTP 请求头选项，改用 `VideoAsset` 的公开资源加载接口；按 SDK 要求关闭 `automaticallyWaitsToMinimizeStalling`，避免自定义加载时起播或恢复等待过久。AirPlay 接收端不能使用应用内的资源加载器（[苹果说明](https://developer.apple.com/forums/thread/83560)），因此关闭外部视频播放，不再宣称支持 AirPlay 视频投放。有声音的播放（视频、点开的实况照片）用 `.playback` 音频类别：静音键打开也有声音，播放时其他应用的声音暂停，关掉后恢复；画中画还要 `Info.plist` 里的后台音频（`ios/Maxbo/Info.plist`，和 `project.yml` 里的 `INFOPLIST_KEY_*` 合并）。实况照片自己动的时候没声音，用 `.ambient`，不打断其他应用。退到后台时系统会暂停连着画面的播放器（和 Android 退到后台暂停一样），除非开着画中画。Android 版不申请音频焦点，和音乐一起放；iOS 照系统的习惯。实况照片用一个 `AVPlayer` 叠在静图上播放，行为同 Android（点「实况」或长按，带声音；设置打开后停在一张上时静音自动播一次）。
+- **视频**：系统的 `AVPlayerViewController`（自带控件、画中画）。2026-11-04 核实[苹果官方回复](https://developer.apple.com/forums/thread/671139)后移除了不受支持的 HTTP 请求头选项，改用 `VideoAsset` 的公开资源加载接口；按 SDK 要求关闭 `automaticallyWaitsToMinimizeStalling`，避免自定义加载时起播或恢复等待过久。AirPlay 接收端不能使用应用内的资源加载器（[苹果说明](https://developer.apple.com/forums/thread/83560)），因此关闭外部视频播放，不再宣称支持 AirPlay 视频投放。有声音的播放（视频、点开的实况照片）用 `.playback` 音频类别：静音键打开也有声音，播放时其他应用的声音暂停，关掉后恢复；画中画还要 `Info.plist` 里的后台音频（`ios/Tidemeld/Info.plist`，和 `project.yml` 里的 `INFOPLIST_KEY_*` 合并）。实况照片自己动的时候没声音，用 `.ambient`，不打断其他应用。退到后台时系统会暂停连着画面的播放器（和 Android 退到后台暂停一样），除非开着画中画。Android 版不申请音频焦点，和音乐一起放；iOS 照系统的习惯。实况照片用一个 `AVPlayer` 叠在静图上播放，行为同 Android（点「实况」或长按，带声音；设置打开后停在一张上时静音自动播一次）。
 
 ## 4. 测试
 
-`ios/MaxboTests/`，Swift Testing，只用手写的合成数据：正文解析（照搬 Android `StatusTextParserTest` 的用例）、模型解析、错误映射、Cookie 存取、查询和表单的编码、`$CONFIG` 提取、上传结果、缓存 key、视频地址、格式化、分页列表，以及换账号、请求排队时的 Cookie、图片下载的取消、GIF 的内存、看图的长图、转发。`Support.swift` 里有假的会话存储、网页 Cookie、续期，`testGraph()` 拼出一个 `AppGraph`（已登录，uid 7，不传 `configuration` 时请求一律按离线失败），`FakeWeibo` 是 URL 加载层的假微博（全局一个，用到它的测试放在 `FakeWeiboTests` 下面串行跑）。页面测试还没有，页面都是在模拟器上逐个看过的（§5）。
+`ios/TidemeldTests/`，Swift Testing，只用手写的合成数据：正文解析（照搬 Android `StatusTextParserTest` 的用例）、模型解析、错误映射、Cookie 存取、查询和表单的编码、`$CONFIG` 提取、上传结果、缓存 key、视频地址、格式化、分页列表，以及换账号、请求排队时的 Cookie、图片下载的取消、GIF 的内存、看图的长图、转发。`Support.swift` 里有假的会话存储、网页 Cookie、续期，`testGraph()` 拼出一个 `AppGraph`（已登录，uid 7，不传 `configuration` 时请求一律按离线失败），`FakeWeibo` 是 URL 加载层的假微博（全局一个，用到它的测试放在 `FakeWeiboTests` 下面串行跑）。页面测试还没有，页面都是在模拟器上逐个看过的（§5）。
 
-`ios/MaxboUITests/` 不是测试而是工具：`ScrollBarsUITests` 打开一页，往下滑、往回滑一点、再往下、再快速往回甩，每步截一张图，用来看页签栏和底部工具栏怎么跟着滚动；另一个方法在关于页滑到页签栏隐藏后打开开源许可再返回，看两页的页签栏。动画要看录屏（`xcrun simctl io <UDID> recordVideo`），再用 ffmpeg 按 60 帧拼图逐帧看。scheme 是 `MaxboUI`，**只在 `maxbo test` 上跑**：
+`ios/TidemeldUITests/` 不是测试而是工具：`ScrollBarsUITests` 打开一页，往下滑、往回滑一点、再往下、再快速往回甩，每步截一张图，用来看页签栏和底部工具栏怎么跟着滚动；另一个方法在关于页滑到页签栏隐藏后打开开源许可再返回，看两页的页签栏。动画要看录屏（`xcrun simctl io <UDID> recordVideo`），再用 ffmpeg 按 60 帧拼图逐帧看。scheme 是 `TidemeldUI`，**只在 `Tidemeld test` 上跑**：
 
 ```sh
-TEST_RUNNER_MAXBO_SHOTS=<截图目录> TEST_RUNNER_MAXBO_PAGE=<-maxbo-open 的路径，默认 licenses> \
-  xcodebuild test -project Maxbo.xcodeproj -scheme MaxboUI -destination 'id=<maxbo test>' -derivedDataPath build/dd -collect-test-diagnostics never
+TEST_RUNNER_TIDEMELD_SHOTS=<截图目录> TEST_RUNNER_TIDEMELD_PAGE=<-tidemeld-open 的路径，默认 licenses> \
+  xcodebuild test -project Tidemeld.xcodeproj -scheme TidemeldUI -destination 'id=<Tidemeld test>' -derivedDataPath build/dd -collect-test-diagnostics never
 ```
 
 视频加载回归在 `VideoAssetTests.swift`：本地生成的合成 MP4/MOV 验证加载和定位、Referer/UA/Range 与签名 URL 保留、200 忽略 Range、403、截断响应、释放播放器资源时取消请求，以及 206 总长度和 MOV 类型识别。另用本地 HTTP 服务验证过跨主机 302 后请求头和 Range 保留；真实 CDN、真机画中画仍需验证。
 
 ## 5. 模拟器与验收
 
-- **`maxbo iPhone`**（iPhone 18 Pro，iOS 27.0，UDID `7EB56B5A-6B0D-470C-B479-5BA60B102864`）：2026-10-30 用户在上面登录了测试账号。**只能用 `simctl install` 覆盖安装**（数据保留），不要卸载、抹掉（`simctl erase`）或在上面跑测试。登录态在它的 Keychain 和 WebKit Cookie 里。
-- **`maxbo test`**（同型号，没有登录）：跑单元测试、看未登录的页面。本机其他模拟器（iPhone 18 Pro、iPad Pro、iPhone Duo 等）属于 voytty，不要用。
-- 本机没有独立的 Simulator.app，模拟器由用户在 Xcode 里打开；截图用 `xcrun simctl io <UDID> screenshot`。点按和滑动只能在 `maxbo test` 上经 UI 测试（§4），所以要登录才有内容的页面滑不了。
-- 调试版的启动参数 `-maxbo-open <路径>` 直接打开页面：`login`、`compose`、`settings`、`about`、`licenses`、`tab/<search|notifications|me>`、`reselect/<home|search|notifications>`（打开页签约 4 秒后再点一次）、`status/<id>`、`u/<uid>`、`n/<昵称>`、`results/<词>`（中文和 `#` 要 URL 编码）、`web/<网址>`（应用内浏览器），时间线加载后的 `first/<status|user|pic|live|video|thread>`，以及诊断页的 `diag/<reads|renewal>`。
-- **2026-10-30 在 `maxbo iPhone` 的真实会话上看过**：登录（官方页面，登录后自动关闭）、首页时间线（表情、链接图标、转发框、九宫格、认证、来源和地区；浅色和深色）、详情页（转发/评论切换、排序、评论、底部工具栏）、楼中楼、看图（翻页、页码）、视频播放、用户主页（封面、关注关系、置顶、展开）、通知（评论列表、带图评论、原微博引用）、热搜（置顶、前三名配色、标签、热度）、话题搜索结果（话题头和计数）、发微博弹层、诊断页「核对接口」全部正常、「模拟登录过期」3.4 秒续期成功（网页里的会话仍有效的那条路径）。
-- **2026-10-30 在 `maxbo test` 上用 UI 测试滑过**：开源许可（`ScrollView`）和关于（`List`）两页的页签栏往下滚隐藏、往回滚一点就出现、再往下又隐藏，关于页拉到末尾不闪，录屏逐帧看过出现和隐藏都是玻璃和按钮一起淡入淡出；隐藏后打开新页面、返回都有页签栏；给关于页临时加上详情页那样的底部工具栏，收起和出现也对，拉过末尾不再闪。
-- **2026-10-30 在 `maxbo iPhone` 上用 `reselect/home` 录屏逐帧看过**：首页在顶部时再点一次，内容平滑下移、圈在空出来的地方转，刷新完弹回，圈不压在内容上。
-- **2026-10-30 在 `maxbo iPhone` 上用 `reselect/notifications` 看过**：真实的通知列表在顶部时再点一次，内容下移、圈在页签和第一条之间转、刷新完弹回；不在顶部时点 tab 回到顶部（`maxbo test` 上的合成列表，第四页「赞」也对，只有正在显示的列表响应）。真实点 tab 时系统自己不会滚动列表。
-- **2026-11-03 在 `maxbo test` 上用 UI 测试录屏逐帧看过**：通知页和首页（临时换成合成的行）慢慢往下拖两次、往回拖一点，点页签回到顶部，再连点两次刷新：每次都有圈，刷新完内容弹回；改之前两页都是内容停在下移的位置、第二次没有圈。刚启动时在顶部点、手动下拉都照旧（UIKit 自己移回，不用补）。
-- **要登录才有内容的列表怎么在 `maxbo test` 上测**：临时改页面，未登录也显示列表，`List` 换成 40 行合成的行（`ForEach((0..<40).map { "r\($0)" }, id: \.self)`，回顶部的 id 用 `"r0"`），去掉开始加载的 `.task`，刷新里的请求换成 `Task.sleep(for: .seconds(1.5))`；再临时加一个 UI 测试：启动 `tab/<页签>`，拖动后点 `app.tabBars.buttons["通知"]`（或「首页」），配合录屏看。XCUITest 的 `tap()` 会等应用空闲，紧跟在点按后面的截图时间不准，动画要看录屏。要看 UIKit 的内部状态，可以临时用 `class_copyIvarList` 读刷新控件的 `_refreshControlState`（0 闲置、3 刷新中、4 收回中）和滚动视图 `_scrollViewFlags` 的各个位（类型编码里带字段名）。这些临时改动都不要提交。
-- **2026-10-30 通知页**：在 `maxbo iPhone` 上看过顶栏和首页一样高、第一条和首页对齐、顶部不淡；在 `maxbo test` 上临时把列表换成合成的行（不发请求、不看登录态）跑 UI 测试，点页签切换、左右滑动换页、慢慢拖不到一半留在原页、往下滚页签栏隐藏且原来页签栏那一截能拖、滚到顶栏下面有模糊、回到顶部模糊消失，都对。真实列表的滑动没看过（要登录）。
-- **还没验证**：详情页和楼中楼真实页面上的底部工具栏随滚动收起和出现（要登录，只在关于页上模拟过）、要登录的列表页（首页、通知、热搜、用户主页、搜索结果）和网页里页签栏的隐藏和出现、换页签和返回时页签栏重新出现、真实列表上真的点页签时的再点一次和不在顶部时回到顶部（启动参数只模拟了 `Router.selection` 的设置；首页和通知页的合成列表上 UI 测试真的点过，见上）、从缩略图放大进入看图和下滑关闭（启动参数打开的看图没有缩略图）、写操作（点赞、评论、回复、删除、转发、发微博，按约定要用户同意并用指定的测试微博）、滚动翻页（要登录才有内容可滑，只看了代码路径）、实况照片（那一页时间线里没有）、视频地址过期后换新、真正的 `SUB` 自然过期（要用 `ALC` 换新的那条续期路径）、验证码、iPad 和横屏、字体大小调到最大时的排版。2026-11-04 按审查（[IOS_REVIEW.md](IOS_REVIEW.md)）修的，只编译过或只在 `maxbo test` 上看过的：静音键打开时视频有声音、画中画（A7，要真机）；打开带红点的通知页签后列表刷新（A1）；换账号后通知和各页签重新开始（A9、A10，有单元测试）；登录失败时登录页上的提示（A8）；选图后读入时「发送」等着（A5）、上传进度、发微博时「去验证」盖在弹层上（D3）、转发时光标在最前（D2）；视频加载时的封面（D8）；看图里长图能左右翻（A4，有单元测试）、GIF 标（D9）；真实列表上滚到末尾才翻页（B1，合成列表上 UI 测试滑过）；宽屏中等宽度的时间线（D19）。
+- **`Tidemeld iPhone`**（iPhone 18 Pro，iOS 27.0，UDID `7EB56B5A-6B0D-470C-B479-5BA60B102864`）：2026-10-30 用户在上面登录了测试账号。**只能用 `simctl install` 覆盖安装**（数据保留），不要卸载、抹掉（`simctl erase`）或在上面跑测试。登录态在它的 Keychain 和 WebKit Cookie 里。
+- **`Tidemeld test`**（同型号，没有登录）：跑单元测试、看未登录的页面。本机其他模拟器（iPhone 18 Pro、iPad Pro、iPhone Duo 等）属于 voytty，不要用。
+- 本机没有独立的 Simulator.app，模拟器由用户在 Xcode 里打开；截图用 `xcrun simctl io <UDID> screenshot`。点按和滑动只能在 `Tidemeld test` 上经 UI 测试（§4），所以要登录才有内容的页面滑不了。
+- 调试版的启动参数 `-tidemeld-open <路径>` 直接打开页面：`login`、`compose`、`settings`、`about`、`licenses`、`tab/<search|notifications|me>`、`reselect/<home|search|notifications>`（打开页签约 4 秒后再点一次）、`status/<id>`、`u/<uid>`、`n/<昵称>`、`results/<词>`（中文和 `#` 要 URL 编码）、`web/<网址>`（应用内浏览器），时间线加载后的 `first/<status|user|pic|live|video|thread>`，以及诊断页的 `diag/<reads|renewal>`。
+- **2026-10-30 在 `Tidemeld iPhone` 的真实会话上看过**：登录（官方页面，登录后自动关闭）、首页时间线（表情、链接图标、转发框、九宫格、认证、来源和地区；浅色和深色）、详情页（转发/评论切换、排序、评论、底部工具栏）、楼中楼、看图（翻页、页码）、视频播放、用户主页（封面、关注关系、置顶、展开）、通知（评论列表、带图评论、原微博引用）、热搜（置顶、前三名配色、标签、热度）、话题搜索结果（话题头和计数）、发微博弹层、诊断页「核对接口」全部正常、「模拟登录过期」3.4 秒续期成功（网页里的会话仍有效的那条路径）。
+- **2026-10-30 在 `Tidemeld test` 上用 UI 测试滑过**：开源许可（`ScrollView`）和关于（`List`）两页的页签栏往下滚隐藏、往回滚一点就出现、再往下又隐藏，关于页拉到末尾不闪，录屏逐帧看过出现和隐藏都是玻璃和按钮一起淡入淡出；隐藏后打开新页面、返回都有页签栏；给关于页临时加上详情页那样的底部工具栏，收起和出现也对，拉过末尾不再闪。
+- **2026-10-30 在 `Tidemeld iPhone` 上用 `reselect/home` 录屏逐帧看过**：首页在顶部时再点一次，内容平滑下移、圈在空出来的地方转，刷新完弹回，圈不压在内容上。
+- **2026-10-30 在 `Tidemeld iPhone` 上用 `reselect/notifications` 看过**：真实的通知列表在顶部时再点一次，内容下移、圈在页签和第一条之间转、刷新完弹回；不在顶部时点 tab 回到顶部（`Tidemeld test` 上的合成列表，第四页「赞」也对，只有正在显示的列表响应）。真实点 tab 时系统自己不会滚动列表。
+- **2026-11-03 在 `Tidemeld test` 上用 UI 测试录屏逐帧看过**：通知页和首页（临时换成合成的行）慢慢往下拖两次、往回拖一点，点页签回到顶部，再连点两次刷新：每次都有圈，刷新完内容弹回；改之前两页都是内容停在下移的位置、第二次没有圈。刚启动时在顶部点、手动下拉都照旧（UIKit 自己移回，不用补）。
+- **要登录才有内容的列表怎么在 `Tidemeld test` 上测**：临时改页面，未登录也显示列表，`List` 换成 40 行合成的行（`ForEach((0..<40).map { "r\($0)" }, id: \.self)`，回顶部的 id 用 `"r0"`），去掉开始加载的 `.task`，刷新里的请求换成 `Task.sleep(for: .seconds(1.5))`；再临时加一个 UI 测试：启动 `tab/<页签>`，拖动后点 `app.tabBars.buttons["通知"]`（或「首页」），配合录屏看。XCUITest 的 `tap()` 会等应用空闲，紧跟在点按后面的截图时间不准，动画要看录屏。要看 UIKit 的内部状态，可以临时用 `class_copyIvarList` 读刷新控件的 `_refreshControlState`（0 闲置、3 刷新中、4 收回中）和滚动视图 `_scrollViewFlags` 的各个位（类型编码里带字段名）。这些临时改动都不要提交。
+- **2026-10-30 通知页**：在 `Tidemeld iPhone` 上看过顶栏和首页一样高、第一条和首页对齐、顶部不淡；在 `Tidemeld test` 上临时把列表换成合成的行（不发请求、不看登录态）跑 UI 测试，点页签切换、左右滑动换页、慢慢拖不到一半留在原页、往下滚页签栏隐藏且原来页签栏那一截能拖、滚到顶栏下面有模糊、回到顶部模糊消失，都对。真实列表的滑动没看过（要登录）。
+- **还没验证**：详情页和楼中楼真实页面上的底部工具栏随滚动收起和出现（要登录，只在关于页上模拟过）、要登录的列表页（首页、通知、热搜、用户主页、搜索结果）和网页里页签栏的隐藏和出现、换页签和返回时页签栏重新出现、真实列表上真的点页签时的再点一次和不在顶部时回到顶部（启动参数只模拟了 `Router.selection` 的设置；首页和通知页的合成列表上 UI 测试真的点过，见上）、从缩略图放大进入看图和下滑关闭（启动参数打开的看图没有缩略图）、写操作（点赞、评论、回复、删除、转发、发微博，按约定要用户同意并用指定的测试微博）、滚动翻页（要登录才有内容可滑，只看了代码路径）、实况照片（那一页时间线里没有）、视频地址过期后换新、真正的 `SUB` 自然过期（要用 `ALC` 换新的那条续期路径）、验证码、iPad 和横屏、字体大小调到最大时的排版。2026-11-04 按审查（[IOS_REVIEW.md](IOS_REVIEW.md)）修的，只编译过或只在 `Tidemeld test` 上看过的：静音键打开时视频有声音、画中画（A7，要真机）；打开带红点的通知页签后列表刷新（A1）；换账号后通知和各页签重新开始（A9、A10，有单元测试）；登录失败时登录页上的提示（A8）；选图后读入时「发送」等着（A5）、上传进度、发微博时「去验证」盖在弹层上（D3）、转发时光标在最前（D2）；视频加载时的封面（D8）；看图里长图能左右翻（A4，有单元测试）、GIF 标（D9）；真实列表上滚到末尾才翻页（B1，合成列表上 UI 测试滑过）；宽屏中等宽度的时间线（D19）。
 
 ## 6. 还没定的
 

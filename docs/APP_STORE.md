@@ -6,19 +6,19 @@
 
 | 项目 | 方案 |
 |---|---|
-| 产品 | maxbo，非官方微博客户端 |
+| 产品 | 叠澜 Tidemeld，当前版本支持微博 |
 | 首发地区 | 仅美国，其他地区不自动勾选 |
 | 价格 | 免费，无内购、订阅或捐赠入口 |
 | 平台 | iPhone、iPad，iOS / iPadOS 26+ |
 | 界面 / 商店主语言 | 简体中文；另备英文商店文案 |
 | Bundle ID | `io.github.leonfox28.maxbo`（已注册） |
-| SKU | `maxbo-ios` |
-| App Store Connect | [maxbo · 6830942092](https://appstoreconnect.apple.com/apps/6830942092/distribution)，已创建，准备提交 |
+| SKU | `maxbo-ios`（原记录的固定 SKU） |
+| App Store Connect | [叠澜 Tidemeld · 6830942092](https://appstoreconnect.apple.com/apps/6830942092/distribution)，已创建，准备提交 |
 | 开发者团队 | 当前 Mac 账号，`AVHU3J463N`；不是开发证书姓名后的个人标识 |
 | 版本 / 构建 | `0.13.1` / `1`，上传后若重新构建，递增构建号 |
 | 类别 | 社交 |
 | 发布方式 | 手动发布，审核通过后再确定公开日期 |
-| 支持入口 | [GitHub Issues](https://github.com/leonfox28/maxbo/issues)，无需公开个人邮箱 |
+| 支持入口 | [GitHub Issues](https://github.com/leonfox28/tidemeld/issues)，无需公开个人邮箱 |
 
 GitHub 的 `noreply` 地址用于提交身份，不是接收支持请求的邮箱。App Review 联系人需要真实、可接收的邮箱及联系电话，填写在 App Store Connect 的审核联系字段中，不写进仓库。
 
@@ -27,7 +27,7 @@ GitHub 的 `noreply` 地址用于提交身份，不是接收支持请求的邮�
 - [完整隐私政策](PRIVACY.md)：应用中随包提供离线版本；“关于”和登录页可进入。
 - [支持页面](SUPPORT.md)：中文与英文说明、反馈入口及账号问题指引。
 - [中文商店文案](app-store/zh-Hans.md)、[英文商店文案](app-store/en-US.md)、[英文审核备注草稿](app-store/review-notes.md)。
-- `ios/Maxbo/PrivacyInfo.xcprivacy`：应用自身 UserDefaults 使用理由 `CA92.1`；不代替 App Store 隐私标签。
+- `ios/Tidemeld/PrivacyInfo.xcprivacy`：应用自身 UserDefaults 使用理由 `CA92.1`；不代替 App Store 隐私标签。
 - `ios/ExportOptions-AppStore.plist`：导出到本机，不自动上传，不自动改变构建号。
 
 隐私和支持 URL 已发布到公开仓库的 `main/docs/PRIVACY.md`、`main/docs/SUPPORT.md`。2026-11-05 使用不带登录凭据的 HTTP 请求验证，两页均返回 200；隐私链接已保存到 App Store Connect。之后修改 URL 时仍需重新验证公开访问。
@@ -55,8 +55,8 @@ GitHub 的 `noreply` 地址用于提交身份，不是接收支持请求的邮�
 - 方案 B：事先向 Apple 说明第三方短信验证限制，申请用完整内置演示模式代替账号。[2.1(a)](https://developer.apple.com/app-store/review/guidelines/#app-completeness) 对因法律或安全义务无法提供账号的情况要求事先取得 Apple 同意；短信验证是否被认可尚未确认。[英文请求草稿](app-store/reviewer-access-request.md) 已准备，尚未发送。
 - 如果采用演示模式，应公开提供、明确标注示例数据，覆盖时间线、详情、搜索、媒体与互动流程；所有模拟写入只影响本地演示数据，真实登录功能保留。当前代码尚未实现，不可在审核备注里声称已有。仅几张静态截图或只开放设置页不能替代完整访问。
 - 不共享开发者主账号、现有设备 Cookie，不做验证码绕过或仅对审核员隐藏功能的路径。
-- 记录微博当前服务条款允许使用的依据；若 Apple 要求许可材料，需要提供真实材料。[5.2.2](https://developer.apple.com/app-store/review/guidelines/#intellectual-property) 仍适用，其他客户端已上架不能作为 maxbo 已获得许可的证明。
-- 明确注册/注销责任：maxbo 不创建自己的账号；核对官方网页登录页面是否暴露账号创建流程，并按最终流程核实账号删除要求。
+- 记录微博当前服务条款允许使用的依据；若 Apple 要求许可材料，需要提供真实材料。[5.2.2](https://developer.apple.com/app-store/review/guidelines/#intellectual-property) 仍适用，其他客户端已上架不能作为 tidemeld 已获得许可的证明。
+- 明确注册/注销责任：叠澜不创建自己的账号；核对官方网页登录页面是否暴露账号创建流程，并按最终流程核实账号删除要求。
 
 ### 隐私标签与年龄分级
 
@@ -86,13 +86,13 @@ GitHub 的 `noreply` 地址用于提交身份，不是接收支持请求的邮�
 
 ```sh
 xcodegen generate
-xcodebuild test -project Maxbo.xcodeproj -scheme Maxbo \
+xcodebuild test -project Tidemeld.xcodeproj -scheme Tidemeld \
   -destination 'platform=iOS Simulator,id=7D96F02A-891D-4A38-B4E5-850A081A04B8' \
   -derivedDataPath build/store-prep -collect-test-diagnostics never
-xcodebuild archive -project Maxbo.xcodeproj -scheme Maxbo -configuration Release \
-  -destination 'generic/platform=iOS' -archivePath build/app-store/Maxbo.xcarchive \
+xcodebuild archive -project Tidemeld.xcodeproj -scheme Tidemeld -configuration Release \
+  -destination 'generic/platform=iOS' -archivePath build/app-store/Tidemeld.xcarchive \
   -derivedDataPath build/store-release DEVELOPMENT_TEAM=AVHU3J463N -allowProvisioningUpdates
-xcodebuild -exportArchive -archivePath build/app-store/Maxbo.xcarchive \
+xcodebuild -exportArchive -archivePath build/app-store/Tidemeld.xcarchive \
   -exportPath build/app-store/export -exportOptionsPlist ExportOptions-AppStore.plist \
   -allowProvisioningUpdates
 ```
@@ -105,6 +105,8 @@ xcodebuild -exportArchive -archivePath build/app-store/Maxbo.xcarchive \
 - 2026-11-05：Android `spotlessCheck lint testDebugUnitTest assembleDebug` 全部通过，377 项测试无失败；构建后已停止 Gradle daemon。
 - 2026-11-05：正式 Bundle ID 与 App Store Connect 应用记录已创建；中文描述、关键词、支持链接、版本 0.13.1、社交类别、副标题及手动发布方式已保存。
 - 2026-11-05：价格已设为 USD 0.00；供应范围仅美国，后台显示“供应情况（1 个国家或地区）”，美国状态为“App 发布时供应”。Mac 和 Apple Vision Pro 分发未开启，首发先覆盖已确定的 iPhone / iPad。
-- 2026-11-05：App Store 分发 IPA 导出成功，位于 `ios/build/app-store/export/Maxbo.ipa`。核对 Bundle ID、0.13.1 (1)、iPhone/iPad、随包隐私政策和隐私清单；图标无 alpha，归档签名校验通过。修复 XcodeGen 默认英文，安装包开发语言已确认为 `zh-Hans`。
-- 2026-11-05：在无真实账号的 `maxbo test` 模拟器检查了离线隐私页，正文、滚动和末尾支持入口正常。尚未上传二进制或提交审核，真实账号及内容安全验收待完成。
-- 2026-11-05：增加游客热搜及公开网页浏览后，iOS 76 项测试通过，Android 全量格式、lint、380 项单元测试与 Debug 构建通过。在无真实账号的 `maxbo test` 模拟器确认热搜及点击后的公开网页能加载；Release 重新归档、导出和签名校验通过。游客网页继续翻页会要求登录，审核访问问题仍需解决。
+- 2026-11-05：App Store 分发 IPA 导出成功，位于 `ios/build/app-store/export/Tidemeld.ipa`。核对 Bundle ID、0.13.1 (1)、iPhone/iPad、随包隐私政策和隐私清单；图标无 alpha，归档签名校验通过。修复 XcodeGen 默认英文，安装包开发语言已确认为 `zh-Hans`。
+- 2026-11-05：在无真实账号的 `Tidemeld test` 模拟器检查了离线隐私页，正文、滚动和末尾支持入口正常。尚未上传二进制或提交审核，真实账号及内容安全验收待完成。
+- 2026-11-05：增加游客热搜及公开网页浏览后，iOS 76 项测试通过，Android 全量格式、lint、380 项单元测试与 Debug 构建通过。在无真实账号的 `Tidemeld test` 模拟器确认热搜及点击后的公开网页能加载；Release 重新归档、导出和签名校验通过。游客网页继续翻页会要求登录，审核访问问题仍需解决。
+
+- 2026-11-05 更名完成：App Store Connect 的简体中文名称已保存为「叠澜 Tidemeld」，描述、支持、营销及隐私政策链接已切换到 `leonfox28/tidemeld`。Apple ID、Bundle ID 与固定 SKU 保留。重新归档 `Tidemeld.xcarchive` 并导出 `export/Tidemeld.ipa`，签名校验通过，尚未上传或提交审核。

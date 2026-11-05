@@ -4,7 +4,7 @@
 
 ## 名称
 
-maxbo
+叠澜 Tidemeld
 
 ## 副标题
 
@@ -16,7 +16,7 @@ maxbo
 
 ## 描述
 
-maxbo 是免费、开源、非官方的微博客户端，为 iPhone 和 iPad 提供简洁的原生阅读与互动体验。
+叠澜（Tidemeld）是免费、开源、非官方的微博客户端，为 iPhone 和 iPad 提供简洁的原生阅读与互动体验。
 
 浏览与发现
 • 浏览关注动态，查看长文、评论和用户主页。
@@ -36,10 +36,10 @@ maxbo 是免费、开源、非官方的微博客户端，为 iPhone 和 iPad 提
 • 界面为简体中文，需要 iOS 26 或更高版本。
 • 未登录时首页可用原生列表浏览部分公开微博，也可看热搜及部分公开网页搜索结果；更多浏览、关注动态和互动需要已有的微博账号，登录在微博官方网页中完成。
 • 项目维护者不运营接收用户微博数据的后端；使用服务时，必要的数据直接发送给微博。
-• maxbo 与微博运营方没有关联，未获其背书。功能可用性受微博服务和账号状态影响。
+• 叠澜与微博运营方没有关联，未获其背书。功能可用性受微博服务和账号状态影响。
 
-源代码：https://github.com/leonfox28/maxbo
-支持：https://github.com/leonfox28/maxbo/issues
+源代码：https://github.com/leonfox28/tidemeld
+支持：https://github.com/leonfox28/tidemeld/issues
 
 ## 关键词
 
@@ -47,12 +47,12 @@ maxbo 是免费、开源、非官方的微博客户端，为 iPhone 和 iPad 提
 
 ## 支持 URL
 
-https://github.com/leonfox28/maxbo/blob/main/docs/SUPPORT.md
+https://github.com/leonfox28/tidemeld/blob/main/docs/SUPPORT.md
 
 ## 隐私政策 URL
 
-https://github.com/leonfox28/maxbo/blob/main/docs/PRIVACY.md
+https://github.com/leonfox28/tidemeld/blob/main/docs/PRIVACY.md
 
 ## 营销 URL（可选）
 
-https://github.com/leonfox28/maxbo
+https://github.com/leonfox28/tidemeld

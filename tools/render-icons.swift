@@ -1,4 +1,4 @@
-// Draws maxbo's app icon, a hand-drawn capital M on the rice white of voytty's
+// Draws Tidemeld's app icon, a hand-drawn capital T on the rice white of voytty's
 // iOS icon, and writes every copy the two apps ship:
 //   swift tools/render-icons.swift
 // Android: the adaptive icon's vector foreground (also its monochrome layer)
@@ -15,20 +15,16 @@ let repository = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
 
 // MARK: - The letter
 
-/// The pen's path in a 100-unit square, y pointing down: up the left leg,
-/// down into the valley, up again and down the right leg. `half` is half the
-/// ink's width there, before the rim (below) adds a unit to every edge.
-let pen: [(x: CGFloat, y: CGFloat, half: CGFloat)] = [
-    (27.5, 71, 3.3),
-    (31.5, 29.5, 2.8),
-    (50, 59, 3.1),
-    (68.5, 28.5, 2.7),
-    (74, 70.5, 3.4),
+/// Two strokes in a 100-unit square, y pointing down. The crossbar and
+/// stem share the same ink; their slight curves keep the mark hand-drawn.
+let crossbar: [(x: CGFloat, y: CGFloat, half: CGFloat)] = [
+    (28, 32, 3.2),
+    (72, 30.5, 3.5),
 ]
-/// How far each line between those points bows, so none is ruler-straight,
-/// and how much its two edges come in at the middle, where the pen eases off.
-let bow: [CGFloat] = [-0.6, 0.7, 0.5, -0.9]
-let pinch: [CGFloat] = [0.35, 0.3, 0.25, 0.35]
+let stem: [(x: CGFloat, y: CGFloat, half: CGFloat)] = [
+    (51, 31.5, 3.1),
+    (49, 72, 3.6),
+]
 /// Degrees the whole letter turns anticlockwise, as a hand slants it.
 let slant: CGFloat = 2
 /// Width of the round-joined line along the outline; it softens the notches.
@@ -89,7 +85,7 @@ func intersection(_ p: CGPoint, _ p2: CGPoint, _ q: CGPoint, _ q2: CGPoint) -> C
 
 /// The ink's outline: each side of the pen's path, the outer side rounding
 /// each turn and the inner sides meeting in a notch, with round ends.
-func outline() -> [Cubic] {
+func outline(pen: [(x: CGFloat, y: CGFloat, half: CGFloat)], bow: [CGFloat], pinch: [CGFloat]) -> [Cubic] {
     let points = pen.map { CGPoint(x: $0.x, y: $0.y) }
     let half = pen.map(\.half)
     let lines = Array(points.indices.dropLast())
@@ -127,20 +123,23 @@ func outline() -> [Cubic] {
 }
 
 /// The outline centred in the square and slanted.
-func placed(_ curves: [Cubic]) -> [Cubic] {
-    let samples = curves.flatMap { c in stride(from: 0, through: 1, by: 0.05).map { c.at($0) } }
+func placed(_ strokes: [[Cubic]]) -> [[Cubic]] {
+    let samples = strokes.flatMap { $0 }.flatMap { c in stride(from: 0, through: 1, by: 0.05).map { c.at($0) } }
     let xs = samples.map(\.x), ys = samples.map(\.y)
     let center = CGPoint(x: (xs.min()! + xs.max()!) / 2, y: (ys.min()! + ys.max()!) / 2)
     let turn = -slant * .pi / 180
-    return curves.map {
+    return strokes.map { curves in curves.map {
         $0.map { p in
             let q = p - center
             return CGPoint(x: 50 + q.x * cos(turn) - q.y * sin(turn), y: 50 + q.x * sin(turn) + q.y * cos(turn))
         }
-    }
+    } }
 }
 
-let letter = placed(outline())
+let letters = placed([
+    outline(pen: crossbar, bow: [0.8], pinch: [0.35]),
+    outline(pen: stem, bow: [-0.7], pinch: [0.3]),
+])
 
 // MARK: - Output
 
@@ -170,9 +169,11 @@ func png(_ path: String, size: Int, paper: UInt32, ink: UInt32, gray: Bool = fal
     context.translateBy(x: 0, y: CGFloat(size))
     context.scaleBy(x: CGFloat(size) / 100, y: -CGFloat(size) / 100)
     let outline = CGMutablePath()
-    outline.move(to: letter[0].a)
-    for c in letter { outline.addCurve(to: c.d, control1: c.b, control2: c.c) }
-    outline.closeSubpath()
+    for letter in letters {
+        outline.move(to: letter[0].a)
+        for c in letter { outline.addCurve(to: c.d, control1: c.b, control2: c.c) }
+        outline.closeSubpath()
+    }
     context.setFillColor(color(ink, in: space))
     context.setStrokeColor(color(ink, in: space))
     context.setLineWidth(rim)
@@ -199,12 +200,14 @@ func vector(_ path: String) throws {
         return s
     }
     func point(_ p: CGPoint) -> String { "\(number(18 + p.x * 0.72)),\(number(18 + p.y * 0.72))" }
-    let data = "M" + point(letter[0].a)
-        + letter.map { "C" + [$0.b, $0.c, $0.d].map(point).joined(separator: " ") }.joined() + "Z"
+    let data = letters.map { letter in
+        "M" + point(letter[0].a)
+            + letter.map { "C" + [$0.b, $0.c, $0.d].map(point).joined(separator: " ") }.joined() + "Z"
+    }.joined()
     let hex = String(format: "#%06X", ink)
     let xml = """
         <?xml version="1.0" encoding="utf-8"?>
-        <!-- maxbo's mark: a hand-drawn capital M. Written by tools/render-icons.swift,
+        <!-- Tidemeld's mark: a hand-drawn capital T. Written by tools/render-icons.swift,
              which also draws the mipmap PNGs and the iOS icons; edit the script, not
              this file. -->
         <vector xmlns:android="http://schemas.android.com/apk/res/android"
@@ -230,7 +233,7 @@ try vector("\(android)/drawable/ic_launcher_foreground.xml")
 for (density, size) in [("mdpi", 48), ("hdpi", 72), ("xhdpi", 96), ("xxhdpi", 144), ("xxxhdpi", 192)] {
     try png("\(android)/mipmap-\(density)/ic_launcher.png", size: size, paper: paper, ink: ink, corner: 0.18)
 }
-let ios = "ios/Maxbo/Resources/Assets.xcassets/AppIcon.appiconset"
+let ios = "ios/Tidemeld/Resources/Assets.xcassets/AppIcon.appiconset"
 try png("\(ios)/AppIcon.png", size: 1024, paper: paper, ink: ink)
 try png("\(ios)/AppIconDark.png", size: 1024, paper: darkPaper, ink: darkInk)
 try png("\(ios)/AppIconTinted.png", size: 1024, paper: tintedPaper, ink: tintedInk, gray: true)
