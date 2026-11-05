@@ -4,6 +4,7 @@ struct XQuote: Sendable {
     let author: String
     let text: String
     let url: URL
+    var media: [MixedMedia] = []
 }
 
 struct XPost: Sendable, Identifiable {
@@ -22,6 +23,12 @@ struct XPost: Sendable, Identifiable {
     let originalID: String
     var metrics = XMetrics()
     var replyTo: String? = nil
+    var attachments: [MixedMedia] = []
+    var media: [MixedMedia] {
+        if !attachments.isEmpty { return attachments }
+        return pictures.map(MixedMedia.pic) + (videoCover != nil || videoURL != nil
+            ? [.video(VideoInfo(coverURL: videoCover, streamURLs: videoURL.map { [$0] } ?? []))] : [])
+    }
     var url: URL { URL(string: "https://x.com/\(handle)/status/\(originalID)")! }
 }
 
@@ -91,24 +98,17 @@ func parseXPost(_ value: JSON?, promoted: Bool = false, depth: Int = 0) -> XPost
         of: "&gt;", with: ">"
     )
     .replacingOccurrences(of: "&amp;", with: "&")
-    let media = legacy["extended_entities"]?["media"]?.objects ?? []
-    let pictures = media.filter { $0["type"]?.string == "photo" }.compactMap {
-        $0["media_url_https"]?.url
-    }
-    .map(PicInfo.fromURL)
-    let video = media.first { ["video", "animated_gif"].contains($0["type"]?.string ?? "") }
-    let stream = video?["video_info"]?["variants"]?.objects.filter {
-        $0["content_type"]?.string == "video/mp4"
-    }
-    .max { ($0["bitrate"]?.int ?? 0) < ($1["bitrate"]?.int ?? 0) }?["url"]?.url
+    let media = parseXMedia(legacy["extended_entities"]?["media"]?.objects ?? [])
+    let pictures = media.compactMap { if case .pic(let pic) = $0 { pic } else { nil } }
+    let video = media.compactMap { if case .video(let video) = $0 { video } else { nil } }.first
     let quote = parseXPost(root["quoted_status_result"]?["result"], depth: depth + 1)
     return XPost(
         id: id, author: author, handle: handle,
         avatar: user?["avatar"]?["image_url"]?.url
             ?? user?["legacy"]?["profile_image_url_https"]?.url,
         text: text, createdAt: parseWeiboDate(legacy["created_at"]?.string), pictures: pictures,
-        videoCover: video?["media_url_https"]?.url, videoURL: stream,
-        quote: quote.map { XQuote(author: $0.author, text: $0.text, url: $0.url) },
+        videoCover: video?.coverURL, videoURL: video?.streamURLs.first,
+        quote: quote.map { XQuote(author: $0.author, text: $0.text, url: $0.url, media: $0.media) },
         promoted: promoted,
         originalID: id,
         metrics: XMetrics(
@@ -116,7 +116,7 @@ func parseXPost(_ value: JSON?, promoted: Bool = false, depth: Int = 0) -> XPost
             reposts: Int(clamping: max(0, legacy["retweet_count"]?.int ?? 0)),
             replies: Int(clamping: max(0, legacy["reply_count"]?.int ?? 0)),
             liked: legacy["favorited"]?.bool == true, reposted: legacy["retweeted"]?.bool == true),
-        replyTo: legacy["in_reply_to_status_id_str"]?.string)
+        replyTo: legacy["in_reply_to_status_id_str"]?.string, attachments: media)
 }
 
 func parseXTimeline(_ json: JSON, previousCursor: String? = nil) throws -> Paged<XPost> {

@@ -19,6 +19,7 @@ import io.github.leonfox28.tidemeld.ui.widget.text.StatusLink
 /** Reuses native media viewers; account-only actions open sign-in before any API call. */
 @Composable
 fun rememberGuestStatusCardActions(): StatusCardActions {
+    val api = io.github.leonfox28.tidemeld.LocalAppGraph.current.api
     val navigator = LocalNavigator.current
     val base = rememberStatusCardActions()
     return remember(navigator, base) {
@@ -30,7 +31,9 @@ fun rememberGuestStatusCardActions(): StatusCardActions {
             onUser = { login() },
             onRepost = { login() },
             onDelete = null,
-            onPicture = { pics, index, _ -> navigator.push(Route.Viewer(pics, index, null)) },
+            onPicture = { pics, index, _ ->
+                navigator.push(Route.Viewer(pics, index, weiboPhotoMotion(api, null)))
+            },
             onLink = { link ->
                 when (link) {
                     is StatusLink.Mention -> login()
@@ -46,18 +49,19 @@ fun rememberGuestStatusCardActions(): StatusCardActions {
 /** What tapping parts of a status card (or a comment) does throughout the app. */
 @Composable
 fun rememberStatusCardActions(): StatusCardActions {
+    val api = io.github.leonfox28.tidemeld.LocalAppGraph.current.api
     val navigator = LocalNavigator.current
     val context = LocalContext.current
     val snackbars = LocalSnackbars.current
     val scope = rememberCoroutineScope()
     val writes = rememberStatusWrites()
-    return remember(navigator, context, writes) {
+    return remember(navigator, context, writes, api) {
         fun openExternally(url: String) = context.openExternally(url, snackbars, scope)
 
         fun openStatus(status: Status) = navigator.push(Route.StatusDetail(status.id, status))
 
         fun viewPictures(pics: List<PicInfo>, index: Int, status: Status? = null) =
-            navigator.push(Route.Viewer(pics, index, status?.id))
+            navigator.push(Route.Viewer(pics, index, weiboPhotoMotion(api, status?.id)))
 
         StatusCardActions(
             onOpen = ::openStatus,
@@ -79,7 +83,9 @@ fun rememberStatusCardActions(): StatusCardActions {
             // The detail page has the full text of long posts.
             onExpand = ::openStatus,
             onPicture = ::viewPictures,
-            onVideo = { status, index -> navigator.push(Route.Video(status.id, index, status)) },
+            onVideo = { status, index ->
+                navigator.push(Route.Video(weiboVideoRequest(api, status, index)))
+            },
             onRepost = { writes.repost(it) },
             onDelete = { writes.delete(it) },
         )

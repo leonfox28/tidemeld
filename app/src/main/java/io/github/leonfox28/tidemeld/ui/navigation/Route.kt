@@ -1,5 +1,7 @@
 package io.github.leonfox28.tidemeld.ui.navigation
 
+import io.github.leonfox28.tidemeld.core.media.PhotoMotion
+import io.github.leonfox28.tidemeld.core.media.VideoRequest
 import io.github.leonfox28.tidemeld.data.model.PicInfo
 import io.github.leonfox28.tidemeld.data.model.Status
 import io.github.leonfox28.tidemeld.data.model.WeiboUser
@@ -36,11 +38,12 @@ sealed interface Route {
     /** A comment and its replies ("楼中楼"). */
     data class Comments(val thread: CommentThread) : Route
 
-    /** The pictures [pics], opened at [index]; those of status [statusId], if any. */
-    data class Viewer(val pics: List<PicInfo>, val index: Int, val statusId: String? = null) : Route
+    /** Platform-neutral pictures with an optional motion capability. */
+    data class Viewer(val pics: List<PicInfo>, val index: Int, val motion: PhotoMotion? = null) :
+        Route
 
-    /** The video of status [id], or its [index]th in a post mixing pictures and videos. */
-    data class Video(val id: String, val index: Int? = null, val initial: Status? = null) : Route
+    /** A platform adapter supplies a request to the shared player. */
+    data class Video(val request: VideoRequest) : Route
 
     data class Profile(val uid: String, val initial: WeiboUser? = null) : Route
 

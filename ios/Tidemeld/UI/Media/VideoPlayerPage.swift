@@ -2,19 +2,17 @@ import AVKit
 import Observation
 import SwiftUI
 
-/// Plays the video of a status, from a URL fresh enough to play: the one the
-/// card had while it is, else one from fetching the status again (PLAN §8). A
-/// URL the CDN refuses is replaced once, carrying on from where it stopped.
+/// Shared player: the adapter resolves URLs and refreshes a rejected source once.
 @MainActor @Observable
 final class VideoModel {
     private(set) var error: WeiboError?
     private(set) var ready = false
     @ObservationIgnored let player = AVPlayer()
     @ObservationIgnored private let request: VideoRequest
-    @ObservationIgnored private var api: WeiboAPI?
+    @ObservationIgnored private var started = false
     @ObservationIgnored private var fetched = false
     @ObservationIgnored private var observation: NSKeyValueObservation?
-    @ObservationIgnored private var videoAsset: WeiboVideoAsset?
+    @ObservationIgnored private var videoAsset: MediaVideoAsset?
     /// Finding a URL and starting on it; cancelled as the page closes, so a
     /// video still loading doesn't start playing unseen.
     @ObservationIgnored private var loading: Task<Void, Never>?
@@ -28,9 +26,9 @@ final class VideoModel {
         player.allowsExternalPlayback = false
     }
 
-    func start(_ api: WeiboAPI) {
-        guard self.api == nil else { return }
-        self.api = api
+    func start() {
+        guard !started else { return }
+        started = true
         load(refresh: false, at: .zero)
     }
 
@@ -38,16 +36,14 @@ final class VideoModel {
     func retry() { load(refresh: true, at: player.currentTime()) }
 
     private func load(refresh: Bool, at time: CMTime) {
-        guard !stopped, let api else { return }
+        guard !stopped else { return }
         error = nil
         ready = false
         loading?.cancel()
         let request = request
         loading = Task {
             do {
-                let known = request.initial?.video(at: request.index)
-                let source = try await resolveVideoURL(
-                    api, id: request.statusId, index: request.index, known: known, refresh: refresh)
+                let source = try await request.resolve(refresh)
                 guard !Task.isCancelled else { return }
                 guard let url = URL(string: source.url) else { throw WeiboError.api("视频地址无效") }
                 fetched = source.fetched
@@ -59,7 +55,7 @@ final class VideoModel {
     }
 
     private func play(_ url: URL, at time: CMTime) async {
-        let videoAsset = WeiboVideoAsset(url)
+        let videoAsset = MediaVideoAsset(url, headers: request.headers)
         let item = AVPlayerItem(asset: videoAsset.asset)
         observation = item.observe(\.status) { [weak self] item, _ in
             guard item.status == .failed else { return }
@@ -99,7 +95,6 @@ final class VideoModel {
 struct VideoPlayerPage: View {
     let request: VideoRequest
 
-    @Environment(AppGraph.self) private var graph
     @Environment(\.dismiss) private var dismiss
     @State private var model: VideoModel
 
@@ -118,7 +113,7 @@ struct VideoPlayerPage: View {
                     SystemPlayer(player: model.player).ignoresSafeArea()
                     if !model.ready {
                         // The cover the card showed, until the video plays.
-                        if let cover = request.initial?.video(at: request.index)?.coverURL {
+                        if let cover = request.cover {
                             WeiboImage(url: cover, contentMode: .fit, placeholder: false)
                                 .background(.black)
                                 .ignoresSafeArea()
@@ -135,7 +130,7 @@ struct VideoPlayerPage: View {
             .toolbarBackgroundVisibility(.hidden, for: .navigationBar)
         }
         .environment(\.colorScheme, .dark)
-        .onAppear { model.start(graph.api) }
+        .onAppear { model.start() }
         .onDisappear { model.stop() }
     }
 }

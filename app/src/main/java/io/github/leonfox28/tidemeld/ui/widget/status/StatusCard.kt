@@ -1,13 +1,9 @@
 package io.github.leonfox28.tidemeld.ui.widget.status
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -32,23 +28,19 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.leonfox28.tidemeld.LocalAppGraph
 import io.github.leonfox28.tidemeld.core.media.WeiboImage
 import io.github.leonfox28.tidemeld.core.session.SessionState
-import io.github.leonfox28.tidemeld.core.util.formatDuration
 import io.github.leonfox28.tidemeld.core.util.formatPostTime
 import io.github.leonfox28.tidemeld.data.model.MixedMedia
 import io.github.leonfox28.tidemeld.data.model.PageCard
 import io.github.leonfox28.tidemeld.data.model.PicInfo
 import io.github.leonfox28.tidemeld.data.model.Status
 import io.github.leonfox28.tidemeld.data.model.StatusVisibility
-import io.github.leonfox28.tidemeld.data.model.VideoInfo
 import io.github.leonfox28.tidemeld.data.model.WeiboUser
 import io.github.leonfox28.tidemeld.ui.interactions.LikeKind
 import io.github.leonfox28.tidemeld.ui.interactions.LikeTarget
 import io.github.leonfox28.tidemeld.ui.interactions.like
 import io.github.leonfox28.tidemeld.ui.interactions.rememberLike
 import io.github.leonfox28.tidemeld.ui.post.*
-import io.github.leonfox28.tidemeld.ui.widget.MediaBadge
 import io.github.leonfox28.tidemeld.ui.widget.PicGrid
-import io.github.leonfox28.tidemeld.ui.widget.PlayIcon
 import io.github.leonfox28.tidemeld.ui.widget.UserAvatar
 import io.github.leonfox28.tidemeld.ui.widget.VerifiedIcon
 import io.github.leonfox28.tidemeld.ui.widget.WideCardFrom
@@ -254,30 +246,6 @@ private fun Body(
         if (withMedia && hasMedia(status)) {
             Spacer(Modifier.height(8.dp))
             Media(status, actions)
-        }
-    }
-}
-
-@Composable
-private fun VideoCover(video: VideoInfo, onClick: (() -> Unit)?) {
-    // Portrait videos are cropped square to keep the timeline compact.
-    val ratio = (video.aspectRatio ?: (16f / 9)).coerceIn(1f, 16f / 9)
-    Box(
-        Modifier.fillMaxWidth()
-            .aspectRatio(ratio)
-            .clip(RoundedCornerShape(6.dp))
-            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
-    ) {
-        val cover = video.coverUrl
-        if (cover != null) WeiboImage(cover, Modifier.fillMaxSize())
-        else
-            Box(
-                Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceContainerHighest)
-            )
-        PlayIcon(52.dp, Modifier.align(Alignment.Center))
-        val duration = video.duration
-        if (duration != null && duration > 0) {
-            MediaBadge(formatDuration(duration), Modifier.align(Alignment.BottomEnd).padding(6.dp))
         }
     }
 }

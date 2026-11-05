@@ -30,7 +30,7 @@ fun XPostCard(post: XPost, owner: String, detail: Boolean = false) {
     val navigator = LocalNavigator.current
     val actions = rememberXPostActions(owner, post)
     var moreMenu by remember { mutableStateOf(false) }
-    val hasMedia = post.pictures.isNotEmpty() || post.videoCover != null
+    val hasMedia = post.media.isNotEmpty()
     fun web() {
         navigator.push(Route.AccountWeb(owner, post.url))
     }
@@ -114,24 +114,31 @@ fun XPostCard(post: XPost, owner: String, detail: Boolean = false) {
 @Composable
 private fun XMedia(post: XPost, owner: String) {
     val navigator = LocalNavigator.current
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        if (post.pictures.isNotEmpty())
-            PicGrid(
-                post.pictures.map(MixedMedia::Pic),
-                onClick = { navigator.push(Route.Viewer(post.pictures, it)) },
-            )
-        post.videoCover?.let { cover ->
-            Box(
-                Modifier.fillMaxWidth().aspectRatio(16f / 9).clickable {
-                    navigator.push(Route.AccountWeb(owner, post.url))
-                },
-                contentAlignment = Alignment.Center,
-            ) {
-                WeiboImage(cover, Modifier.fillMaxSize())
-                PlayIcon(52.dp)
-            }
+    val graph = LocalAppGraph.current
+    val items = post.media
+    val pics = items.filterIsInstance<MixedMedia.Pic>().map { it.pic }
+    fun open(index: Int) {
+        val before = items.take(index)
+        when (val item = items[index]) {
+            is MixedMedia.Pic ->
+                navigator.push(Route.Viewer(pics, before.count { it is MixedMedia.Pic }))
+            is MixedMedia.Video ->
+                navigator.push(
+                    Route.Video(
+                        xVideoRequest(
+                            graph,
+                            owner,
+                            post.originalId,
+                            before.count { it is MixedMedia.Video },
+                            item.video,
+                        )
+                    )
+                )
         }
     }
+    val singleVideo = (items.singleOrNull() as? MixedMedia.Video)?.video
+    if (singleVideo != null) VideoCover(singleVideo) { open(0) }
+    else if (items.isNotEmpty()) PicGrid(items, onClick = ::open)
 }
 
 @Composable

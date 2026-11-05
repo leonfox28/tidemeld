@@ -17,6 +17,70 @@ import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
 class XInteractionsTest {
+    @Test
+    fun `native video refresh uses original post source account and video index`() = runBlocking {
+        FakeWeibo().use { web ->
+            web.respond = {
+                json(
+                    """
+            {"data":{"threaded_conversation_with_injections_v2":{"instructions":[{"entries":[{"content":{"itemContent":{"tweet_results":{"result":{
+              "rest_id":"42","core":{"user_results":{"result":{"core":{"screen_name":"fixture"}}}},
+              "legacy":{"full_text":"合成内容","extended_entities":{"media":[
+                {"type":"video","video_info":{"variants":[{"content_type":"video/mp4","url":"https://media.test/first.mp4"}]}},
+                {"type":"animated_gif","video_info":{"variants":[{"content_type":"video/mp4","url":"https://media.test/second.mp4"}]}}
+              ]}}
+            }}}}}]}]}}}
+            """
+                )
+            }
+            val graph = testGraph(xApi = api(web))
+            graph.accounts.add(SocialPlatform.X, session("7"))
+            graph.accounts.add(SocialPlatform.X, session("8"))
+            val request =
+                xVideoRequest(
+                    graph,
+                    "x:7",
+                    "42",
+                    1,
+                    io.github.leonfox28.tidemeld.data.model.VideoInfo(
+                        streamUrls = listOf("https://media.test/old.mp4")
+                    ),
+                )
+            assertEquals(
+                io.github.leonfox28.tidemeld.core.media.VideoSource(
+                    "https://media.test/old.mp4",
+                    false,
+                ),
+                request.resolve(false),
+            )
+            assertTrue(web.requests.isEmpty())
+            assertEquals(
+                io.github.leonfox28.tidemeld.core.media.VideoSource(
+                    "https://media.test/second.mp4",
+                    true,
+                ),
+                request.resolve(true),
+            )
+            assertEquals("https://x.com/", request.headers["Referer"])
+            assertNull(request.headers["Cookie"])
+            val sent = web.requests.single()
+            assertEquals("csrf-7", sent.headers["x-csrf-token"])
+            assertEquals(
+                "42",
+                Json.parseToJsonElement(sent.url.queryParameter("variables")!!)
+                    .jsonObject["focalTweetId"]
+                    ?.jsonPrimitive
+                    ?.content,
+            )
+            graph.accounts.add(SocialPlatform.X, session("7"))
+            try {
+                request.resolve(true)
+                fail("An old account must not refresh media")
+            } catch (_: SessionExpiredException) {}
+            assertEquals(1, web.requests.size)
+        }
+    }
+
     private fun session(id: String) =
         StoredSession(
             Account(id),

@@ -12,7 +12,7 @@ struct PicVariant: Sendable, Hashable {
     let height: Int
 }
 
-/// A picture attached to a status, in the renditions Weibo offers.
+/// A picture and the renditions supplied by its platform adapter.
 struct PicInfo: Sendable, Hashable, Identifiable {
     let id: String
     let type: PicType

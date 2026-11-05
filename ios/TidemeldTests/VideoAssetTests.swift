@@ -32,10 +32,18 @@ struct VideoResponseTests {
 struct VideoAssetTests {
     @Test(arguments: [AVFileType.mp4, .mov])
     func loadsAndSeeksWithCDNHeaders(_ type: AVFileType) async throws {
+        try await checkPlayback(type, referer: "https://weibo.com/")
+    }
+
+    @Test func xUsesTheSamePlayerAndRangeLoaderWithItsOwnHeaders() async throws {
+        try await checkPlayback(.mp4, referer: "https://x.com/")
+    }
+
+    private func checkPlayback(_ type: AVFileType, referer: String) async throws {
         let bytes = try await movie(type)
         FakeVideo.reset(bytes: bytes)
         let url = URL(string: "https://cdn.test/video.\(type == .mov ? "mov" : "mp4")?ssig=a%2Bb&Expires=9999999999")!
-        let video = WeiboVideoAsset(url, configuration: FakeVideo.configuration)
+        let video = MediaVideoAsset(url, headers: ["Referer": referer, "User-Agent": browserUserAgent], configuration: FakeVideo.configuration)
         let playable = try await video.asset.load(.isPlayable)
         #expect(playable)
         let images = AVAssetImageGenerator(asset: video.asset)
@@ -56,7 +64,7 @@ struct VideoAssetTests {
         #expect(FakeVideo.requests.contains { $0.value(forHTTPHeaderField: "Range") != "bytes=0-1" })
         for request in FakeVideo.requests {
             #expect(request.url == url)
-            #expect(request.value(forHTTPHeaderField: "Referer") == "https://weibo.com/")
+            #expect(request.value(forHTTPHeaderField: "Referer") == referer)
             #expect(request.value(forHTTPHeaderField: "User-Agent") == browserUserAgent)
             #expect(request.value(forHTTPHeaderField: "Accept-Encoding") == "identity")
             #expect(request.value(forHTTPHeaderField: "Cookie") == nil)
@@ -67,17 +75,37 @@ struct VideoAssetTests {
 
     @Test func handlesServersThatIgnoreRange() async throws {
         FakeVideo.reset(bytes: try await movie(.mp4), mode: .full)
-        let video = WeiboVideoAsset(URL(string: "https://cdn.test/video.mp4")!, configuration: FakeVideo.configuration)
+        let video = MediaVideoAsset(URL(string: "https://cdn.test/video.mp4")!, headers: ["Referer": "https://weibo.com/", "User-Agent": browserUserAgent], configuration: FakeVideo.configuration)
         let images = AVAssetImageGenerator(asset: video.asset)
         let frame = try await images.image(at: CMTime(seconds: 2, preferredTimescale: 600))
         #expect(frame.image.width == 16)
         withExtendedLifetime(video) {}
     }
 
+    @Test func closingPlayerCancelsResolutionBeforeItCanStartPlayback() async throws {
+        var started = false
+        var cancelled = false
+        let request = VideoRequest(cover: nil, headers: [:]) { _ in
+            started = true
+            do { try await Task.sleep(for: .seconds(30)) }
+            catch { cancelled = true; throw error }
+            return VideoSource(url: "https://media.test/late.mp4", fetched: false)
+        }
+        let model = VideoModel(request: request)
+        model.start()
+        for _ in 0..<100 where !started { await Task.yield() }
+        #expect(started)
+        model.stop()
+        for _ in 0..<100 where !cancelled { await Task.yield() }
+        #expect(cancelled)
+        #expect(model.player.currentItem == nil)
+        #expect(model.player.rate == 0)
+    }
+
     @Test(arguments: [FakeVideo.Mode.forbidden, .truncated])
     private func failsRejectedOrTruncatedMedia(_ mode: FakeVideo.Mode) async throws {
         FakeVideo.reset(bytes: try await movie(.mp4), mode: mode)
-        let video = WeiboVideoAsset(URL(string: "https://cdn.test/video.mp4")!, configuration: FakeVideo.configuration)
+        let video = MediaVideoAsset(URL(string: "https://cdn.test/video.mp4")!, headers: ["Referer": "https://weibo.com/", "User-Agent": browserUserAgent], configuration: FakeVideo.configuration)
         do {
             _ = try await video.asset.load(.duration)
             Issue.record("Invalid media was accepted")
@@ -87,8 +115,8 @@ struct VideoAssetTests {
 
     @Test func releasingOwnerCancelsAnOutstandingDownload() async throws {
         FakeVideo.reset(bytes: Data(), mode: .waiting)
-        var video: WeiboVideoAsset? = WeiboVideoAsset(
-            URL(string: "https://cdn.test/video.mp4")!, configuration: FakeVideo.configuration)
+        var video: MediaVideoAsset? = MediaVideoAsset(
+            URL(string: "https://cdn.test/video.mp4")!, headers: ["Referer": "https://weibo.com/", "User-Agent": browserUserAgent], configuration: FakeVideo.configuration)
         let asset = try #require(video?.asset)
         let loading = Task { try await asset.load(.duration) }
         defer { loading.cancel() }

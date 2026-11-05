@@ -6,6 +6,36 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class XPostTest {
+    @Test
+    fun `media adapter keeps order dimensions multiple videos and MP4 variants`() {
+        val media =
+            parseXMedia(
+                Json.parseToJsonElement(
+                        """[
+          {"type":"photo","id_str":"photo","media_url_https":"https://media.test/photo.jpg","original_info":{"width":600,"height":1800}},
+          {"type":"video","video_info":{"duration_millis":12500,"aspect_ratio":[16,9],"variants":[
+            {"content_type":"application/x-mpegURL","url":"https://media.test/hls.m3u8"},
+            {"content_type":"video/mp4","bitrate":10,"url":"https://media.test/low.mp4"},
+            {"content_type":"video/mp4","bitrate":20,"url":"https://media.test/high.mp4"}]}},
+          {"type":"animated_gif","video_info":{"variants":[{"content_type":"video/mp4","url":"https://media.test/gif.mp4"}]}}
+        ]"""
+                    )
+                    .jsonArray
+            )
+        assertEquals(3, media.size)
+        val photo = (media[0] as io.github.leonfox28.tidemeld.data.model.MixedMedia.Pic).pic
+        val video = (media[1] as io.github.leonfox28.tidemeld.data.model.MixedMedia.Video).video
+        val gif = (media[2] as io.github.leonfox28.tidemeld.data.model.MixedMedia.Video).video
+        assertEquals(1f / 3, photo.aspectRatio!!, 0.001f)
+        assertEquals(12, video.duration)
+        assertEquals(16f / 9, video.aspectRatio!!, 0.001f)
+        assertEquals(
+            listOf("https://media.test/high.mp4", "https://media.test/low.mp4"),
+            video.streamUrls,
+        )
+        assertEquals(listOf("https://media.test/gif.mp4"), gif.streamUrls)
+    }
+
     private fun tweet(id: String, quote: JsonObject? = null): JsonObject = buildJsonObject {
         put("rest_id", id)
         put(

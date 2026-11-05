@@ -72,7 +72,7 @@ final class FakeSettingsStorage: SettingsStorage {
 /// An [AppGraph] of fakes, signed in as uid 7 unless [restored] says otherwise.
 @MainActor
 func testGraph(
-    restored: StoredSession? = signedIn, configuration: URLSessionConfiguration? = nil
+    restored: StoredSession? = signedIn, configuration: URLSessionConfiguration? = nil, xAPI: XWebAPI? = nil
 ) -> AppGraph {
     let (session, api) = testSession(restored: restored, configuration: configuration)
     let images = ImageLoader(
@@ -80,7 +80,7 @@ func testGraph(
         limitMB: 1, configuration: offline())
     return AppGraph(
         settings: SettingsController(storage: FakeSettingsStorage()), session: session, api: api,
-        webCookies: FakeWebCookies(), images: images)
+        webCookies: FakeWebCookies(), images: images, xAPI: xAPI)
 }
 
 func offline() -> URLSessionConfiguration {

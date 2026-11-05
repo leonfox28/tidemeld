@@ -64,24 +64,14 @@ struct CommentThread: Sendable, Hashable {
     let statusAuthorId: String
 }
 
-/// Pictures to view, opened at [index]; those of status [statusId], if any,
-/// where the viewer gets a live photo's video afresh once its URL has expired.
+/// Platform-neutral pictures and optional motion supplied by their adapter.
 struct ViewerRequest: Identifiable {
     let id = UUID()
     let pics: [PicInfo]
     let index: Int
-    var statusId: String? = nil
+    var motion: PhotoMotion? = nil
     /// The id of the tile it zooms out of, in the media namespace.
     var sourceID: String? = nil
-}
-
-/// The video of status [statusId], or its [index]th in a post mixing pictures
-/// and videos.
-struct VideoRequest: Identifiable {
-    let id = UUID()
-    let statusId: String
-    var index: Int? = nil
-    var initial: Status? = nil
 }
 
 /// A web page shown over the app, calling [onClose] once the user leaves it, as

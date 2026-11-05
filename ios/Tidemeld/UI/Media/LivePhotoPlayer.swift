@@ -5,8 +5,7 @@ import SwiftUI
 /// Plays the moving part of the viewer's live photos ("实况"), one at a time
 /// and once through, over the still picture; its video is fetched only when
 /// asked for, or when the viewer plays it on its own ([autoplay]). Its URL
-/// expires like a video's (PLAN §8), so one that fails is fetched afresh from
-/// status [statusId], once.
+/// is refreshed once by the platform adapter when the source fails.
 @MainActor @Observable
 final class LivePhotoPlayer {
     /// The picture whose motion is loading or playing.
@@ -17,8 +16,7 @@ final class LivePhotoPlayer {
     private(set) var failed: String?
 
     @ObservationIgnored let player = AVPlayer()
-    @ObservationIgnored private let api: WeiboAPI
-    @ObservationIgnored private let statusId: String?
+    @ObservationIgnored private let motion: PhotoMotion
     /// The picture [player] holds the motion of, kept buffered for playing
     /// again.
     @ObservationIgnored private var loaded: String?
@@ -30,13 +28,12 @@ final class LivePhotoPlayer {
     @ObservationIgnored private var resolving: Task<Void, Never>?
     @ObservationIgnored private var observers: [NSObjectProtocol] = []
     @ObservationIgnored private var statusObservation: NSKeyValueObservation?
-    @ObservationIgnored private var videoAsset: WeiboVideoAsset?
+    @ObservationIgnored private var videoAsset: MediaVideoAsset?
     @ObservationIgnored private var rateObservation: NSKeyValueObservation?
     @ObservationIgnored private var released = false
 
-    init(api: WeiboAPI, statusId: String?) {
-        self.api = api
-        self.statusId = statusId
+    init(motion: PhotoMotion) {
+        self.motion = motion
         player.actionAtItemEnd = .pause
         player.automaticallyWaitsToMinimizeStalling = false
         player.allowsExternalPlayback = false
@@ -79,7 +76,7 @@ final class LivePhotoPlayer {
         resolving = Task {
             let source: VideoSource
             do {
-                source = try await resolveLivePhotoURL(api, pic: pic, statusId: statusId, refresh: refresh)
+                source = try await motion.resolve(pic, refresh)
             } catch {
                 if Task.isCancelled { return }
                 devLog("live photo: \(WeiboError.of(error))")
@@ -95,7 +92,7 @@ final class LivePhotoPlayer {
     }
 
     private func start(_ pic: PicInfo, from url: URL) {
-        let videoAsset = WeiboVideoAsset(url)
+        let videoAsset = MediaVideoAsset(url, headers: motion.headers)
         let item = AVPlayerItem(asset: videoAsset.asset)
         statusObservation = item.observe(\.status) { [weak self] item, _ in
             guard item.status == .failed else { return }
@@ -112,7 +109,7 @@ final class LivePhotoPlayer {
         // Nothing to play again: the next play loads it anew.
         loaded = nil
         guard current?.id == pic.id else { return }
-        if fetched || statusId == nil {
+        if fetched || !motion.canRefresh {
             current = nil
             failed = pic.id
         } else {

@@ -12,7 +12,7 @@ struct XPostCard: View {
             PostCard(
                 detail: detail, activity: post.repostedBy.map { "\($0) 转发" }, onOpen: open,
                 hasAside: post.quote != nil
-                    || (!detail && (!post.pictures.isEmpty || post.videoCover != nil)),
+                    || (!detail && !post.media.isEmpty),
                 header: {
                     PostHeader(
                         name: post.author,
@@ -46,7 +46,7 @@ struct XPostCard: View {
                         Text(post.text).font(.callout).lineSpacing(4).foregroundStyle(
                             AppTheme.foreground
                         ).frame(maxWidth: .infinity, alignment: .leading)
-                        if detail || post.quote != nil { XPostMedia(post: post, owner: owner) }
+                        if detail || post.quote != nil { XPostMedia(items: post.media, postID: post.originalID, owner: owner) }
                     }
                 },
                 aside: {
@@ -56,11 +56,14 @@ struct XPostCard: View {
                                 .xStatus(
                                     owner: owner, id: quote.url.lastPathComponent, initial: nil))
                         }) {
-                            Text("@\(quote.author)：\(quote.text)").font(.callout).lineSpacing(4)
-                                .foregroundStyle(AppTheme.foreground)
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("@\(quote.author)：\(quote.text)").font(.callout).lineSpacing(4)
+                                    .foregroundStyle(AppTheme.foreground)
+                                XPostMedia(items: quote.media, postID: quote.url.lastPathComponent, owner: owner)
+                            }
                         }
                     } else if !detail {
-                        XPostMedia(post: post, owner: owner)
+                        XPostMedia(items: post.media, postID: post.originalID, owner: owner)
                     }
                 }, footer: { PostInteractionBar(actions: actions) })
         }
@@ -71,28 +74,31 @@ struct XPostCard: View {
 }
 
 private struct XPostMedia: View {
-    let post: XPost
+    let items: [MixedMedia]
+    let postID: String
     let owner: String
     @Environment(AppGraph.self) private var graph
     @State private var source = UUID().uuidString
+    private var pics: [PicInfo] { items.compactMap { if case .pic(let pic) = $0 { pic } else { nil } } }
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            if !post.pictures.isEmpty {
-                PicGrid(
-                    items: post.pictures.map { .pic($0) },
-                    onTap: { index in
-                        graph.router.viewer = ViewerRequest(
-                            pics: post.pictures, index: index,
-                            sourceID: picSourceID(source, post.pictures[index]))
-                    }, sourceID: { picSourceID(source, post.pictures[$0]) })
-            }
-            if let cover = post.videoCover {
-                Color.clear.aspectRatio(16.0 / 9, contentMode: .fit)
-                    .overlay { WeiboImage(url: cover, maxPixels: 1200) }.overlay { PlayIcon() }
-                    .clipShape(RoundedRectangle(cornerRadius: 8)).contentShape(Rectangle())
-                    .onTapGesture { graph.router.push(.accountWeb(owner, post.url)) }
-                    .accessibilityLabel("在 X 中播放视频")
-            }
+        if items.count == 1, case .video(let video) = items[0] {
+            VideoCover(video: video) { open(0) }
+        } else if !items.isEmpty {
+            PicGrid(items: items, onTap: open, sourceID: { index in
+                if case .pic(let pic) = items[index] { picSourceID(source, pic) } else { "\(source):\(index)" }
+            })
+        }
+    }
+    private func open(_ index: Int) {
+        let before = items.prefix(index)
+        switch items[index] {
+        case .pic(let pic):
+            graph.router.viewer = ViewerRequest(pics: pics,
+                index: before.filter { if case .pic = $0 { true } else { false } }.count,
+                sourceID: picSourceID(source, pic))
+        case .video(let video):
+            graph.router.video = graph.xVideoRequest(owner: owner, postID: postID,
+                index: before.filter { if case .video = $0 { true } else { false } }.count, known: video)
         }
     }
 }

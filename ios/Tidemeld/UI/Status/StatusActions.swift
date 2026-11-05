@@ -27,8 +27,8 @@ extension AppGraph {
         actions.onRepost = actions.onOpen
         actions.onDelete = nil
         actions.onUser = { [router] _ in router.showingLogin = true }
-        actions.onPicture = { [router] pics, index, _, source in
-            router.viewer = ViewerRequest(pics: pics, index: index, sourceID: source)
+        actions.onPicture = { [router, api] pics, index, _, source in
+            router.viewer = ViewerRequest(pics: pics, index: index, motion: weiboPhotoMotion(api: api, statusId: nil), sourceID: source)
         }
         actions.onLink = { [weak self, router] link in
             switch link {
@@ -44,6 +44,7 @@ extension AppGraph {
     /// app.
     var statusActions: StatusCardActions {
         let router = router
+        let api = api
         return StatusCardActions(
             onOpen: { router.push(.status(id: $0.id, initial: $0)) },
             onLink: { [weak self] link in self?.open(link) },
@@ -51,10 +52,10 @@ extension AppGraph {
             // The detail page has the full text of long posts.
             onExpand: { router.push(.status(id: $0.id, initial: $0)) },
             onPicture: { pics, index, status, source in
-                router.viewer = ViewerRequest(pics: pics, index: index, statusId: status?.id, sourceID: source)
+                router.viewer = ViewerRequest(pics: pics, index: index, motion: weiboPhotoMotion(api: api, statusId: status?.id), sourceID: source)
             },
             onVideo: { status, index in
-                router.video = VideoRequest(statusId: status.id, index: index, initial: status)
+                router.video = weiboVideoRequest(api: api, status: status, index: index)
             },
             onRepost: { [weak self] in self?.repost($0) },
             onDelete: { [weak self] in self?.delete($0) })
@@ -70,7 +71,7 @@ extension AppGraph {
             if pics.isEmpty {
                 openExternally(url)
             } else {
-                router.viewer = ViewerRequest(pics: pics, index: 0)
+                router.viewer = ViewerRequest(pics: pics, index: 0, motion: weiboPhotoMotion(api: api, statusId: nil))
             }
         }
     }

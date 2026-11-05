@@ -91,7 +91,7 @@ TEST_RUNNER_TIDEMELD_SHOTS=<截图目录> TEST_RUNNER_TIDEMELD_PAGE=<-tidemeld-o
 
 `AccountManager` 在独立的 Keychain 项目保存平台、账号和 Cookie，迁移旧微博登录。`SocialFeedController` 为每个账号维护游标与错误，按时间合并去重。首页菜单选择聚合、微博或 X；账号管理可分别添加、重新登录、移除同平台多个账号。微博的卡片、导航和弹层携带来源账号上下文；搜索、通知和发微博使用当前微博账号。
 
-X 使用官方网页登录和原生 `XWebAPI`，协议配置与 Android 共用 `protocol/x-web.json`。正文、图片、引用和转发使用原生卡片，视频和互动进入对应账号网页。iOS 单个真实 X 账号的登录、原生读取和平台筛选已于 2026-11-05 验证；403/429 会显示错误，不绕过安全验证，不自动重试。
+X 使用官方网页登录和原生 `XWebAPI`，协议配置与 Android 共用 `protocol/x-web.json`。正文、图片、引用和转发使用原生卡片，后续已接入原生互动以及与微博共用的图片查看器和视频播放器（见下方记录）。iOS 单个真实 X 账号的登录、原生读取和平台筛选已于 2026-11-05 验证；403/429 会显示错误，不绕过安全验证，不自动重试。
 
 本次验证：`Tidemeld test` 上 87 项测试通过，包含多个账号合并、独立游标、失败恢复、网页账号切换、过期状态和切换账号后的迟到响应隔离。已在界面核对聚合/微博/X 菜单、账号管理和平台选择；未操作 `Tidemeld iPhone` 的真实登录态。
 
@@ -114,3 +114,9 @@ X 使用官方网页登录和原生 `XWebAPI`，协议配置与 Android 共用 `
 ### 2026-11-05：过滤 X 广告
 
 用户在 `Tidemeld iPhone` 完成 X 登录后要求不显示标记为广告的条目。`parseXEntries` 现在按已有的 `promotedMetadata` 标记过滤，作用于 X 信息流、聚合中的 X 来源及评论列表；在去重前过滤以保留同 ID 的普通条目，整页均为广告时仍返回分页游标。共享 UI 无需平台判断。96 项合成测试通过，覆盖顶层/模块广告、转发广告、同 ID 普通条目、空页游标和评论广告。保留数据覆盖更新 `Tidemeld iPhone` 后，从界面确认此前首屏广告已消失，普通帖子正常显示；未执行真实写操作。
+
+### 2026-11-05：共用图片与视频播放框架
+
+`Core/Media/MediaPlayback` 定义平台无关的 `VideoRequest`（封面、CDN 请求头、地址刷新回调）和可选 `PhotoMotion`（实况照片能力）。`VideoPlayerPage`、`VideoModel`、`ImageViewer` 和 `LivePhotoPlayer` 不再访问微博 API；`WeiboMedia` / `XMediaPlayback` 适配器负责来源账号、帖子及媒体序号。`MediaVideoAsset` 共用同一个支持 Range/seek/取消的 MP4/MOV 加载器，CDN 不携带账号 Cookie。单视频封面也从微博卡片抽入 `UI/Post/VideoCover`。
+
+X 的媒体解析保留图片/视频混排顺序、尺寸、多个视频及 `animated_gif` 的 MP4，引用帖也保留媒体。图片继续使用同一个缩放/翻页查看器；视频点击直接在应用内播放。刷新地址仍绑定原账号和登录代次，过期失败最多刷新一次。空白回归模拟器 100 项测试通过，包含两个平台的真实 AVFoundation 合成视频解码、播放和跳转，以及关闭时取消解析、原帖/账号/视频序号隔离。保留登录更新 `Tidemeld iPhone` 后，确认真实 X 视频播放、暂停/继续和跳转 10 秒、引用帖图片查看与双击缩放，以及微博图片查看和视频播放正常。Android 同步实现并通过 413 项测试及全量检查；Android 实机播放、真实地址自然过期及 X 仅有非 MP4 流的条目仍待验证。

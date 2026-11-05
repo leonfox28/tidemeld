@@ -2,16 +2,16 @@ import AVFoundation
 import Foundation
 import UniformTypeIdentifiers
 
-/// Streams Weibo's MP4/MOV files through public resource-loading APIs, with
+/// Streams MP4/MOV files through public resource-loading APIs, with
 /// the same CDN headers as the browser. Keep this owner alive with the item:
 /// AVAssetResourceLoader holds its delegate weakly.
-final class WeiboVideoAsset {
+final class MediaVideoAsset {
     let asset: AVURLAsset
     private let loader: VideoResourceLoader
 
-    init(_ url: URL, configuration: URLSessionConfiguration = .ephemeral) {
+    init(_ url: URL, headers: [String: String], configuration: URLSessionConfiguration = .ephemeral) {
         asset = AVURLAsset(url: URL(string: "tidemeld-video://asset/\(UUID())")!)
-        loader = VideoResourceLoader(url: url, configuration: configuration)
+        loader = VideoResourceLoader(url: url, headers: headers, configuration: configuration)
         asset.resourceLoader.setDelegate(loader, queue: loader.queue)
     }
 
@@ -25,6 +25,7 @@ private final class VideoResourceLoader: NSObject, AVAssetResourceLoaderDelegate
 {
     let queue = DispatchQueue(label: "tidemeld.video")
     private let url: URL
+    private let requestHeaders: [String: String]
     private var session: URLSession!
     private var pending: [Int: Transfer] = [:]
 
@@ -36,8 +37,9 @@ private final class VideoResourceLoader: NSObject, AVAssetResourceLoaderDelegate
         var offset: Int64 = 0
     }
 
-    init(url: URL, configuration: URLSessionConfiguration) {
+    init(url: URL, headers: [String: String], configuration: URLSessionConfiguration) {
         self.url = url
+        requestHeaders = headers
         super.init()
         configuration.httpCookieStorage = nil
         configuration.httpShouldSetCookies = false
@@ -58,8 +60,7 @@ private final class VideoResourceLoader: NSObject, AVAssetResourceLoaderDelegate
 
     private func headers(_ request: URLRequest) -> URLRequest {
         var request = request
-        request.setValue("https://weibo.com/", forHTTPHeaderField: "Referer")
-        request.setValue(browserUserAgent, forHTTPHeaderField: "User-Agent")
+        for (key, value) in requestHeaders { request.setValue(value, forHTTPHeaderField: key) }
         request.setValue("identity", forHTTPHeaderField: "Accept-Encoding")
         return request
     }

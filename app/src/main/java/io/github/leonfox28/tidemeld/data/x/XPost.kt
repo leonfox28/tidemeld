@@ -3,8 +3,10 @@ package io.github.leonfox28.tidemeld.data.x
 import io.github.leonfox28.tidemeld.core.net.WeiboApiException
 import io.github.leonfox28.tidemeld.core.util.parseWeiboDate
 import io.github.leonfox28.tidemeld.core.util.readString
+import io.github.leonfox28.tidemeld.data.model.MixedMedia
 import io.github.leonfox28.tidemeld.data.model.Paged
 import io.github.leonfox28.tidemeld.data.model.PicInfo
+import io.github.leonfox28.tidemeld.data.model.VideoInfo
 import java.time.Instant
 import kotlinx.serialization.json.*
 import org.jsoup.parser.Parser
@@ -25,7 +27,20 @@ data class XPost(
     val originalId: String = id,
     val metrics: XMetrics = XMetrics(),
     val replyTo: String? = null,
+    val attachments: List<MixedMedia> = emptyList(),
 ) {
+    val media: List<MixedMedia>
+        get() = attachments.ifEmpty {
+            pictures.map(MixedMedia::Pic) +
+                if (videoCover != null || videoUrl != null)
+                    listOf(
+                        MixedMedia.Video(
+                            VideoInfo(coverUrl = videoCover, streamUrls = listOfNotNull(videoUrl))
+                        )
+                    )
+                else emptyList()
+        }
+
     val url
         get() = "https://x.com/$handle/status/$originalId"
 }
@@ -132,19 +147,9 @@ fun parseXPost(value: JsonElement?, promoted: Boolean = false, depth: Int = 0): 
         val long = entity.at("expanded_url").string()
         if (short != null && long != null) text = text.replace(short, long)
     }
-    val media = (legacy.at("extended_entities", "media") as? JsonArray).orEmpty()
-    val photos =
-        media
-            .filter { it.at("type").string() == "photo" }
-            .mapNotNull { it.at("media_url_https").string()?.let(PicInfo::fromUrl) }
-    val video = media.firstOrNull { it.at("type").string() in listOf("video", "animated_gif") }
-    val variants = (video.at("video_info", "variants") as? JsonArray).orEmpty()
-    val stream =
-        variants
-            .filter { it.at("content_type").string() == "video/mp4" }
-            .maxByOrNull { it.at("bitrate").string()?.toLongOrNull() ?: 0 }
-            ?.at("url")
-            .string()
+    val media = parseXMedia((legacy.at("extended_entities", "media") as? JsonArray).orEmpty())
+    val photos = media.filterIsInstance<MixedMedia.Pic>().map { it.pic }
+    val video = media.filterIsInstance<MixedMedia.Video>().firstOrNull()?.video
     return XPost(
         id,
         author,
@@ -154,8 +159,8 @@ fun parseXPost(value: JsonElement?, promoted: Boolean = false, depth: Int = 0): 
         Parser.unescapeEntities(text, false),
         parseWeiboDate(legacy["created_at"].string()),
         photos,
-        video.at("media_url_https").string(),
-        stream,
+        video?.coverUrl,
+        video?.streamUrls?.firstOrNull(),
         parseXPost(root.at("quoted_status_result", "result"), depth = depth + 1),
         promoted = promoted,
         metrics =
@@ -167,5 +172,6 @@ fun parseXPost(value: JsonElement?, promoted: Boolean = false, depth: Int = 0): 
                 reposted = (legacy["retweeted"] as? JsonPrimitive)?.booleanOrNull == true,
             ),
         replyTo = legacy["in_reply_to_status_id_str"].string(),
+        attachments = media,
     )
 }

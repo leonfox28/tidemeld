@@ -43,6 +43,58 @@ private func payload(_ request: URLRequest) -> JSON? {
 
 extension FakeWeiboTests {
     @MainActor @Suite struct XInteractionsTests {
+        @Test func nativeVideoRefreshUsesOriginalPostSourceAccountAndVideoIndex() async throws {
+            FakeWeibo.reset { _ in .init(body: #"""
+            {"data":{"threaded_conversation_with_injections_v2":{"instructions":[{"entries":[{"content":{"itemContent":{"tweet_results":{"result":{
+              "rest_id":"42","core":{"user_results":{"result":{"core":{"screen_name":"fixture"}}}},
+              "legacy":{"full_text":"合成内容","extended_entities":{"media":[
+                {"type":"video","video_info":{"variants":[{"content_type":"video/mp4","url":"https://media.test/first.mp4"}]}},
+                {"type":"animated_gif","video_info":{"variants":[{"content_type":"video/mp4","url":"https://media.test/second.mp4"}]}}
+              ]}}
+            }}}}}]}]}}}
+            """#) }
+            let graph = testGraph(xAPI: xAPI())
+            try graph.accounts.add(.x, session: xSession("7"))
+            try graph.accounts.add(.x, session: xSession("8"))
+            let request = graph.xVideoRequest(owner: "x:7", postID: "42", index: 1,
+                known: VideoInfo(coverURL: "https://media.test/cover.jpg", streamURLs: ["https://media.test/old.mp4"]))
+            #expect(try await request.resolve(false) == VideoSource(url: "https://media.test/old.mp4", fetched: false))
+            #expect(FakeWeibo.requests.isEmpty)
+            #expect(try await request.resolve(true) == VideoSource(url: "https://media.test/second.mp4", fetched: true))
+            #expect(request.headers["Referer"] == "https://x.com/")
+            #expect(request.headers["Cookie"] == nil)
+            let sent = try #require(FakeWeibo.requests.first)
+            #expect(sent.value(forHTTPHeaderField: "x-csrf-token") == "csrf-7")
+            let variables = URLComponents(url: sent.url!, resolvingAgainstBaseURL: false)?.queryItems?.first { $0.name == "variables" }?.value
+            #expect(variables.flatMap(JSON.parse)?["focalTweetId"]?.string == "42")
+            try graph.accounts.add(.x, session: xSession("7"))
+            await #expect(throws: WeiboError.sessionExpired) { _ = try await request.resolve(true) }
+            #expect(FakeWeibo.requests.count == 1)
+        }
+
+        @Test func mediaAdapterKeepsOrderMultipleVideosDimensionsAndMP4Variants() throws {
+            let entries = try #require(JSON.parse(#"""
+            [
+              {"type":"photo","id_str":"photo","media_url_https":"https://media.test/photo.jpg","original_info":{"width":600,"height":1800}},
+              {"type":"video","video_info":{"duration_millis":12500,"aspect_ratio":[16,9],"variants":[
+                {"content_type":"application/x-mpegURL","url":"https://media.test/hls.m3u8"},
+                {"content_type":"video/mp4","bitrate":10,"url":"https://media.test/low.mp4"},
+                {"content_type":"video/mp4","bitrate":20,"url":"https://media.test/high.mp4"}]}},
+              {"type":"animated_gif","video_info":{"variants":[{"content_type":"video/mp4","url":"https://media.test/gif.mp4"}]}}
+            ]
+            """#)?.array)
+            let media = parseXMedia(entries)
+            #expect(media.count == 3)
+            guard case .pic(let photo) = media[0], case .video(let video) = media[1], case .video(let gif) = media[2] else {
+                Issue.record("Attachment order changed"); return
+            }
+            #expect(photo.aspectRatio == 1.0 / 3)
+            #expect(video.duration == 12)
+            #expect(video.aspectRatio == 16.0 / 9)
+            #expect(video.streamURLs == ["https://media.test/high.mp4", "https://media.test/low.mp4"])
+            #expect(gif.streamURLs == ["https://media.test/gif.mp4"])
+        }
+
         @Test func writesUseOriginalIDScopedCookiesAndExplicitAcknowledgements() async throws {
             FakeWeibo.reset { request in
                 let response: String

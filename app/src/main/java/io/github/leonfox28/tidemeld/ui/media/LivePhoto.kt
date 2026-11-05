@@ -48,11 +48,9 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.ui.compose.ContentFrame
 import androidx.media3.ui.compose.SURFACE_TYPE_TEXTURE_VIEW
-import io.github.leonfox28.tidemeld.core.media.VideoHttpHeaders
-import io.github.leonfox28.tidemeld.core.media.resolveLivePhotoUrl
+import io.github.leonfox28.tidemeld.core.media.PhotoMotion
 import io.github.leonfox28.tidemeld.core.net.WeiboException
 import io.github.leonfox28.tidemeld.core.util.devLog
-import io.github.leonfox28.tidemeld.data.api.WeiboApi
 import io.github.leonfox28.tidemeld.data.model.PicInfo
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -61,15 +59,13 @@ import kotlinx.coroutines.launch
 /**
  * Plays the moving part of the viewer's live photos ("实况"), one at a time and once through, over
  * the still picture; its video is fetched only when asked for, or when the viewer plays it on its
- * own ([autoplay]). Its URL expires like a video's (PLAN §8), so one that fails is fetched afresh
- * from status [statusId], once.
+ * own ([autoplay]). The platform adapter can refresh a rejected source once.
  */
 @OptIn(UnstableApi::class)
 @Stable
 class LivePhotoPlayer(
     private val context: Context,
-    private val api: WeiboApi,
-    private val statusId: String?,
+    private val motion: PhotoMotion?,
     private val scope: CoroutineScope,
 ) {
     /** The picture whose motion is loading or playing. */
@@ -113,7 +109,7 @@ class LivePhotoPlayer(
                 // Nothing to play again: the next play loads it anew.
                 loaded = null
                 val pic = current ?: return
-                if (fetched || statusId == null) {
+                if (fetched || motion?.canRefresh != true) {
                     current = null
                     failed = pic.id
                 } else {
@@ -142,7 +138,7 @@ class LivePhotoPlayer(
         resolving = scope.launch {
             val source =
                 try {
-                    resolveLivePhotoUrl(api, pic, statusId, refresh = refresh)
+                    motion?.resolve(pic, refresh) ?: return@launch
                 } catch (e: WeiboException) {
                     devLog("live photo: ${e.javaClass.simpleName}")
                     current = null
@@ -184,7 +180,8 @@ class LivePhotoPlayer(
     }
 
     private fun create(): ExoPlayer {
-        val http = DefaultHttpDataSource.Factory().setDefaultRequestProperties(VideoHttpHeaders)
+        val http =
+            DefaultHttpDataSource.Factory().setDefaultRequestProperties(motion?.headers.orEmpty())
         return ExoPlayer.Builder(context)
             .setMediaSourceFactory(DefaultMediaSourceFactory(http))
             // Keeps what has played (a few seconds), so playing it again

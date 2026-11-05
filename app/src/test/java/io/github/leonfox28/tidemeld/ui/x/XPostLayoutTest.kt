@@ -55,6 +55,22 @@ class XPostLayoutTest {
     }
 
     @Test
+    fun `video opens the shared native player instead of an account web page`() {
+        val navigator = Navigator()
+        val video =
+            post.copy(
+                pictures = emptyList(),
+                videoCover = "https://media.test/cover.jpg",
+                videoUrl = "https://media.test/video.mp4",
+            )
+        compose.setContent { TestHost(navigator = navigator) { XPostCard(video, "x:7") } }
+        compose.onNodeWithContentDescription("播放视频").performClick()
+        val route = navigator.backStack.last() as Route.Video
+        assertEquals(video.videoCover, route.request.cover)
+        assertEquals("https://x.com/", route.request.headers["Referer"])
+    }
+
+    @Test
     fun `detail uses full text width without duplicate footer or navigating to itself`() {
         val navigator = Navigator()
         compose.setContent {

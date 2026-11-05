@@ -198,29 +198,6 @@ struct StatusMedia: View {
 /// The id a picture's tile goes by, for the viewer to zoom out of it.
 func picSourceID(_ owner: String, _ pic: PicInfo) -> String { "\(owner)/\(pic.id)" }
 
-private struct VideoCover: View {
-    let video: VideoInfo
-    let onTap: () -> Void
-    @Environment(\.displayScale) private var scale
-
-    var body: some View {
-        // Portrait videos are cropped square to keep the timeline compact.
-        let ratio = min(max(video.aspectRatio ?? 16.0 / 9, 1), 16.0 / 9)
-        Color.clear
-            .aspectRatio(ratio, contentMode: .fit)
-            .overlay { WeiboImage(url: video.coverURL, maxPixels: 1200) }
-            .overlay { PlayIcon() }
-            .overlay(alignment: .bottomTrailing) {
-                if let duration = video.duration, duration > 0 {
-                    MediaBadge(label: formatDuration(duration)).padding(6)
-                }
-            }
-            .clipShape(RoundedRectangle(cornerRadius: 8))
-            .contentShape(RoundedRectangle(cornerRadius: 8))
-            .onTapGesture(perform: onTap)
-    }
-}
-
 private struct PageCardView: View {
     let card: PageCard
     @Environment(\.displayScale) private var scale

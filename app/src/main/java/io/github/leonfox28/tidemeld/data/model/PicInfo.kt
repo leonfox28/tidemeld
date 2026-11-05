@@ -19,7 +19,7 @@ enum class PicType {
 /** One rendition of a picture. */
 data class PicVariant(val url: String, val width: Int, val height: Int)
 
-/** A picture attached to a status, in the renditions Weibo offers. */
+/** A picture and the renditions supplied by its platform adapter. */
 data class PicInfo(
     val id: String,
     val type: PicType,

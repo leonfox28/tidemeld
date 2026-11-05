@@ -73,7 +73,7 @@ struct ImageViewer: View {
         .environment(\.colorScheme, .dark)
         .statusBarHidden()
         .onAppear {
-            if live == nil { live = LivePhotoPlayer(api: graph.api, statusId: request.statusId) }
+            if live == nil, let motion = request.motion { live = LivePhotoPlayer(motion: motion) }
         }
         .onChange(of: index) { live?.stop() }
         // With the setting on, plays the motion of the live photo the viewer

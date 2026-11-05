@@ -144,9 +144,9 @@ private val pages: (Route) -> NavEntry<Route> = entryProvider {
     entry<Route.StatusDetail> { StatusDetailPage(it.id, it.initial) }
     entry<Route.Comments> { CommentRepliesPage(it.thread) }
     entry<Route.Viewer>(metadata = DialogSceneStrategy.dialog(FullScreenDialog)) {
-        KeepTextSize { ImageViewerPage(it.pics, it.index, it.statusId) }
+        KeepTextSize { ImageViewerPage(it.pics, it.index, it.motion) }
     }
-    entry<Route.Video> { VideoPlayerPage(it.id, it.index, it.initial) }
+    entry<Route.Video> { VideoPlayerPage(it.request) }
     entry<Route.Profile> { ProfilePage(uid = it.uid, initial = it.initial) }
     entry<Route.ProfileByName> { ProfilePage(screenName = it.name) }
     entry<Route.SearchResults> { SearchResultsPage(it.query) }

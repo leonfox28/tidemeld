@@ -46,7 +46,15 @@ class ImageViewerPageTest {
         settings: AppSettings = AppSettings(),
     ) {
         val graph = testGraph(settings = settings, restored = signedIn, web = web)
-        compose.setContent { TestHost(graph) { ImageViewerPage(pics, 0, statusId) } }
+        compose.setContent {
+            TestHost(graph) {
+                ImageViewerPage(
+                    pics,
+                    0,
+                    io.github.leonfox28.tidemeld.ui.status.weiboPhotoMotion(graph.api, statusId),
+                )
+            }
+        }
     }
 
     @Test

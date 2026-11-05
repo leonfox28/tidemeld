@@ -47,6 +47,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.request.ImageRequest
 import io.github.leonfox28.tidemeld.LocalAppGraph
 import io.github.leonfox28.tidemeld.core.media.LocalImageLoader
+import io.github.leonfox28.tidemeld.core.media.PhotoMotion
 import io.github.leonfox28.tidemeld.core.media.imageCacheKey
 import io.github.leonfox28.tidemeld.data.model.PicInfo
 import io.github.leonfox28.tidemeld.data.model.PicType
@@ -67,12 +68,11 @@ import me.saket.telephoto.zoomable.rememberZoomableImageState
  * "实况" mark is tapped or the picture long-pressed, and, if the user chose so, once on its own
  * (without sound) when the viewer settles on it.
  *
- * @param statusId the status the pictures belong to, if any, where a live photo's video is fetched
- *   afresh.
+ * @param motion optional live-photo capability supplied by the platform adapter.
  */
 @OptIn(ExperimentalTelephotoApi::class)
 @Composable
-fun ImageViewerPage(pics: List<PicInfo>, initialIndex: Int, statusId: String? = null) {
+fun ImageViewerPage(pics: List<PicInfo>, initialIndex: Int, motion: PhotoMotion? = null) {
     val navigator = LocalNavigator.current
     val pager = rememberPagerState(initialIndex) { pics.size }
     // How far the picture on show has been flicked, 0 to 1.
@@ -80,10 +80,9 @@ fun ImageViewerPage(pics: List<PicInfo>, initialIndex: Int, statusId: String? = 
     val view = LocalView.current
     LaunchedEffect(view) { (view.parent as? DialogWindowProvider)?.window?.setDimAmount(0f) }
     LightSystemBarIcons()
-    val api = LocalAppGraph.current.api
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val live = remember { LivePhotoPlayer(context, api, statusId, scope) }
+    val live = remember { LivePhotoPlayer(context, motion, scope) }
     val settings by LocalAppGraph.current.settings.settings.collectAsStateWithLifecycle()
     DisposableEffect(live) { onDispose { live.release() } }
     // Only a picture on show moves.

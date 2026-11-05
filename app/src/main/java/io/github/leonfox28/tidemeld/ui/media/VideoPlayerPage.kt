@@ -66,36 +66,24 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.ui.compose.ContentFrame
 import androidx.media3.ui.compose.SURFACE_TYPE_TEXTURE_VIEW
-import io.github.leonfox28.tidemeld.LocalAppGraph
-import io.github.leonfox28.tidemeld.core.media.VideoHttpHeaders
+import io.github.leonfox28.tidemeld.core.media.VideoRequest
 import io.github.leonfox28.tidemeld.core.media.WeiboImage
-import io.github.leonfox28.tidemeld.core.media.resolveVideoUrl
 import io.github.leonfox28.tidemeld.core.net.WeiboException
 import io.github.leonfox28.tidemeld.core.util.devLog
 import io.github.leonfox28.tidemeld.core.util.formatDuration
-import io.github.leonfox28.tidemeld.data.model.Status
 import io.github.leonfox28.tidemeld.ui.navigation.LocalNavigator
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-/**
- * Plays the video of status [id] full screen; in a post mixing pictures and videos, the one at
- * [index] (see `Status.videoAt`).
- *
- * The stream URLs of [initial] (the status as the previous page had it) expire about an hour after
- * it loaded; past that, or if the video CDN rejects one, the status is fetched again for fresh
- * URLs.
- */
+/** Shared full-screen playback; the adapter resolves and refreshes media sources. */
 @OptIn(UnstableApi::class)
 @Composable
-fun VideoPlayerPage(id: String, index: Int?, initial: Status?) {
-    val api = LocalAppGraph.current.api
+fun VideoPlayerPage(request: VideoRequest) {
     val context = LocalContext.current
     val navigator = LocalNavigator.current
     val scope = rememberCoroutineScope()
-    val known = initial?.videoAt(index)
     val player = remember {
-        val http = DefaultHttpDataSource.Factory().setDefaultRequestProperties(VideoHttpHeaders)
+        val http = DefaultHttpDataSource.Factory().setDefaultRequestProperties(request.headers)
         ExoPlayer.Builder(context).setMediaSourceFactory(DefaultMediaSourceFactory(http)).build()
     }
     var ready by remember { mutableStateOf(false) }
@@ -113,7 +101,7 @@ fun VideoPlayerPage(id: String, index: Int?, initial: Status?) {
         scope.launch {
             val source =
                 try {
-                    resolveVideoUrl(api, id, index = index, known = known, refresh = refresh)
+                    request.resolve(refresh)
                 } catch (e: WeiboException) {
                     if (generation == session.generation) error = e.message
                     return@launch
@@ -149,6 +137,7 @@ fun VideoPlayerPage(id: String, index: Int?, initial: Status?) {
             }
         player.addListener(listener)
         onDispose {
+            session.generation++
             player.removeListener(listener)
             player.release()
         }
@@ -181,7 +170,7 @@ fun VideoPlayerPage(id: String, index: Int?, initial: Status?) {
                 contentScale = ContentScale.Fit,
             )
         } else {
-            known?.coverUrl?.let {
+            request.cover?.let {
                 WeiboImage(
                     it,
                     Modifier.fillMaxSize(),
