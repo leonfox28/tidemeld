@@ -30,7 +30,7 @@ GitHub 的 `noreply` 地址用于提交身份，不是接收支持请求的邮�
 - `ios/Maxbo/PrivacyInfo.xcprivacy`：应用自身 UserDefaults 使用理由 `CA92.1`；不代替 App Store 隐私标签。
 - `ios/ExportOptions-AppStore.plist`：导出到本机，不自动上传，不自动改变构建号。
 
-隐私和支持 URL 计划使用公开仓库的 `main/docs/PRIVACY.md`、`main/docs/SUPPORT.md`。文件推送后必须从未登录的浏览器验证可访问；只存在本地不算发布。
+隐私和支持 URL 已发布到公开仓库的 `main/docs/PRIVACY.md`、`main/docs/SUPPORT.md`。2026-11-05 使用不带登录凭据的 HTTP 请求验证，两页均返回 200；隐私链接已保存到 App Store Connect。之后修改 URL 时仍需重新验证公开访问。
 
 ## 提审前必须完成
 
