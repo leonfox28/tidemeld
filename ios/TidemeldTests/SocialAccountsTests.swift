@@ -170,12 +170,58 @@ extension FakeWeiboTests {
             #expect(request.value(forHTTPHeaderField: "Cookie")?.contains("SUB=") == false)
         }
 
-        @Test func xParserPreservesAdsQuotesMediaAndCursorWithoutFlatteningQuotedPosts() throws {
+        @Test func xParserFiltersPromotedPlacementsAndModulesBeforeDeduplicationAndPreservesEmptyPageCursor() throws {
+            func item(_ id: String, promoted: Bool, repost: Bool = false) throws -> JSON {
+                func post(_ id: String, legacy: String = #"{"full_text":"合成广告内容"}"#) -> String {
+                    #"{"rest_id":"\#(id)","core":{"user_results":{"result":{"core":{"screen_name":"fixture"}}}},"legacy":\#(legacy)}"#
+                }
+                let tweet = repost
+                    ? post(id, legacy: #"{"retweeted_status_result":{"result":\#(post("original"))}}"#)
+                    : post(id)
+                var content: [String: JSON] = [
+                    "tweet_results": .object(["result": try #require(JSON.parse(tweet))])
+                ]
+                if promoted { content["promotedMetadata"] = .object([:]) }
+                return .object(content)
+            }
+            func entry(_ item: JSON) -> JSON {
+                .object(["content": .object(["itemContent": item])])
+            }
+            func module(_ items: JSON...) -> JSON {
+                .object(["content": .object(["items": .array(items.map {
+                    .object(["item": .object(["itemContent": $0])])
+                })])])
+            }
+            func timeline(_ entries: JSON...) -> JSON {
+                .object(["data": .object(["home": .object(["home_timeline_urt": .object([
+                    "instructions": .array([
+                        .object(["entries": .array(entries)]),
+                        .object(["entry": .object(["content": .object([
+                            "cursorType": .string("Bottom"), "value": .string("next")
+                        ])])])
+                    ])
+                ])])])])
+            }
+            let ad = entry(try item("1", promoted: true))
+            let adModule = module(try item("ad-repost", promoted: true, repost: true))
+            let page = try parseXTimeline(timeline(
+                ad, adModule, entry(item("1", promoted: false)),
+                module(item("module-ad", promoted: true), item("module-organic", promoted: false))))
+            #expect(page.items.map(\.id) == ["1", "module-organic"])
+            #expect(page.items.allSatisfy { !$0.promoted })
+            #expect(page.nextCursor == "next")
+            let onlyAds = timeline(ad, adModule)
+            #expect(try parseXTimeline(onlyAds).items.isEmpty)
+            #expect(try parseXTimeline(onlyAds).nextCursor == "next")
+            #expect(try parseXTimeline(onlyAds, previousCursor: "next").nextCursor == nil)
+        }
+
+        @Test func xParserPreservesQuotesMediaAndCursorWithoutFlatteningQuotedPosts() throws {
             let json = try #require(
                 JSON.parse(
                     #"""
                     {"data":{"home":{"home_timeline_urt":{"instructions":[{"entries":[
-                      {"content":{"itemContent":{"promotedMetadata":{},"tweet_results":{"result":{"tweet":{
+                      {"content":{"itemContent":{"tweet_results":{"result":{"tweet":{
                         "rest_id":"1","core":{"user_results":{"result":{"core":{"name":"示例作者","screen_name":"fixture"}}}},
                         "legacy":{"full_text":"A &amp; B","created_at":"Thu Nov 05 08:00:00 +0000 2026","extended_entities":{"media":[{"type":"photo","media_url_https":"https://example.com/photo.jpg"}]}},
                         "quoted_status_result":{"result":{"rest_id":"2","core":{"user_results":{"result":{"legacy":{"name":"引用作者","screen_name":"quoted"}}}},"legacy":{"full_text":"引用内容"}}}
@@ -185,7 +231,7 @@ extension FakeWeiboTests {
             let page = try parseXTimeline(json)
             #expect(page.items.map(\.id) == ["1"])
             #expect(page.items.first?.text == "A & B")
-            #expect(page.items.first?.promoted == true)
+            #expect(page.items.first?.promoted == false)
             #expect(page.items.first?.pictures.count == 1)
             #expect(page.items.first?.quote?.author == "引用作者")
             #expect(page.nextCursor == "next")

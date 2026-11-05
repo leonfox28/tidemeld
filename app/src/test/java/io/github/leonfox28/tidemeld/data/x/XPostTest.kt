@@ -24,7 +24,7 @@ class XPostTest {
     }
 
     @Test
-    fun `timeline handles visibility wrappers modules ads and cursor without promoting quoted posts`() {
+    fun `timeline handles visibility wrappers and cursor without flattening quoted posts`() {
         val item = buildJsonObject {
             put(
                 "itemContent",
@@ -35,7 +35,6 @@ class XPostTest {
                             put("result", buildJsonObject { put("tweet", tweet("1", tweet("2"))) })
                         },
                     )
-                    put("promotedMetadata", buildJsonObject {})
                 },
             )
         }
@@ -83,7 +82,7 @@ class XPostTest {
         val page = parseXTimeline(json)
         assertEquals(listOf("1"), page.items.map { it.id })
         val post = page.items.single()
-        assertTrue(post.promoted)
+        assertFalse(post.promoted)
         assertEquals("2", post.quote?.id)
         assertEquals("A & B https://example.com/article", post.text)
         assertEquals(1, post.pictures.size)
@@ -93,7 +92,7 @@ class XPostTest {
     }
 
     @Test
-    fun `conversation excludes ancestors retains replies and ads and reads metrics from original repost`() {
+    fun `conversation excludes ancestors and ads retains replies and reads metrics from original repost`() {
         fun entry(id: String, parent: String? = null, ad: Boolean = false): JsonObject {
             val base = tweet(id).toMutableMap()
             base["legacy"] =
@@ -132,6 +131,7 @@ class XPostTest {
             add(entry("nested", "reply"))
             add(entry("reply", "42"))
             add(entry("ad", ad = true))
+            add(entry("promoted-reply", "42", ad = true))
             add(Json.parseToJsonElement("""{"content":{"cursorType":"Bottom","value":"next"}}"""))
         }
         val json = buildJsonObject {
@@ -151,7 +151,7 @@ class XPostTest {
             )
         }
         val conversation = parseXConversation(json, "42")
-        assertEquals(listOf("nested", "reply", "ad"), conversation.replies.items.map { it.id })
+        assertEquals(listOf("nested", "reply"), conversation.replies.items.map { it.id })
         assertEquals(XMetrics(12, 2, 3, true, true), conversation.post!!.metrics)
         assertEquals("next", conversation.replies.nextCursor)
         assertNull(parseXConversation(json, "42", "next").replies.nextCursor)
@@ -176,6 +176,76 @@ class XPostTest {
         assertEquals("wrapper", parsed.id)
         assertEquals("42", parsed.originalId)
         assertTrue(parsed.metrics.liked)
+    }
+
+    @Test
+    fun `timeline filters promoted placements and modules before deduplication and preserves empty page cursor`() {
+        fun item(id: String, promoted: Boolean, repost: Boolean = false): JsonObject =
+            buildJsonObject {
+                val post =
+                    if (repost)
+                        JsonObject(
+                            tweet(id) +
+                                ("legacy" to
+                                    buildJsonObject {
+                                        put(
+                                            "retweeted_status_result",
+                                            buildJsonObject { put("result", tweet("original")) },
+                                        )
+                                    })
+                        )
+                    else tweet(id, tweet("quoted"))
+                put("tweet_results", buildJsonObject { put("result", post) })
+                if (promoted) put("promotedMetadata", buildJsonObject {})
+            }
+        fun entry(item: JsonObject) = buildJsonObject {
+            put("content", buildJsonObject { put("itemContent", item) })
+        }
+        fun module(vararg items: JsonObject) = buildJsonObject {
+            put(
+                "content",
+                buildJsonObject {
+                    put(
+                        "items",
+                        buildJsonArray {
+                            items.forEach {
+                                add(
+                                    buildJsonObject {
+                                        put("item", buildJsonObject { put("itemContent", it) })
+                                    }
+                                )
+                            }
+                        },
+                    )
+                },
+            )
+        }
+        fun timeline(vararg entries: JsonObject) =
+            Json.parseToJsonElement(
+                    """{"data":{"home":{"home_timeline_urt":{"instructions":[
+                {"entries":${JsonArray(entries.toList())}},
+                {"entry":{"content":{"cursorType":"Bottom","value":"next"}}}
+            ]}}}}"""
+                )
+                .jsonObject
+        val ad = entry(item("1", true))
+        val adModule = module(item("ad-repost", true, repost = true))
+        val page =
+            parseXTimeline(
+                timeline(
+                    ad,
+                    adModule,
+                    entry(item("1", false)),
+                    module(item("module-ad", true), item("module-organic", false)),
+                )
+            )
+        assertEquals(listOf("1", "module-organic"), page.items.map { it.id })
+        assertTrue(page.items.none { it.promoted })
+        assertEquals("next", page.nextCursor)
+        val onlyAds = timeline(ad, adModule)
+        assertTrue(parseXTimeline(onlyAds).items.isEmpty())
+        assertEquals("next", parseXTimeline(onlyAds).nextCursor)
+        assertNull(parseXTimeline(onlyAds, "next").nextCursor)
     }
 
     @Test(expected = WeiboApiException::class)

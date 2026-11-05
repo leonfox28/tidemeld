@@ -57,7 +57,7 @@ func parseXConversation(_ json: JSON, focalID: String, previousCursor: String? =
         post: page.items.first { $0.originalID == focalID },
         replies: Paged(
             items: page.items.filter {
-                $0.originalID != focalID && (related.contains($0.originalID) || $0.promoted)
+                $0.originalID != focalID && related.contains($0.originalID)
             }, nextCursor: page.nextCursor))
 }
 
@@ -152,8 +152,9 @@ private func parseXEntries(_ instructions: [JSON], previousCursor: String?) -> P
         if let entry = instruction["entry"] { item(entry["content"]) }
     }
     var seen: Set<String> = []
+    // Filter before deduplication so a promoted placement cannot hide an organic copy.
     return Paged(
-        items: posts.filter { seen.insert($0.id).inserted },
+        items: posts.filter { !$0.promoted && seen.insert($0.id).inserted },
         nextCursor: cursor == previousCursor ? nil : cursor)
 }
 

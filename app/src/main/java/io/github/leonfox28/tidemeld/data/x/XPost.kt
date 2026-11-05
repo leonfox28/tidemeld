@@ -57,7 +57,7 @@ fun parseXConversation(
         page.items.firstOrNull { it.originalId == focalId },
         Paged(
             page.items.filter {
-                it.originalId != focalId && (it.originalId in related || it.promoted)
+                it.originalId != focalId && it.originalId in related
             },
             page.nextCursor,
         ),
@@ -97,7 +97,11 @@ private fun parseXEntries(instructions: JsonArray, previousCursor: String?): Pag
         (instruction.at("entries") as? JsonArray)?.forEach { content(it.at("content")) }
         instruction.at("entry")?.let { content(it.at("content")) }
     }
-    return Paged(posts.distinctBy { it.id }, nextCursor = cursor?.takeIf { it != previousCursor })
+    // Filter before deduplication so a promoted placement cannot hide an organic copy.
+    return Paged(
+        posts.filterNot { it.promoted }.distinctBy { it.id },
+        nextCursor = cursor?.takeIf { it != previousCursor },
+    )
 }
 
 fun parseXPost(value: JsonElement?, promoted: Boolean = false, depth: Int = 0): XPost? {

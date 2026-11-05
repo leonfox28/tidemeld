@@ -110,3 +110,7 @@ X 使用官方网页登录和原生 `XWebAPI`，协议配置与 Android 共用 `
 ### 2026-11-05：更新 Tidemeld iPhone 并修复启动崩溃
 
 覆盖更新保存真实微博登录的 `Tidemeld iPhone` 时，发现聚合信息流的异步 provider 丢失主执行器隔离，调用 `AppGraph.forAccount()` 读取账号时触发运行时断言。`SocialFeedController.fetch` 现显式标为 `@MainActor`，由 `AppGraph` 的隔离工厂方法创建。新增回归直接使用生产 provider，覆盖恢复旧微博会话、多账号凭据隔离、加载与刷新；空白 `Tidemeld regression` 的 95 项测试通过。修复后再次保留数据覆盖安装，已从界面确认微博信息流正常加载、账号仍已登录，并打开账号管理供用户添加 X。未执行真实写操作。
+
+### 2026-11-05：过滤 X 广告
+
+用户在 `Tidemeld iPhone` 完成 X 登录后要求不显示标记为广告的条目。`parseXEntries` 现在按已有的 `promotedMetadata` 标记过滤，作用于 X 信息流、聚合中的 X 来源及评论列表；在去重前过滤以保留同 ID 的普通条目，整页均为广告时仍返回分页游标。共享 UI 无需平台判断。96 项合成测试通过，覆盖顶层/模块广告、转发广告、同 ID 普通条目、空页游标和评论广告。保留数据覆盖更新 `Tidemeld iPhone` 后，从界面确认此前首屏广告已消失，普通帖子正常显示；未执行真实写操作。

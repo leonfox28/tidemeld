@@ -174,7 +174,7 @@ extension FakeWeiboTests {
             #expect(graph.accounts.find("x:8")?.expired == false)
         }
 
-        @Test func conversationKeepsRepliesAndAdsButExcludesAncestors() throws {
+        @Test func conversationKeepsRepliesButExcludesAdsAndAncestors() throws {
             func entry(_ id: String, parent: String? = nil, ad: Bool = false) -> JSON {
                 var legacy: [String: JSON] = [
                     "full_text": .string("合成内容"), "favorite_count": .int(12),
@@ -202,6 +202,7 @@ extension FakeWeiboTests {
                 entry("ancestor"), entry("42", parent: "ancestor"),
                 entry("nested", parent: "reply"),
                 entry("reply", parent: "42"), entry("ad", ad: true),
+                entry("promoted-reply", parent: "42", ad: true),
                 .object([
                     "content": .object(["cursorType": .string("Bottom"), "value": .string("next")])
                 ]),
@@ -214,7 +215,7 @@ extension FakeWeiboTests {
                 ])
             ])
             let page = try parseXConversation(json, focalID: "42")
-            #expect(page.replies.items.map(\.id) == ["nested", "reply", "ad"])
+            #expect(page.replies.items.map(\.id) == ["nested", "reply"])
             #expect(
                 page.post?.metrics
                     == XMetrics(likes: 12, reposts: 2, replies: 3, liked: true, reposted: true))
