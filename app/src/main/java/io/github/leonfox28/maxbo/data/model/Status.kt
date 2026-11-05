@@ -115,7 +115,7 @@ data class Status(
 
             return Status(
                 id = id,
-                mblogId = readString(map["mblogid"]),
+                mblogId = readString(map["mblogid"]) ?: readString(map["bid"]),
                 user = WeiboUser.tryFromJson(map["user"]) ?: authorOf(map, parentPage),
                 createdAt = parseWeiboDate(readString(map["created_at"])),
                 source = plainText(readString(map["source"])),
@@ -155,6 +155,7 @@ data class Status(
         // content (mark ending `WeiboADNatural`, seen on users' own reposts);
         // those are not ads placed in the feed, so they get no label.
         private fun isAd(map: JsonObject): Boolean {
+            if (readBool(map["ad_marked"]) == true) return true
             val mark = readString(map["mark"]).orEmpty()
             if (mark.contains("WeiboADNatural")) return false
             return readBool(map["isAd"]) == true ||
@@ -312,15 +313,30 @@ data class VideoInfo(
         private val streamKeys = listOf("mp4_720p_mp4", "mp4_hd_url", "mp4_sd_url")
 
         fun tryFromPageInfo(pageInfo: JsonObject?): VideoInfo? {
-            if (pageInfo == null || readString(pageInfo["object_type"]) != "video") return null
+            if (
+                pageInfo == null ||
+                    (readString(pageInfo["object_type"]) != "video" &&
+                        readString(pageInfo["type"]) != "video")
+            )
+                return null
             val media = readMap(pageInfo["media_info"])
             val big =
                 readMap(readMap(media?.get("big_pic_info"))?.get("pic_big"))
                     ?: readMap(readMap(pageInfo["pic_info"])?.get("pic_big"))
+                    ?: readMap(pageInfo["page_pic"])
             val width = readInt(big?.get("width"))
             val height = readInt(big?.get("height"))
             val streams = LinkedHashSet<String>()
             streamKeys.mapNotNullTo(streams) { readUrl(media?.get(it)) }
+            val urls = readMap(pageInfo["urls"])
+            listOf(
+                    urls?.get("mp4_720p_mp4"),
+                    urls?.get("mp4_hd_mp4"),
+                    media?.get("stream_url_hd"),
+                    urls?.get("mp4_ld_mp4"),
+                    media?.get("stream_url"),
+                )
+                .mapNotNullTo(streams, ::readUrl)
             streams += playbackUrls(media?.get("playback_list"))
             return VideoInfo(
                 coverUrl = readUrl(pageInfo["page_pic"]) ?: readUrl(big?.get("url")),
@@ -396,7 +412,12 @@ data class PageCard(
             pageInfo: JsonObject?,
             urlStruct: List<JsonObject> = emptyList(),
         ): PageCard? {
-            if (pageInfo == null || readString(pageInfo["object_type"]) == "video") return null
+            if (
+                pageInfo == null ||
+                    readString(pageInfo["object_type"]) == "video" ||
+                    readString(pageInfo["type"]) == "video"
+            )
+                return null
             val title = readString(pageInfo["page_title"]) ?: return null
             val description = readString(pageInfo["page_desc"]) ?: readString(pageInfo["content2"])
             val imageUrl = readUrl(pageInfo["page_pic"])

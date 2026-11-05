@@ -149,7 +149,7 @@ struct Status: Sendable, Hashable, Identifiable {
         let urlStruct = ownURLs.isEmpty ? parentURLs : ownURLs
         return Status(
             id: id,
-            mblogId: map["mblogid"]?.string,
+            mblogId: map["mblogid"]?.string ?? map["bid"]?.string,
             user: WeiboUser.from(map["user"]) ?? authorOf(map, parentPage: parentPage),
             createdAt: parseWeiboDate(map["created_at"]?.string),
             source: plainTextOfHTML(map["source"]?.string),
@@ -179,6 +179,7 @@ struct Status: Sendable, Hashable, Identifiable {
     // (mark ending `WeiboADNatural`, seen on users' own reposts); those are not
     // ads placed in the feed, so they get no label.
     private static func isAd(_ map: JSON) -> Bool {
+        if map["ad_marked"]?.bool == true { return true }
         let mark = map["mark"]?.string ?? ""
         if mark.contains("WeiboADNatural") { return false }
         return map["isAd"]?.bool == true || map["readtimetype"]?.string == "adMblog"
@@ -290,14 +291,18 @@ struct VideoInfo: Sendable, Hashable {
     private static let streamKeys = ["mp4_720p_mp4", "mp4_hd_url", "mp4_sd_url"]
 
     static func from(pageInfo: JSON?) -> VideoInfo? {
-        guard let pageInfo, pageInfo["object_type"]?.string == "video" else { return nil }
+        guard let pageInfo, pageInfo["object_type"]?.string == "video" || pageInfo["type"]?.string == "video" else { return nil }
         let media = pageInfo["media_info"]
-        let big = media?["big_pic_info"]?["pic_big"] ?? pageInfo["pic_info"]?["pic_big"]
+        let big = media?["big_pic_info"]?["pic_big"] ?? pageInfo["pic_info"]?["pic_big"] ?? pageInfo["page_pic"]
         let width = big?["width"]?.int ?? 0
         let height = big?["height"]?.int ?? 0
         var streams: [String] = []
         for key in streamKeys {
             if let url = media?[key]?.url, !streams.contains(url) { streams.append(url) }
+        }
+        for url in [pageInfo["urls"]?["mp4_720p_mp4"]?.url, pageInfo["urls"]?["mp4_hd_mp4"]?.url,
+                    media?["stream_url_hd"]?.url, pageInfo["urls"]?["mp4_ld_mp4"]?.url, media?["stream_url"]?.url].compactMap({ $0 }) {
+            if !streams.contains(url) { streams.append(url) }
         }
         for url in playbackURLs(media?["playback_list"]) where !streams.contains(url) {
             streams.append(url)
@@ -350,7 +355,7 @@ struct PageCard: Sendable, Hashable {
     /// [urlStruct] describing those links: a `webpage` card can come with no
     /// picture or description (PLAN §8).
     static func from(pageInfo: JSON?, urlStruct: [JSON] = []) -> PageCard? {
-        guard let pageInfo, pageInfo["object_type"]?.string != "video",
+        guard let pageInfo, pageInfo["object_type"]?.string != "video", pageInfo["type"]?.string != "video",
             let title = pageInfo["page_title"]?.string
         else { return nil }
         let description = pageInfo["page_desc"]?.string ?? pageInfo["content2"]?.string

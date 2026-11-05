@@ -76,6 +76,7 @@ import io.github.leonfox28.maxbo.ui.widget.text.StatusText
  * What tapping parts of a status (or comment) leads to. A null callback leaves its target inert.
  */
 data class StatusCardActions(
+    val onLike: ((Status) -> Unit)? = null,
     /** The card itself, or the retweeted post inside it. */
     val onOpen: ((Status) -> Unit)? = null,
     val onLink: ((StatusLink) -> Unit)? = null,
@@ -507,7 +508,7 @@ private fun Counts(status: Status, actions: StatusCardActions) {
             color = if (like.liked) colors.primary else null,
             // While a like is on its way, the button takes no taps but still
             // swallows them, so they don't open the status.
-            onClick = shown.onToggle ?: {},
+            onClick = actions.onLike?.let { { it(status) } } ?: shown.onToggle ?: {},
         )
     }
 }

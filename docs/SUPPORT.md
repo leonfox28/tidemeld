@@ -10,7 +10,7 @@ maxbo 是免费、开源、非官方的微博客户端，iOS 版使用 SwiftUI�
 
 ## 登录与使用
 
-未登录也可打开“搜索”页看热搜，点热搜条目或输入关键词后浏览微博公开网页。游客可见内容有限，继续翻页或互动时微博可能要求登录；登录后可使用 maxbo 的原生搜索、关注动态及互动功能。
+未登录时，“首页”直接以原生微博卡片显示游客可见的公开信息流，可以下拉刷新、查看图片和视频。微博目前只向游客提供首屏；查看更多、展开完整内容、查看用户资料及互动时会引导登录。也可打开“搜索”页看热搜，点热搜条目或输入关键词后浏览微博公开网页。登录后首页切换为关注动态，并可使用原生搜索及互动功能。
 
 在应用内的微博官方页面登录。验证码由你本人完成；maxbo 不会自动处理验证码。出现频率限制时，请稍后再试。接口或登录流程可能随微博调整而变化。
 
@@ -32,7 +32,7 @@ maxbo 是免费、开源、非官方的微博客户端，iOS 版使用 SwiftUI�
 
 maxbo is a free, open-source, unofficial Weibo client. Its app interface is in Simplified Chinese. It is not affiliated with or endorsed by Weibo.
 
-Without signing in, open the 搜索 (Search) tab to view trending topics and browse some public results in Weibo's web page. Weibo may require sign-in for further browsing or interactions. Native search, the following feed and account actions require sign-in.
+Without signing in, 首页 (Home) displays public posts using native cards, with pull-to-refresh and media viewing. Weibo currently limits guests to the first page; further reading, profiles and interactions prompt sign-in. 搜索 (Search) also offers trending topics and some public web results. After sign-in, Home switches to the following feed, and native search and account actions become available.
 
 For support or privacy questions, [open a GitHub issue](https://github.com/leonfox28/maxbo/issues). Include your app version, OS version, device model and steps to reproduce. GitHub issues are public and require a GitHub account. Never post passwords, verification codes, session cookies, private posts or unredacted screenshots.
 

@@ -15,6 +15,7 @@ final class AppGraph {
     /// The signed-in user's "最新微博" timeline, app-wide, so posts the user
     /// writes elsewhere can go in.
     @ObservationIgnored let timeline: PagedList<Status>
+    @ObservationIgnored let guestTimeline: PagedList<Status>
     @ObservationIgnored let unread: UnreadNoticesController
     @ObservationIgnored let likes: LikesController
     @ObservationIgnored let openLists: OpenLists
@@ -28,7 +29,7 @@ final class AppGraph {
 
     init(
         settings: SettingsController, session: SessionController, api: WeiboAPI,
-        webCookies: WebCookies, images: ImageLoader
+        webCookies: WebCookies, images: ImageLoader, guestAPI: GuestWeiboAPI? = nil
     ) {
         self.settings = settings
         self.session = session
@@ -47,6 +48,13 @@ final class AppGraph {
         if session.state.uid == nil { timeline.reset(to: .ready(PagedState())) }
         session.onUidChange { uid in timeline.reset(to: uid == nil ? .ready(PagedState()) : .loading) }
         self.timeline = timeline
+        let guestTimeline = PagedList<Status>(
+            fetch: { _ in
+                guard let guestAPI else { throw WeiboError.network }
+                return try await guestAPI.fetchTimeline()
+            }, id: \.id)
+        self.guestTimeline = guestTimeline
+        session.onUidChange { _ in guestTimeline.reset() }
         unread = UnreadNoticesController(api: api, session: session)
         likes = LikesController(api: api, session: session)
         openLists = OpenLists(timeline: timeline)
@@ -87,6 +95,7 @@ final class AppGraph {
             directory: caches.appendingPathComponent("image_cache"),
             limitMB: settings.settings.imageCacheLimitMB)
         ImageLoader.shared = images
-        return AppGraph(settings: settings, session: session, api: api, webCookies: webCookies, images: images)
+        let guestAPI = GuestWeiboAPI(http: httpFor(WeiboCookieJar()), prepare: { try await prepareGuestCookies() })
+        return AppGraph(settings: settings, session: session, api: api, webCookies: webCookies, images: images, guestAPI: guestAPI)
     }
 }

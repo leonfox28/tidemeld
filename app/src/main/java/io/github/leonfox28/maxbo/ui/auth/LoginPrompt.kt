@@ -53,7 +53,7 @@ fun LoginPrompt(expired: Boolean, modifier: Modifier = Modifier) {
             )
             Spacer(Modifier.height(8.dp))
             Text(
-                "也可以在“搜索”页先看热搜和部分公开内容。",
+                "也可以先在“首页”浏览公开微博，或到“搜索”页看热搜。",
                 style = MaterialTheme.typography.bodySmall,
                 textAlign = TextAlign.Center,
             )

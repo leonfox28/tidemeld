@@ -16,6 +16,7 @@ import io.github.leonfox28.maxbo.core.session.SessionController
 import io.github.leonfox28.maxbo.core.session.StoredSession
 import io.github.leonfox28.maxbo.core.settings.AppSettings
 import io.github.leonfox28.maxbo.core.settings.SettingsController
+import io.github.leonfox28.maxbo.data.api.GuestWeiboApi
 import io.github.leonfox28.maxbo.data.api.WeiboApi
 import io.github.leonfox28.maxbo.data.model.Account
 import io.github.leonfox28.maxbo.ui.compose.PictureReader
@@ -49,6 +50,7 @@ fun testGraph(
     pictures: PictureReader = FilePictureReader,
     pictureCache: PictureCache = FakePictureCache(),
     clock: () -> Long = { System.nanoTime() / 1_000_000 },
+    guestApi: GuestWeiboApi? = null,
 ): AppGraph {
     val base = web?.client ?: offlineClient
     val throttle = RequestThrottle(minIntervalMs = 0)
@@ -66,6 +68,7 @@ fun testGraph(
         pictures = pictures,
         pictureCache = pictureCache,
         imageLoader = { fakeImageLoader() },
+        guestApi = guestApi,
     )
 }
 

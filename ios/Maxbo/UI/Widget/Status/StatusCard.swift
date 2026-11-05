@@ -3,6 +3,7 @@ import SwiftUI
 /// What tapping parts of a status (or comment) leads to. A nil callback leaves
 /// its target inert.
 struct StatusCardActions {
+    var onLike: ((Status) -> Void)? = nil
     /// The card itself, or the retweeted post inside it.
     var onOpen: ((Status) -> Void)? = nil
     var onLink: ((StatusLink) -> Void)? = nil
@@ -388,7 +389,8 @@ struct StatusCounts: View {
                 // While a like is on its way, the button takes no taps but still
                 // swallows them, so they don't open the status.
                 guard !shown.pending else { return }
-                graph.toggleLike(target, loaded: status.like)
+                if let onLike = actions.onLike { onLike(status) }
+                else { graph.toggleLike(target, loaded: status.like) }
             }
             .sensoryFeedback(.selection, trigger: shown.like.liked)
         }

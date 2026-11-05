@@ -1,32 +1,63 @@
 import SwiftUI
 
-/// The home tab: the signed-in user's timeline.
+/// The home tab: public posts for guests, the following feed after sign-in.
 struct TimelinePage: View {
     @Environment(AppGraph.self) private var graph
+    @Environment(\.displayScale) private var scale
+    @State private var currentUser: WeiboUser?
 
     var body: some View {
-        Group {
-            switch graph.session.state {
-            case .signedOut(let expired): LoginPrompt(expired: expired)
-            case .signedIn(let account): Timeline(uid: account.uid)
-            }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .appBackground()
-        .navigationTitle("首页")
-        .toolbarTitleDisplayMode(.inline)
-        .toolbar {
-            if graph.session.state.uid != nil {
-                ToolbarItem(placement: .primaryAction) {
-                    Button("发微博", systemImage: "square.and.pencil") { graph.router.showingCompose = true }
+        let uid = graph.session.state.uid
+        let user = currentUser?.id == uid ? currentUser : nil
+        Timeline(uid: uid)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .appBackground()
+            .navigationTitle("首页")
+            .toolbarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    if let uid {
+                        Button {
+                            graph.router.push(.profile(uid: uid, initial: user))
+                        } label: {
+                            Group {
+                                if let url = user?.avatarURL {
+                                    WeiboImage(url: url, maxPixels: 32 * scale)
+                                } else {
+                                    Image(systemName: "person.crop.circle.fill").resizable()
+                                }
+                            }
+                            .frame(width: 32, height: 32)
+                            .clipShape(Circle())
+                        }
+                        .accessibilityElement(children: .ignore)
+                        .accessibilityLabel("我的主页")
+                    } else {
+                        Button("登录微博", systemImage: "person") { graph.router.showingLogin = true }
+                            .labelStyle(.iconOnly)
+                    }
+                }
+                if uid != nil {
+                    ToolbarItem(placement: .primaryAction) {
+                        Button("发微博", systemImage: "square.and.pencil") { graph.router.showingCompose = true }
+                    }
                 }
             }
-        }
+            .task(id: uid) {
+                guard let uid else {
+                    currentUser = nil
+                    return
+                }
+                guard currentUser?.id != uid else { return }
+                let user = try? await graph.api.fetchProfile(uid: uid).user
+                guard !Task.isCancelled, graph.session.state.uid == uid else { return }
+                currentUser = user
+            }
     }
 }
 
 private struct Timeline: View {
-    let uid: String
+    let uid: String?
     @Environment(AppGraph.self) private var graph
     @State private var atTop = true
     @State private var pull = PullToRefresh()
@@ -34,7 +65,7 @@ private struct Timeline: View {
     @State private var width: CGFloat = 0
 
     var body: some View {
-        let timeline = graph.timeline
+        let timeline = uid == nil ? graph.guestTimeline : graph.timeline
         ScrollViewReader { proxy in
             List {
                 switch timeline.state {
@@ -44,18 +75,28 @@ private struct Timeline: View {
                     ErrorRetry(error: error) { timeline.reload() }.padding(.top, 80).plainRow()
                 case .ready(let state):
                     if state.items.isEmpty {
-                        Text("还没有微博，下拉刷新试试")
+                        Text(uid == nil ? "暂时没有公开微博，下拉刷新试试" : "还没有微博，下拉刷新试试")
                             .foregroundStyle(AppTheme.secondary)
                             .frame(maxWidth: .infinity)
                             .padding(.top, 160)
                             .plainRow()
                     } else {
                         ForEach(state.items) { status in
-                            StatusCard(status: status, actions: graph.statusActions)
+                            StatusCard(status: status, actions: uid == nil ? graph.guestStatusActions : graph.statusActions)
                                 .feedWidth(in: width)
                                 .statusRow()
                         }
-                        LoadMoreFooter(list: state) { Task { await timeline.loadMore() } }.plainRow()
+                        if uid != nil {
+                            LoadMoreFooter(list: state) { Task { await timeline.loadMore() } }.plainRow()
+                        }
+                    }
+                    if uid == nil {
+                        VStack(spacing: 10) {
+                            Text("游客仅可浏览部分公开微博，登录后查看更多及参与互动。")
+                                .font(.footnote).foregroundStyle(AppTheme.secondary)
+                            Button("登录查看更多") { graph.router.showingLogin = true }
+                        }
+                        .frame(maxWidth: .infinity).padding(20).plainRow()
                     }
                 }
             }
@@ -86,9 +127,9 @@ private struct Timeline: View {
 
     private func refresh() async {
         // The user asked for what's new; that includes notifications.
-        graph.unread.requestCheck(minInterval: unreadRecheckInterval)
+        if uid != nil { graph.unread.requestCheck(minInterval: unreadRecheckInterval) }
         do {
-            try await graph.timeline.refresh()
+            try await (uid == nil ? graph.guestTimeline : graph.timeline).refresh()
         } catch {
             graph.toasts.showError(error, router: graph.router)
         }

@@ -16,10 +16,12 @@ import io.github.leonfox28.maxbo.core.session.EncryptedFileSessionStorage
 import io.github.leonfox28.maxbo.core.session.KeystoreSessionCipher
 import io.github.leonfox28.maxbo.core.session.SessionController
 import io.github.leonfox28.maxbo.core.session.WebCookies
+import io.github.leonfox28.maxbo.core.session.WebGuestSession
 import io.github.leonfox28.maxbo.core.session.WebViewCookies
 import io.github.leonfox28.maxbo.core.session.WebViewSessionRenewer
 import io.github.leonfox28.maxbo.core.settings.DataStoreSettingsStorage
 import io.github.leonfox28.maxbo.core.settings.SettingsController
+import io.github.leonfox28.maxbo.data.api.GuestWeiboApi
 import io.github.leonfox28.maxbo.data.api.WeiboApi
 import io.github.leonfox28.maxbo.ui.compose.ComposeDraftController
 import io.github.leonfox28.maxbo.ui.compose.ContentPictureReader
@@ -28,6 +30,7 @@ import io.github.leonfox28.maxbo.ui.interactions.LikesController
 import io.github.leonfox28.maxbo.ui.interactions.OpenLists
 import io.github.leonfox28.maxbo.ui.interactions.RepostDrafts
 import io.github.leonfox28.maxbo.ui.notifications.UnreadNoticesController
+import io.github.leonfox28.maxbo.ui.timeline.GuestTimelineController
 import io.github.leonfox28.maxbo.ui.timeline.TimelineController
 import java.io.File
 import kotlinx.coroutines.CoroutineScope
@@ -56,7 +59,9 @@ class AppGraph(
     /** The pictures kept on the device, for the settings page. */
     val pictureCache: PictureCache,
     imageLoader: () -> ImageLoader,
+    guestApi: GuestWeiboApi? = null,
 ) {
+    val guestTimeline = GuestTimelineController(guestApi, session, appScope)
     /** Loads Weibo's pictures; made on first use. */
     val imageLoader: ImageLoader by lazy(imageLoader)
 
@@ -100,6 +105,13 @@ class AppGraph(
                     scope = scope,
                 )
             val api = WeiboApi(httpFor(session.jar), onSessionExpired = session::renewOrExpire)
+            val guestJar = WeiboCookieJar()
+            val guestApi =
+                GuestWeiboApi(
+                    httpFor(guestJar),
+                    guestJar,
+                    WebGuestSession(context.applicationContext, webCookies)::prepare,
+                )
             val diskCache =
                 ImageDiskCache(
                     context.cacheDir.resolve("image_cache").toOkioPath(),
@@ -119,6 +131,7 @@ class AppGraph(
                 pictures = ContentPictureReader(context.applicationContext),
                 pictureCache = WeiboPictureCache(diskCache) { imageLoader },
                 imageLoader = { imageLoader },
+                guestApi = guestApi,
             )
         }
     }

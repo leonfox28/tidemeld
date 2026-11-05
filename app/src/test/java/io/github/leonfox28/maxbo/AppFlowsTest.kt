@@ -4,6 +4,7 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isSelectable
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
@@ -104,7 +105,7 @@ class AppFlowsTest {
         listOf("首页", "搜索", "通知", "我")
             .map {
                 compose
-                    .onNode(hasContentDescription(it, substring = true))
+                    .onNode(hasContentDescription(it, substring = true) and isSelectable())
                     .fetchSemanticsNode()
                     .boundsInRoot
             }

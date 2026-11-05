@@ -17,6 +17,29 @@ struct DeleteRequest: Identifiable {
 }
 
 extension AppGraph {
+    /// Guests can open the media already supplied by the public feed. Account
+    /// actions and further reading start sign-in, without trying private APIs.
+    var guestStatusActions: StatusCardActions {
+        var actions = statusActions
+        actions.onLike = { [router] _ in router.showingLogin = true }
+        actions.onOpen = { [router] _ in router.showingLogin = true }
+        actions.onExpand = actions.onOpen
+        actions.onRepost = actions.onOpen
+        actions.onDelete = nil
+        actions.onUser = { [router] _ in router.showingLogin = true }
+        actions.onPicture = { [router] pics, index, _, source in
+            router.viewer = ViewerRequest(pics: pics, index: index, sourceID: source)
+        }
+        actions.onLink = { [weak self, router] link in
+            switch link {
+            case .mention: router.showingLogin = true
+            case .topic(let topic): router.openSearch("#\(topic)#", asGuest: true)
+            default: self?.open(link)
+            }
+        }
+        return actions
+    }
+
     /// What tapping parts of a status card (or a comment) does throughout the
     /// app.
     var statusActions: StatusCardActions {

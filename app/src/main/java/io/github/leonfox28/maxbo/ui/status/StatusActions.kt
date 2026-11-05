@@ -16,6 +16,33 @@ import io.github.leonfox28.maxbo.ui.widget.openExternally
 import io.github.leonfox28.maxbo.ui.widget.status.StatusCardActions
 import io.github.leonfox28.maxbo.ui.widget.text.StatusLink
 
+/** Reuses native media viewers; account-only actions open sign-in before any API call. */
+@Composable
+fun rememberGuestStatusCardActions(): StatusCardActions {
+    val navigator = LocalNavigator.current
+    val base = rememberStatusCardActions()
+    return remember(navigator, base) {
+        fun login() = navigator.push(Route.Login)
+        base.copy(
+            onLike = { login() },
+            onOpen = { login() },
+            onExpand = { login() },
+            onUser = { login() },
+            onRepost = { login() },
+            onDelete = null,
+            onPicture = { pics, index, _ -> navigator.push(Route.Viewer(pics, index, null)) },
+            onLink = { link ->
+                when (link) {
+                    is StatusLink.Mention -> login()
+                    is StatusLink.Topic ->
+                        openSearchResults(navigator, "#${link.topic}#", asGuest = true)
+                    else -> base.onLink?.invoke(link)
+                }
+            },
+        )
+    }
+}
+
 /** What tapping parts of a status card (or a comment) does throughout the app. */
 @Composable
 fun rememberStatusCardActions(): StatusCardActions {

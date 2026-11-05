@@ -63,6 +63,21 @@ struct PicInfo: Sendable, Hashable, Identifiable {
             variants: [PicVariant(url: url, width: 0, height: 0)])
     }
 
+    /// Mobile public posts use a `pics` array, with dimensions under `geo`.
+    static func fromMobile(_ json: JSON) -> PicInfo? {
+        func mobileVariant(_ value: JSON?) -> PicVariant? {
+            guard let url = value?["url"]?.url else { return nil }
+            return PicVariant(url: url,
+                width: Int(value?["geo"]?["width"]?.int ?? value?["width"]?.int ?? 0),
+                height: Int(value?["geo"]?["height"]?.int ?? value?["height"]?.int ?? 0))
+        }
+        let variants = [mobileVariant(json), mobileVariant(json["large"])].compactMap { $0 }
+        guard let first = variants.first else { return nil }
+        return PicInfo(id: json["pid"]?.string ?? first.url,
+            type: URL(string: first.url)?.path.hasSuffix(".gif") == true ? .gif : .pic,
+            variants: variants, largest: variants.last)
+    }
+
     /// [id] names the picture when the JSON itself doesn't, as in comment
     /// pictures, which are keyed by id.
     static func from(_ json: JSON?, id: String? = nil) -> PicInfo? {
@@ -114,7 +129,9 @@ struct PicInfo: Sendable, Hashable, Identifiable {
 /// The pictures of a JSON object holding `pic_infos` keyed by id, in the display
 /// order of its `pic_ids`.
 func picsOf(_ json: JSON) -> [PicInfo] {
-    guard let infos = json["pic_infos"]?.object else { return [] }
+    guard let infos = json["pic_infos"]?.object else {
+        return (json["pics"]?.objects ?? []).compactMap(PicInfo.fromMobile)
+    }
     let order = json["pic_ids"]?.array?.compactMap(\.string) ?? []
     return (order.isEmpty ? Array(infos.keys).sorted() : order).compactMap {
         PicInfo.from(infos[$0], id: $0)

@@ -73,6 +73,7 @@ class MePageTest {
     @Test
     fun `the login button opens Weibo's login page`() {
         compose.setContent { MaxboApp(testGraph()) }
+        compose.onNodeWithContentDescription("我").performClick()
 
         compose.onNodeWithText("登录微博").performClick()
 

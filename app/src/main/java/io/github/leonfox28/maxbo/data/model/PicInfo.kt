@@ -2,6 +2,7 @@ package io.github.leonfox28.maxbo.data.model
 
 import io.github.leonfox28.maxbo.core.util.readInt
 import io.github.leonfox28.maxbo.core.util.readMap
+import io.github.leonfox28.maxbo.core.util.readMaps
 import io.github.leonfox28.maxbo.core.util.readString
 import io.github.leonfox28.maxbo.core.util.readUrl
 import kotlinx.serialization.json.JsonArray
@@ -111,6 +112,29 @@ data class PicInfo(
             )
         }
 
+        /** Public mobile posts use `pics`, with dimensions under `geo`. */
+        fun fromMobile(json: JsonObject): PicInfo? {
+            fun mobileVariant(value: JsonObject?): PicVariant? {
+                val url = readUrl(value?.get("url")) ?: return null
+                val geo = readMap(value?.get("geo")) ?: value
+                return PicVariant(
+                    url,
+                    readInt(geo?.get("width"))?.toInt() ?: 0,
+                    readInt(geo?.get("height"))?.toInt() ?: 0,
+                )
+            }
+            val variants = listOfNotNull(mobileVariant(json), mobileVariant(readMap(json["large"])))
+            val first = variants.firstOrNull() ?: return null
+            return PicInfo(
+                id = readString(json["pid"]) ?: first.url,
+                type =
+                    if (first.url.substringBefore('?').endsWith(".gif")) PicType.Gif
+                    else PicType.Pic,
+                variants = variants,
+                largest = variants.last(),
+            )
+        }
+
         /**
          * A picture known only by its [pid], such as one on a comment just sent, in the renditions
          * comment pictures come in, at the address weibo.com gives it; null for an older kind of
@@ -157,7 +181,8 @@ data class PicInfo(
  * `pic_ids`.
  */
 fun picsOf(json: JsonObject): List<PicInfo> {
-    val infos = readMap(json["pic_infos"]) ?: return emptyList()
+    val infos =
+        readMap(json["pic_infos"]) ?: return readMaps(json["pics"]).mapNotNull(PicInfo::fromMobile)
     val order = (json["pic_ids"] as? JsonArray)?.mapNotNull { readString(it) }.orEmpty()
     return (order.ifEmpty { infos.keys.toList() }).mapNotNull {
         PicInfo.tryFromJson(infos[it], id = it)

@@ -2,22 +2,32 @@ package io.github.leonfox28.maxbo.ui.timeline
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -28,6 +38,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.leonfox28.maxbo.LocalAppGraph
@@ -36,37 +48,81 @@ import io.github.leonfox28.maxbo.core.paging.ListLoad
 import io.github.leonfox28.maxbo.core.paging.PagedState
 import io.github.leonfox28.maxbo.core.session.SessionState
 import io.github.leonfox28.maxbo.data.model.Status
-import io.github.leonfox28.maxbo.ui.auth.LoginPrompt
+import io.github.leonfox28.maxbo.data.model.WeiboUser
+import io.github.leonfox28.maxbo.ui.navigation.LocalNavigator
+import io.github.leonfox28.maxbo.ui.navigation.Route
 import io.github.leonfox28.maxbo.ui.notifications.UNREAD_RECHECK_MS
 import io.github.leonfox28.maxbo.ui.shell.LocalTabReselect
+import io.github.leonfox28.maxbo.ui.status.rememberGuestStatusCardActions
 import io.github.leonfox28.maxbo.ui.status.rememberStatusCardActions
 import io.github.leonfox28.maxbo.ui.widget.ErrorRetry
 import io.github.leonfox28.maxbo.ui.widget.KeepAtTop
 import io.github.leonfox28.maxbo.ui.widget.LoadMoreFooter
 import io.github.leonfox28.maxbo.ui.widget.LoadMoreTrigger
 import io.github.leonfox28.maxbo.ui.widget.LocalSnackbars
+import io.github.leonfox28.maxbo.ui.widget.UserAvatar
 import io.github.leonfox28.maxbo.ui.widget.readingPadding
 import io.github.leonfox28.maxbo.ui.widget.status.StatusCard
 import kotlinx.coroutines.launch
 
-/** The home tab: the signed-in user's timeline. No app bar: the tab bar names the tab. */
+/** The home tab: public posts for guests, the following feed after sign-in. */
 @Composable
 fun TimelinePage(padding: PaddingValues) {
-    val session by LocalAppGraph.current.session.state.collectAsStateWithLifecycle()
+    val graph = LocalAppGraph.current
+    val session by graph.session.state.collectAsStateWithLifecycle()
+    val uid = (session as? SessionState.SignedIn)?.account?.uid
+    val navigator = LocalNavigator.current
+    var currentUser by remember(uid) { mutableStateOf<WeiboUser?>(null) }
+    LaunchedEffect(uid) {
+        if (uid != null) {
+            try {
+                val user = graph.api.fetchProfile(uid = uid).user
+                if ((graph.session.state.value as? SessionState.SignedIn)?.account?.uid == uid)
+                    currentUser = user
+            } catch (_: WeiboException) {
+                // The profile remains reachable while its avatar is unavailable.
+            }
+        }
+    }
     val area =
         Modifier.fillMaxSize()
             .windowInsetsPadding(
                 WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)
             )
-    when (val state = session) {
-        is SessionState.SignedOut -> LoginPrompt(state.expired, area)
-        is SessionState.SignedIn -> Timeline(state.account.uid, padding, area)
+    Column(area) {
+        Box(Modifier.fillMaxWidth().height(56.dp).padding(horizontal = 8.dp)) {
+            Text(
+                "首页",
+                Modifier.align(Alignment.Center),
+                style = MaterialTheme.typography.titleMedium,
+            )
+            if (uid == null) {
+                FilledTonalIconButton(
+                    onClick = { navigator.push(Route.Login) },
+                    modifier = Modifier.align(Alignment.CenterStart).size(48.dp),
+                ) {
+                    Icon(Icons.Outlined.Person, contentDescription = "登录微博")
+                }
+            } else {
+                IconButton(
+                    onClick = { navigator.push(Route.Profile(uid, currentUser)) },
+                    modifier =
+                        Modifier.align(Alignment.CenterStart).size(48.dp).semantics {
+                            contentDescription = "我的主页"
+                        },
+                ) {
+                    UserAvatar(currentUser, size = 36.dp)
+                }
+            }
+        }
+        Timeline(uid, padding, Modifier.weight(1f))
     }
 }
 
 @Composable
-private fun Timeline(uid: String, padding: PaddingValues, modifier: Modifier) {
-    val timeline = LocalAppGraph.current.timeline
+private fun Timeline(uid: String?, padding: PaddingValues, modifier: Modifier) {
+    val graph = LocalAppGraph.current
+    val timeline = if (uid == null) graph.guestTimeline else graph.timeline
     LaunchedEffect(uid) { timeline.start() }
     val state by timeline.state.collectAsStateWithLifecycle()
     when (val load = state) {
@@ -74,24 +130,31 @@ private fun Timeline(uid: String, padding: PaddingValues, modifier: Modifier) {
             Box(modifier, contentAlignment = Alignment.Center) { CircularProgressIndicator() }
         is ListLoad.Failed ->
             ErrorRetry(load.error, onRetry = timeline::reload, modifier = modifier)
-        is ListLoad.Ready -> StatusList(load.list, padding, modifier)
+        is ListLoad.Ready -> StatusList(load.list, padding, modifier, guest = uid == null)
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun StatusList(timeline: PagedState<Status>, padding: PaddingValues, modifier: Modifier) {
-    val controller = LocalAppGraph.current.timeline
+private fun StatusList(
+    timeline: PagedState<Status>,
+    padding: PaddingValues,
+    modifier: Modifier,
+    guest: Boolean,
+) {
+    val graph = LocalAppGraph.current
+    val controller = if (guest) graph.guestTimeline else graph.timeline
+    val navigator = LocalNavigator.current
     val snackbars = LocalSnackbars.current
     val scope = rememberCoroutineScope()
     val listState = rememberLazyListState()
-    val actions = rememberStatusCardActions()
+    val actions = if (guest) rememberGuestStatusCardActions() else rememberStatusCardActions()
     var refreshing by remember { mutableStateOf(false) }
     val unread = LocalAppGraph.current.unread
     fun refresh() {
         if (refreshing) return
         // The user asked for what's new; that includes notifications.
-        unread.requestCheck(UNREAD_RECHECK_MS)
+        if (!guest) unread.requestCheck(UNREAD_RECHECK_MS)
         refreshing = true
         scope.launch {
             try {
@@ -134,7 +197,7 @@ private fun StatusList(timeline: PagedState<Status>, padding: PaddingValues, mod
                             Modifier.fillMaxWidth().padding(top = 160.dp),
                             contentAlignment = Alignment.Center,
                         ) {
-                            Text("还没有微博，下拉刷新试试")
+                            Text(if (guest) "暂时没有公开微博，下拉刷新试试" else "还没有微博，下拉刷新试试")
                         }
                     }
                 } else {
@@ -143,12 +206,27 @@ private fun StatusList(timeline: PagedState<Status>, padding: PaddingValues, mod
                         HorizontalDivider()
                     }
                     item(key = "footer") {
-                        LoadMoreFooter(
-                            loading = timeline.loadingMore,
-                            hasMore = timeline.hasMore,
-                            error = timeline.loadMoreError,
-                            onLoadMore = { scope.launch { controller.loadMore() } },
-                        )
+                        if (!guest)
+                            LoadMoreFooter(
+                                loading = timeline.loadingMore,
+                                hasMore = timeline.hasMore,
+                                error = timeline.loadMoreError,
+                                onLoadMore = { scope.launch { controller.loadMore() } },
+                            )
+                    }
+                }
+                if (guest) {
+                    item {
+                        Column(
+                            Modifier.fillMaxWidth().padding(20.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                        ) {
+                            Text(
+                                "游客仅可浏览部分公开微博，登录后查看更多及参与互动。",
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                            TextButton(onClick = { navigator.push(Route.Login) }) { Text("登录查看更多") }
+                        }
                     }
                 }
             }
