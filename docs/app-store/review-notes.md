@@ -1,25 +1,36 @@
-# Review notes draft — not ready to submit
+# Review notes — version 1.0.0 (3)
 
-Resolve the release checklist in [APP_STORE.md](../APP_STORE.md) before using the text below. Add the tested content-reporting and blocking instructions after those features exist. Review access is unresolved because Weibo sign-in requires SMS verification; see the [demo-mode approval request draft](reviewer-access-request.md). Replace the account instructions below with the actual approved and implemented access route. Never put credentials, personal phone numbers or private contact emails in this repository.
+The text below describes the current build for the App Store Connect draft. On 2026-11-06 the maintainer chose to submit without test-account credentials and supplied review contact details directly for App Store Connect. Do not put those contact details or any credentials in this repository. Apple has not approved guest-only review access; guest browsing is not a substitute for authenticated review access. The release gaps in [APP_STORE.md](../APP_STORE.md) remain open.
 
 ---
 
-Tidemeld is an independent, free, open-source Weibo client. It is not affiliated with or endorsed by Weibo. Its interface is in Simplified Chinese.
+Tidemeld is an independent, free, open-source social feed aggregator for iPhone and iPad. It combines Weibo and X following feeds locally on the user's device. It is not affiliated with or endorsed by either platform. The interface is in Simplified Chinese.
 
-Authentication and network access:
-- The app opens Weibo's official sign-in page in a system WebKit view. The native code does not inspect login form fields or passwords. After sign-in, it uses the resulting session cookies for direct requests to Weibo's web endpoints.
-- The developer does not operate a server receiving Weibo credentials or content. The client does not claim to use an official OAuth integration or possess an authorization letter.
-- Core functions require an existing Weibo account. Enter the dedicated review account in App Store Connect's separate sign-in fields. The account must remain usable throughout review; confirm that login does not depend on the developer receiving an SMS or approving a QR code.
+Review access for this submission:
+- No test-account credentials are provided. Please begin with the public guest browsing described below. We acknowledge that guest access does not cover personal aggregation or account actions and can respond if further access is required.
 
-Navigation:
-- 首页: without signing in, public posts appear as native cards with pull-to-refresh, photo viewing and video playback. Weibo currently limits this guest feed to its first page. Further reading, profiles and interactions prompt sign-in. After sign-in, this tab becomes the native following feed, with post details, comments and pagination.
-- 搜索: trending topics and post search. Guests see the native trending list; tapping a topic opens Weibo's public web page. Weibo limits guest results and may require login for further browsing. After sign-in, the top-right search button opens the keyword field, and searches use native results. This limited guest access does not expose the following feed, notifications or account actions for review.
-- 通知: mentions, comments and likes. This tab is visible only after sign-in.
-- 设置: appearance, image preferences, app information and sign-in/sign-out. 设置 → 关于叠澜 → 隐私政策 opens the bundled policy without a network connection. The login screen also offers a policy button. The signed-in user's profile opens from the avatar at the top left of 首页.
+Authentication and access:
+- Tap the person icon at the top left of 首页 (Home) to open 账号管理 (Accounts), then 添加账号 (Add Account), and select Weibo or X.
+- Sign-in opens the selected platform's official website in a WebKit view. Native code does not read passwords, verification codes or login form fields. The client stores session cookies per account in the device Keychain and makes direct requests to the platform's web endpoints.
+- We do not operate a backend receiving platform credentials or content. This is not an official OAuth integration.
+- Personal following feeds and interactions require a platform account. Each platform may require SMS or other security verification, which Tidemeld cannot disable. The app does not include a built-in demo mode.
 
-The app supports posting text/photos, commenting, replying, liking, reposting and deleting the signed-in user's own posts/comments. No purchases or subscriptions are offered.
+Navigation and aggregation:
+- 首页 (Home): after sign-in, use the title menu to choose 聚合 (All), 微博 (Weibo) or X. All combines every signed-in account; each platform filter combines accounts on that platform. Merging, chronological sorting and same-platform deduplication happen locally. Posts display a platform icon and actions use the originating account.
+- Without sign-in, Home shows some public Weibo posts as native cards with refresh and media viewing. Weibo currently limits this guest feed to its first page. This does not provide access to personal following feeds or account actions.
+- Open a post to read details and comments. Images and videos use shared native viewers. X replies can display available parent posts above the current post.
+- 搜索 (Search): Weibo trending topics and, after Weibo sign-in, native keyword search. Guests can open limited public Weibo web results. Further browsing may require login.
+- 通知 (Notifications): Weibo comments, mentions and likes, available with a Weibo account.
+- 设置 (Settings): appearance, text size, image preferences and app information. 设置 → 关于叠澜 → 隐私政策 opens the bundled policy offline. Accounts can be removed individually in 账号管理; removing a local session does not delete the platform account.
 
-The background audio mode supports user-started media playback, including Picture in Picture; it is not used for background feed fetching. The app does not periodically poll the service in the background.
+Store screenshots:
+- Screenshots show the real interface with original, clearly labeled sample accounts and posts. Sample data is injected only by an offline screenshot test and is not a built-in demo mode.
+
+Other functionality:
+- Weibo includes likes, comments, replies, reposts, text/photo publishing and deletion of the user's own posts/comments.
+- X includes reply, like, repost and quote controls. Native X search, notifications, profile pages and standalone new-post publishing are not implemented. X @ mentions and topics open platform web pages. X integration remains limited and platform endpoint changes can affect availability.
+- These account actions are part of the submitted build; the app is not a read-only viewer. There are no hidden reviewer-only features. No purchases or subscriptions are offered.
+- The background audio mode supports user-started media playback, including Picture in Picture. It is not used for background feed fetching or polling.
 
 Source code: https://github.com/leonfox28/tidemeld
 Support: https://github.com/leonfox28/tidemeld/issues
