@@ -1,6 +1,6 @@
 # Review notes draft — not ready to submit
 
-Resolve the release checklist in [APP_STORE.md](../APP_STORE.md) before using the text below. Add the tested content-reporting and blocking instructions after those features exist. Never put credentials, personal phone numbers or private contact emails in this repository.
+Resolve the release checklist in [APP_STORE.md](../APP_STORE.md) before using the text below. Add the tested content-reporting and blocking instructions after those features exist. Review access is unresolved because Weibo sign-in requires SMS verification; see the [demo-mode approval request draft](reviewer-access-request.md). Replace the account instructions below with the actual approved and implemented access route. Never put credentials, personal phone numbers or private contact emails in this repository.
 
 ---
 
