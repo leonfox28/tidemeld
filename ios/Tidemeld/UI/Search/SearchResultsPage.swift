@@ -34,7 +34,8 @@ func weiboSearchURL(_ query: String) -> URL {
     let topic = query.count > 2 && query.hasPrefix("#") && query.hasSuffix("#")
     // What s.weibo.com redirects phones to: topic or general results.
     return URL.with(
-        "https://m.weibo.cn/search", query: [("containerid", topic ? "231522" : "100103"), ("q", query)])
+        "https://m.weibo.cn/search",
+        query: [("containerid", topic ? "231522" : "100103"), ("q", query)])
 }
 
 /// The posts across Weibo that match a query, newest first, as cards like the
@@ -56,23 +57,12 @@ struct SearchResultsPage: View {
     var body: some View {
         Group {
             if let results = model.results {
-                List {
+                SocialContentList(refresh: { try await results.refresh() }) {
                     if let topic = model.topic, results.state.list != nil {
                         TopicHeader(topic: topic).readingWidth().statusRow()
                     }
                     PagedRows(list: results, emptyText: "没有找到相关微博") { status in
                         StatusCard(status: status, actions: actions).readingWidth().statusRow()
-                    }
-                }
-                .listStyle(.plain)
-                .appListStyle()
-                .loadsMoreAsScrolled()
-                .tabBarHidesOnScroll()
-                .refreshable {
-                    do {
-                        try await results.refresh()
-                    } catch {
-                        graph.toasts.showError(error, router: graph.router)
                     }
                 }
             } else {

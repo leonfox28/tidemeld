@@ -18,82 +18,41 @@ struct ComposePage: View {
     @State private var uploading: Int?
     @State private var error: WeiboError?
     @State private var notice: String?
-    @FocusState private var focused: Bool
 
     var body: some View {
         @Bindable var drafts = graph.composeDraft
         let draft = drafts.draft
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    TextField("分享新鲜事…", text: $drafts.draft.text, axis: .vertical)
-                        .lineLimit(5...)
-                        .focused($focused)
-                        .disabled(sending)
-                    if let error { SendError(error: error) { web = WebRequest(url: $0) } }
-                    if let notice {
-                        Text(notice).font(.footnote).foregroundStyle(AppTheme.secondary)
-                    }
-                    if let uploading {
-                        Text("正在上传图片 \(uploading + 1)/\(draft.pictures.count)")
-                            .font(.footnote)
-                            .foregroundStyle(AppTheme.secondary)
-                    }
-                    pictures(draft)
-                    if reading {
-                        HStack(spacing: 8) {
-                            ProgressView().controlSize(.small)
-                            Text("正在读取图片…")
-                        }
-                        .font(.footnote)
-                        .foregroundStyle(AppTheme.secondary)
-                    }
+        PostEditor(
+            title: "发微博", hint: "分享新鲜事…", text: $drafts.draft.text,
+            sending: sending, canSend: draft.canSend && !reading,
+            failure: error.map(AppFailure.of), notice: notice,
+            progress: reading ? "正在读取图片…" : uploading.map { "正在上传图片 \($0 + 1)/\(draft.pictures.count)" },
+            onSend: send,
+            onRecover: { recovery in
+                if case .verify(let url) = recovery {
+                    web = WebRequest(url: url)
+                } else {
+                    dismiss()
+                    graph.router.recover(recovery)
                 }
-                .padding(16)
-            }
-            .scrollDismissesKeyboard(.interactively)
-            .appBackground()
-            .navigationTitle("发微博")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button(role: .close) { dismiss() }.disabled(sending)
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    if sending {
-                        ProgressView()
-                    } else {
-                        Button("发送", systemImage: "paperplane.fill", role: .confirm) { send() }
-                            .disabled(!draft.canSend || reading)
-                    }
-                }
-                ToolbarItemGroup(placement: .bottomBar) {
+            }, attachments: { pictures(draft) },
+            options: {
+                HStack {
                     PhotosPicker(
                         selection: $picked, maxSelectionCount: max(1, maxDraftPictures - draft.pictures.count),
                         matching: .images
                     ) {
                         Label("添加图片", systemImage: "photo.on.rectangle.angled")
-                    }
-                    .disabled(sending || reading || draft.pictures.count >= maxDraftPictures)
+                    }.disabled(reading || draft.pictures.count >= maxDraftPictures)
                     Spacer()
-                    Menu {
-                        Picker("可见范围", selection: $drafts.draft.visibility) {
-                            ForEach(StatusVisibility.choices, id: \.self) { visibility in
-                                Label(visibility.label, systemImage: visibility.symbol).tag(visibility)
-                            }
+                    Picker("可见范围", selection: $drafts.draft.visibility) {
+                        ForEach(StatusVisibility.choices, id: \.self) {
+                            Label($0.label, systemImage: $0.symbol).tag($0)
                         }
-                    } label: {
-                        HStack(spacing: 6) {
-                            Image(systemName: draft.visibility.symbol)
-                            Text(draft.visibility.label)
-                        }
-                        .padding(.horizontal, 6)
-                    }
-                    .disabled(sending)
+                    }.pickerStyle(.menu)
                 }
             }
-        }
-        .interactiveDismissDisabled(sending)
+        )
         .sheet(item: $web) { WebSheet(request: $0) }
         .onChange(of: picked) { _, items in
             guard !items.isEmpty else { return }
@@ -104,7 +63,6 @@ struct ComposePage: View {
                 reading = false
             }
         }
-        .onAppear { focused = true }
     }
 
     @ViewBuilder
@@ -130,12 +88,15 @@ struct ComposePage: View {
     private func add(_ items: [PhotosPickerItem]) async {
         var files: [URL] = []
         for item in items {
-            if let data = try? await item.loadTransferable(type: Data.self), let file = try? storeDraftPicture(data) {
+            if let data = try? await item.loadTransferable(type: Data.self),
+                let file = try? storeDraftPicture(data)
+            {
                 files.append(file)
             }
         }
         let left = graph.composeDraft.addPictures(files)
-        notice = left > 0 ? "最多只能添加 \(maxDraftPictures) 张图片" : files.count < items.count ? "有图片无法读取" : nil
+        notice =
+            left > 0 ? "最多只能添加 \(maxDraftPictures) 张图片" : files.count < items.count ? "有图片无法读取" : nil
     }
 
     private func send() {
@@ -173,53 +134,28 @@ struct RepostSheet: View {
     @State private var alsoComment = false
     @State private var sending = false
     @State private var error: WeiboError?
-    @FocusState private var focused: Bool
 
     var body: some View {
         let status = request.status
-        NavigationStack {
-            Form {
-                Section {
-                    // Weibo puts in 转发微博 when there is nothing.
-                    TextField("说说分享心得…", text: $text, selection: $selection, axis: .vertical)
-                        .lineLimit(3...8)
-                        .focused($focused)
-                        .disabled(sending)
-                        .onChange(of: text) { graph.repostDrafts[status.id] = text }
-                    if let error { SendError(error: error) }
+        PostEditor(
+            title: "转发", hint: "说说分享心得…", text: $text, selection: $selection,
+            sending: sending, sendLabel: "转发", failure: error.map(AppFailure.of), onSend: send,
+            onRecover: { recovery in
+                dismiss()
+                graph.router.recover(recovery)
+            }, attachments: {},
+            options: {
+                Picker("可见范围", selection: $visibility) {
+                    ForEach(StatusVisibility.choices, id: \.self) { Text($0.label).tag($0) }
                 }
-                .listRowBackground(AppTheme.surface)
-                Section {
-                    Picker("可见范围", selection: $visibility) {
-                        ForEach(StatusVisibility.choices, id: \.self) { Text($0.label).tag($0) }
-                    }
-                    Toggle("同时评论", isOn: $alsoComment)
-                }
-                .disabled(sending)
-                .listRowBackground(AppTheme.surface)
+                Toggle("同时评论", isOn: $alsoComment)
             }
-            .appListStyle()
-            .navigationTitle("转发")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button(role: .close) { dismiss() }.disabled(sending)
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    if sending {
-                        ProgressView()
-                    } else {
-                        Button("转发", systemImage: "arrow.2.squarepath", role: .confirm) { send() }
-                    }
-                }
-            }
-        }
+        )
+        .onChange(of: text) { graph.repostDrafts[status.id] = text }
         .presentationDetents([.medium, .large])
-        .interactiveDismissDisabled(sending)
         .onAppear {
             text = graph.repostDrafts[status.id] ?? request.quote
             selection = TextSelection(insertionPoint: text.startIndex)
-            focused = true
         }
     }
 

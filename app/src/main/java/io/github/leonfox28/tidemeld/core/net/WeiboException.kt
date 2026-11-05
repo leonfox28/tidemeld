@@ -1,5 +1,6 @@
 package io.github.leonfox28.tidemeld.core.net
 
+import io.github.leonfox28.tidemeld.core.errors.*
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
@@ -10,7 +11,17 @@ import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 
 /** A failure talking to Weibo, carrying a message fit to show the user. */
-sealed class WeiboException(override val message: String) : Exception(message)
+sealed class WeiboException(override val message: String) : Exception(message), UserFacingFailure {
+    override val appFailure: AppFailure
+        get() =
+            when (this) {
+                is SessionExpiredException -> AppFailure(message, FailureRecovery.SignIn)
+                is CaptchaRequiredException ->
+                    AppFailure(message, FailureRecovery.Verify(url.toString()))
+                is NetworkException -> AppFailure(message, isNetwork = true)
+                else -> AppFailure(message)
+            }
+}
 
 /** The stored session is missing, expired, or was rejected. */
 class SessionExpiredException : WeiboException("登录已过期，请重新登录")

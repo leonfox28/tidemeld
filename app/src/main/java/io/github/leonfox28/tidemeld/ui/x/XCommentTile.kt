@@ -1,19 +1,13 @@
 package io.github.leonfox28.tidemeld.ui.x
 
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import io.github.leonfox28.tidemeld.core.media.WeiboImage
 import io.github.leonfox28.tidemeld.core.util.formatPostTime
 import io.github.leonfox28.tidemeld.data.x.XPost
 import io.github.leonfox28.tidemeld.ui.navigation.*
@@ -54,16 +48,12 @@ fun XCommentTile(
             isAuthor = authorHandle != null && post.handle.equals(authorHandle, ignoreCase = true),
             onReply = ::reply,
             onLongClick = { menu = true },
-            avatar = {
-                Box(Modifier.fillMaxSize().clip(CircleShape), contentAlignment = Alignment.Center) {
-                    if (post.avatar != null) WeiboImage(post.avatar, Modifier.fillMaxSize())
-                    else Icon(Icons.Default.Person, null)
-                }
-            },
+            avatar = { PostAvatar(post.avatar, post.author, size = 32.dp) },
             content = {
                 if (post.text.isNotEmpty())
-                    Text(
+                    XPostText(
                         post.text,
+                        owner,
                         Modifier.padding(top = 4.dp),
                         style =
                             MaterialTheme.typography.bodyMedium.copy(
@@ -77,8 +67,10 @@ fun XCommentTile(
                         onOpen = { navigator.push(Route.XDetail(owner, quote.originalId, quote)) }
                     ) {
                         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Text(
-                                "@${quote.author}：${quote.text}",
+                            XPostText(
+                                quote.text,
+                                owner,
+                                author = quote.author,
                                 style = MaterialTheme.typography.bodyMedium,
                             )
                             XMedia(quote, owner, compact = true)
@@ -94,9 +86,11 @@ fun XCommentTile(
                     ({
                         PostCommentThread(maxOf(actions.comments, preview.size), ::thread) {
                             preview.take(2).forEach { child ->
-                                Text(
-                                    "@${child.author}：${child.text.ifEmpty { "[媒体]" }}",
+                                XPostText(
+                                    child.text.ifEmpty { "[媒体]" },
+                                    owner,
                                     Modifier.padding(bottom = 4.dp),
+                                    author = child.author,
                                     style = MaterialTheme.typography.bodyMedium,
                                     maxLines = 2,
                                 )

@@ -1,13 +1,11 @@
 package io.github.leonfox28.tidemeld.ui.notifications
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
@@ -27,11 +25,9 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.PrimaryScrollableTabRow
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -45,7 +41,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.LocalDensity
@@ -64,7 +59,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.leonfox28.tidemeld.LocalAppGraph
-import io.github.leonfox28.tidemeld.core.media.WeiboImage
 import io.github.leonfox28.tidemeld.core.net.WeiboException
 import io.github.leonfox28.tidemeld.core.paging.ListLoad
 import io.github.leonfox28.tidemeld.core.paging.PagedController
@@ -82,6 +76,7 @@ import io.github.leonfox28.tidemeld.ui.comments.CommentTile
 import io.github.leonfox28.tidemeld.ui.navigation.LocalNavigator
 import io.github.leonfox28.tidemeld.ui.navigation.Route
 import io.github.leonfox28.tidemeld.ui.shell.LocalTabReselect
+import io.github.leonfox28.tidemeld.ui.social.*
 import io.github.leonfox28.tidemeld.ui.status.rememberStatusCardActions
 import io.github.leonfox28.tidemeld.ui.theme.UnreadColor
 import io.github.leonfox28.tidemeld.ui.widget.KeepAtTop
@@ -399,7 +394,6 @@ private fun CommentNoticeTile(notice: CommentNotice, actions: StatusCardActions)
 @Composable
 private fun LikeNoticeTile(notice: LikeNotice, actions: StatusCardActions) {
     val navigator = LocalNavigator.current
-    val muted = MaterialTheme.colorScheme.onSurfaceVariant
     val status = notice.status
     val comment = notice.comment
     val open: (() -> Unit)? =
@@ -408,36 +402,18 @@ private fun LikeNoticeTile(notice: LikeNotice, actions: StatusCardActions) {
         // A cut-down post would show without its pictures and counts until
         // the detail page has loaded it.
         else ({ navigator.push(Route.StatusDetail(status.id)) })
-    Row(
-        Modifier.fillMaxWidth()
-            .then(if (open != null) Modifier.clickable(onClick = open) else Modifier)
-            .padding(16.dp, 12.dp)
+    SocialNoticeRow(
+        notice.user?.screenName ?: "微博用户",
+        if (comment != null) "赞了你的评论" else "赞了你的微博",
+        notice.createdAt?.let { formatPostTime(it) },
+        open,
+        avatar = { UserAvatar(notice.user, size = 32.dp, onClick = actions.onUser) },
     ) {
-        UserAvatar(notice.user, size = 32.dp, onClick = actions.onUser)
-        Spacer(Modifier.width(10.dp))
-        Column(Modifier.weight(1f)) {
-            Text(
-                buildAnnotatedString {
-                    withStyle(SpanStyle(color = muted, fontWeight = FontWeight.Medium)) {
-                        append(notice.user?.screenName ?: "微博用户")
-                    }
-                    append(if (comment != null) " 赞了你的评论" else " 赞了你的微博")
-                },
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                style = MaterialTheme.typography.bodyMedium,
-            )
-            notice.createdAt?.let {
-                Spacer(Modifier.height(2.dp))
-                Text(formatPostTime(it), style = MaterialTheme.typography.bodySmall, color = muted)
-            }
-            Spacer(Modifier.height(8.dp))
-            if (comment != null) {
-                CommentQuote(comment)
-                Spacer(Modifier.height(6.dp))
-            }
-            status?.let { StatusQuote(it, open) }
+        if (comment != null) {
+            CommentQuote(comment)
+            Spacer(Modifier.height(6.dp))
         }
+        status?.let { StatusQuote(it, open) }
     }
 }
 
@@ -475,7 +451,6 @@ private val Thumb = 48.dp
 /** The post a notification is about, as a small card: a picture, its author and its text. */
 @Composable
 private fun StatusQuote(status: Status, onClick: (() -> Unit)?) {
-    val colors = MaterialTheme.colorScheme
     val settings by LocalAppGraph.current.settings.settings.collectAsStateWithLifecycle()
     val density = LocalDensity.current.density
     val user = status.user
@@ -484,36 +459,10 @@ private fun StatusQuote(status: Status, onClick: (() -> Unit)?) {
             .firstOrNull()
             ?.variantFor(settings.imageQuality.listPixels(Thumb.value, density))
             ?.url ?: status.video?.coverUrl
-    Surface(
-        modifier =
-            Modifier.fillMaxWidth()
-                .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
-        shape = RoundedCornerShape(6.dp),
-        color = colors.surfaceContainerHigh,
-    ) {
-        Row(Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            if (thumb != null) {
-                WeiboImage(thumb, Modifier.size(Thumb).clip(RoundedCornerShape(4.dp)))
-                Spacer(Modifier.width(8.dp))
-            }
-            // Deleted or hidden posts come without an author.
-            Text(
-                if (user == null) {
-                    buildAnnotatedString { append("这条微博已被删除或不可见") }
-                } else {
-                    buildAnnotatedString {
-                        withStyle(SpanStyle(fontWeight = FontWeight.Medium)) {
-                            append("@${user.screenName}：")
-                        }
-                        append(plainStatusText(status.text))
-                    }
-                },
-                modifier = Modifier.weight(1f),
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                style = MaterialTheme.typography.bodySmall,
-                color = colors.onSurfaceVariant,
-            )
-        }
-    }
+    PostSummary(
+        user?.screenName,
+        if (user == null) "这条微博已被删除或不可见" else plainStatusText(status.text),
+        thumb,
+        onClick,
+    )
 }

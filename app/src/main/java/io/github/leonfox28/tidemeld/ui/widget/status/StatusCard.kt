@@ -41,7 +41,6 @@ import io.github.leonfox28.tidemeld.ui.interactions.LikeTarget
 import io.github.leonfox28.tidemeld.ui.interactions.like
 import io.github.leonfox28.tidemeld.ui.interactions.rememberLike
 import io.github.leonfox28.tidemeld.ui.post.*
-import io.github.leonfox28.tidemeld.ui.widget.PicGrid
 import io.github.leonfox28.tidemeld.ui.widget.UserAvatar
 import io.github.leonfox28.tidemeld.ui.widget.VerifiedIcon
 import io.github.leonfox28.tidemeld.ui.widget.WideCardFrom
@@ -189,13 +188,17 @@ private fun Media(status: Status, actions: StatusCardActions) {
     val onVideo = actions.onVideo
     when {
         status.pics.isNotEmpty() ->
-            PicGrid(
+            PostMedia(
                 status.pics.map { MixedMedia.Pic(it) },
                 total = status.picCount,
-                onClick = onPicture?.let { { i: Int -> it(status.pics, i, status) } },
+                onOpen = onPicture?.let { { i: Int -> it(status.pics, i, status) } },
             )
         status.mixedMedia.isNotEmpty() -> MixedGrid(status, actions)
-        video != null -> VideoCover(video, onVideo?.let { { it(status, null) } })
+        video != null ->
+            PostMedia(
+                listOf(MixedMedia.Video(video)),
+                onOpen = onVideo?.let { { _: Int -> it(status, null) } },
+            )
         card != null -> PageCardView(card)
     }
 }
@@ -205,7 +208,7 @@ private fun Media(status: Status, actions: StatusCardActions) {
 @Composable
 private fun MixedGrid(status: Status, actions: StatusCardActions) {
     val items = status.mixedMedia
-    PicGrid(items, total = status.picCount) { i ->
+    PostMedia(items, total = status.picCount, preferVideoCover = false) { i ->
         val before = items.take(i)
         when (items[i]) {
             is MixedMedia.Pic ->

@@ -31,12 +31,14 @@ final class NotificationsModel {
         let api = api!
         if kind == .comments {
             if let comments { return comments }
-            let list = PagedList<CommentNotice>(fetch: { try await api.fetchCommentNotices(maxId: $0) }, id: \.id)
+            let list = PagedList<CommentNotice>(
+                fetch: { try await api.fetchCommentNotices(maxId: $0) }, id: \.id)
             comments = list
             return list
         }
         if let mentionComments { return mentionComments }
-        let list = PagedList<CommentNotice>(fetch: { try await api.fetchMentionComments(maxId: $0) }, id: \.id)
+        let list = PagedList<CommentNotice>(
+            fetch: { try await api.fetchMentionComments(maxId: $0) }, id: \.id)
         mentionComments = list
         return list
     }
@@ -125,7 +127,9 @@ struct NotificationsPage: View {
             }
             .scrollTargetBehavior(.paging)
             // The page more than half in view, as the Android app's pager has it.
-            .scrollPosition(id: Binding(get: { kind }, set: { if let page = $0 { kind = page } }), anchor: .center)
+            .scrollPosition(
+                id: Binding(get: { kind }, set: { if let page = $0 { kind = page } }), anchor: .center
+            )
             .scrollIndicators(.hidden)
             // The bars blur what goes under them, as elsewhere. The lists'
             // own edge effects don't show, so this scroll view's does; and as
@@ -139,8 +143,16 @@ struct NotificationsPage: View {
         // and the lists, made as tall as the screen, came out centred on that,
         // a little way down.)
         .ignoresSafeArea(.container, edges: .vertical)
-        .onGeometryChange(for: EdgeInsets.self) { $0.safeAreaInsets } action: { barInsets = $0 }
-        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
+        .onGeometryChange(for: EdgeInsets.self) {
+            $0.safeAreaInsets
+        } action: {
+            barInsets = $0
+        }
+        .onGeometryChange(for: CGFloat.self) {
+            $0.size.width
+        } action: {
+            width = $0
+        }
         // In the navigation bar, in place of the title, which the tab bar
         // already gives: under it, they made the top bar twice as tall. The
         // bar gives them only what they need unless told how wide to be: the
@@ -277,7 +289,9 @@ private struct NoticeList: View {
         .safeAreaPadding(.top, barInsets.top)
         .safeAreaPadding(.bottom, barInsets.bottom)
         .modifier(HideOnScroll(visible: shown ? tabBarVisible : .constant(true), tabBar: true))
-        .onScrollGeometryChange(for: Bool.self) { $0.contentOffset.y <= -$0.contentInsets.top + 1 } action: { _, top in
+        .onScrollGeometryChange(for: Bool.self) {
+            $0.contentOffset.y <= -$0.contentInsets.top + 1
+        } action: { _, top in
             self.top = top
             if shown { atTop.wrappedValue = top }
         }
@@ -351,29 +365,15 @@ private struct LikeNoticeTile: View {
                     // counts until the detail page has loaded it.
                     : { graph.router.push(.status(id: status.id, initial: nil)) }
             } else { nil }
-        HStack(alignment: .top, spacing: 10) {
-            UserAvatar(user: notice.user, size: 32, onTap: actions.onUser)
-            VStack(alignment: .leading, spacing: 8) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(
-                        "\(Text(notice.user?.screenName ?? "微博用户").fontWeight(.medium).foregroundStyle(AppTheme.secondary))\(notice.comment != nil ? " 赞了你的评论" : " 赞了你的微博")"
-                    )
-                    .font(.subheadline)
-                    .lineLimit(1)
-                    if let time = notice.createdAt {
-                        Text(formatPostTime(time)).font(.caption).foregroundStyle(AppTheme.secondary)
-                    }
-                }
+        SocialNoticeRow(
+            author: notice.user?.screenName ?? "微博用户",
+            activity: notice.comment != nil ? "赞了你的评论" : "赞了你的微博",
+            time: notice.createdAt.map { formatPostTime($0) }, onOpen: open,
+            avatar: { UserAvatar(user: notice.user, size: 32, onTap: actions.onUser) },
+            content: {
                 if let comment = notice.comment { CommentQuote(comment: comment) }
                 if let status { StatusQuote(status: status, onTap: open) }
-            }
-        }
-        .foregroundStyle(AppTheme.foreground)
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .contentShape(Rectangle())
-        .onTapGesture { open?() }
+            })
     }
 }
 
@@ -405,29 +405,12 @@ private struct StatusQuote: View {
 
     var body: some View {
         let quality = graph.settings.settings.imageQuality
-        let thumb = status.pics.first?.variant(for: quality.listPixels(48, scale: scale)).url ?? status.video?.coverURL
-        HStack(spacing: 8) {
-            if let thumb {
-                WeiboImage(url: thumb, maxPixels: 48 * scale)
-                    .frame(width: 48, height: 48)
-                    .clipShape(RoundedRectangle(cornerRadius: 4))
-            }
-            // Deleted or hidden posts come without an author.
-            Group {
-                if let user = status.user {
-                    Text("\(Text("@\(user.screenName)：").fontWeight(.medium))\(plainStatusText(status.text))")
-                } else {
-                    Text("这条微博已被删除或不可见")
-                }
-            }
-            .font(.caption)
-            .foregroundStyle(AppTheme.secondary)
-            .lineLimit(2)
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        .padding(8)
-        .background(AppTheme.elevated.opacity(0.6), in: RoundedRectangle(cornerRadius: 8))
-        .contentShape(RoundedRectangle(cornerRadius: 8))
-        .onTapGesture { onTap?() }
+        let thumb =
+            status.pics.first?.variant(for: quality.listPixels(48, scale: scale)).url
+            ?? status.video?.coverURL
+        PostSummary(
+            author: status.user?.screenName,
+            text: status.user == nil ? "这条微博已被删除或不可见" : plainStatusText(status.text),
+            thumbnail: thumb, onOpen: onTap)
     }
 }

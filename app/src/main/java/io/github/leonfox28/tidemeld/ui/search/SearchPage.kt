@@ -17,17 +17,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.text.input.TextFieldLineLimits
-import androidx.compose.foundation.text.input.clearText
-import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material.icons.filled.Close
@@ -37,9 +30,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
@@ -52,17 +43,13 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
@@ -81,7 +68,6 @@ import io.github.leonfox28.tidemeld.ui.shell.LocalTabReselect
 import io.github.leonfox28.tidemeld.ui.status.openSearchResults
 import io.github.leonfox28.tidemeld.ui.widget.ErrorRetry
 import io.github.leonfox28.tidemeld.ui.widget.LocalSnackbars
-import io.github.leonfox28.tidemeld.ui.widget.ReadingWidth
 import io.github.leonfox28.tidemeld.ui.widget.TagLabel
 import io.github.leonfox28.tidemeld.ui.widget.readingPadding
 import io.github.leonfox28.tidemeld.ui.widget.showError
@@ -168,72 +154,9 @@ fun SearchPage(padding: PaddingValues) {
 private fun SearchField(focusRequested: Boolean, onFocused: () -> Unit) {
     val graph = LocalAppGraph.current
     val navigator = LocalNavigator.current
-    val focus = LocalFocusManager.current
-    val requester = remember { FocusRequester() }
-    val text = rememberTextFieldState()
-    val colors = MaterialTheme.colorScheme
-    fun search() {
-        if (graph.session.state.value !is SessionState.SignedIn) return
-        val query = text.text.toString().trim()
-        if (query.isEmpty()) return
-        // Or the keyboard comes back with the field when the results close.
-        focus.clearFocus()
-        openSearchResults(navigator, query)
-    }
-    LaunchedEffect(focusRequested) {
-        if (focusRequested) {
-            requester.requestFocus()
-            onFocused()
-        }
-    }
-    // Over the list's column, not spread across a wide window.
-    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-        Surface(
-            Modifier.widthIn(max = ReadingWidth)
-                .fillMaxWidth()
-                .padding(start = 16.dp, top = 8.dp, end = 16.dp, bottom = 4.dp),
-            shape = CircleShape,
-            color = colors.surfaceContainerHigh,
-        ) {
-            Row(
-                Modifier.height(56.dp).padding(horizontal = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(
-                    Icons.Filled.Search,
-                    contentDescription = null,
-                    modifier = Modifier.padding(horizontal = 12.dp),
-                )
-                BasicTextField(
-                    text,
-                    Modifier.weight(1f).focusRequester(requester),
-                    textStyle = MaterialTheme.typography.bodyLarge.copy(color = colors.onSurface),
-                    lineLimits = TextFieldLineLimits.SingleLine,
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                    onKeyboardAction = { search() },
-                    cursorBrush = SolidColor(colors.primary),
-                    decorator = { field ->
-                        Box(contentAlignment = Alignment.CenterStart) {
-                            if (text.text.isEmpty()) {
-                                Text(
-                                    "搜索微博",
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    color = colors.onSurfaceVariant,
-                                )
-                            }
-                            field()
-                        }
-                    },
-                )
-                if (text.text.isNotEmpty()) {
-                    IconButton(onClick = { text.clearText() }) {
-                        Icon(Icons.Filled.Close, contentDescription = "清除")
-                    }
-                } else {
-                    Spacer(Modifier.width(12.dp))
-                }
-            }
-        }
+    io.github.leonfox28.tidemeld.ui.social.SocialSearchField("搜索微博", focusRequested, onFocused) {
+        query ->
+        if (graph.session.state.value is SessionState.SignedIn) openSearchResults(navigator, query)
     }
 }
 

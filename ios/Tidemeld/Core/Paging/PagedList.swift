@@ -9,7 +9,7 @@ struct PagedState<T> {
     var total: Int? = nil
     var loadingMore = false
     /// Why the last attempt to load more failed; cleared by the next attempt.
-    var loadMoreError: WeiboError? = nil
+    var loadMoreError: AppFailure? = nil
 
     var hasMore: Bool { nextCursor != nil }
 
@@ -26,7 +26,7 @@ struct PagedState<T> {
 /// A list's first page: loading, failed, or loaded.
 enum ListLoad<T> {
     case loading
-    case failed(WeiboError)
+    case failed(AppFailure)
     case ready(PagedState<T>)
 
     var list: PagedState<T>? {
@@ -76,7 +76,7 @@ final class PagedList<T: Sendable> {
             do {
                 loaded = .ready(Self.state(of: try await fetchPage(nil)))
             } catch {
-                loaded = .failed(WeiboError.of(error))
+                loaded = .failed(AppFailure.of(error))
             }
             if generation == self.generation { state = loaded }
         }
@@ -113,11 +113,11 @@ final class PagedList<T: Sendable> {
 
         let generation = generation
         var page: Paged<T>?
-        var error: WeiboError?
+        var error: AppFailure?
         do {
             page = try await fetchPage(current.nextCursor)
         } catch let e {
-            error = WeiboError.of(e)
+            error = AppFailure.of(e)
         }
         // Drop the result if a refresh replaced the list meanwhile; otherwise
         // add it to the list as it is now, which the user may have changed.

@@ -32,11 +32,11 @@ final class Toasts {
     /// security check first, offers to take it (they then try again
     /// themselves).
     func showError(_ error: Error, router: Router) {
-        let error = WeiboError.of(error)
+        let error = AppFailure.of(error)
         // Given up on, as its page went away: nothing to say.
         if error == .cancelled { return }
-        if let url = error.captchaURL {
-            show(error.message, actionLabel: "去验证") { router.web = WebRequest(url: url) }
+        if let recovery = error.recovery {
+            show(error.message, actionLabel: recovery.label) { router.recover(recovery) }
         } else {
             show(error.message)
         }
@@ -80,5 +80,14 @@ struct ToastHost: View {
         }
         .animation(.spring(duration: 0.35), value: toasts.current)
         .allowsHitTesting(toasts.current != nil)
+    }
+}
+
+extension Router {
+    func recover(_ recovery: FailureRecovery, onVerified: (() -> Void)? = nil) {
+        switch recovery {
+        case .signIn: push(.accounts)
+        case .verify(let url): web = WebRequest(url: url, onClose: onVerified)
+        }
     }
 }

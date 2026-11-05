@@ -30,7 +30,9 @@ struct WeiboImage: View {
     private var key: String? { url.map { "\($0)#\(maxPixels ?? 0)" } }
 
     var body: some View {
-        let image = loadedKey == key ? loaded : url.flatMap { ImageLoader.shared.cached($0, maxPixels: maxPixels) }
+        let image =
+            loadedKey == key
+            ? loaded : url.flatMap { ImageLoader.shared.cached($0, maxPixels: maxPixels) }
         Color.clear
             .overlay(alignment: alignment) {
                 if let image {
@@ -100,38 +102,22 @@ struct AnimatedImage: UIViewRepresentable {
     }
 }
 
-/// A round avatar of [user], tappable when [onTap] is set.
+/// Weibo supplies content and navigation to the common avatar.
 struct UserAvatar: View {
     let user: WeiboUser?
     var size: CGFloat = 40
     var onTap: ((WeiboUser) -> Void)? = nil
-    @Environment(\.displayScale) private var scale
-
     var body: some View {
-        Group {
-            if let url = user?.avatarURL {
-                WeiboImage(url: url, maxPixels: size * scale)
-            } else {
-                Image(systemName: "person.fill")
-                    .font(.system(size: size * 0.5))
-                    .foregroundStyle(AppTheme.onPrimaryContainer)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(AppTheme.primaryContainer)
-            }
-        }
-        .frame(width: size, height: size)
-        .clipShape(Circle())
-        .contentShape(Circle())
-        .onTapGesture {
-            if let user, let onTap { onTap(user) }
-        }
-        .allowsHitTesting(user != nil && onTap != nil)
-        .accessibilityLabel(user?.screenName ?? "头像")
+        PostAvatar(
+            url: user?.avatarURL, label: user?.screenName ?? "头像", size: size,
+            onTap: user.flatMap { user in onTap.map { action in { action(user) } } })
     }
 }
 
 /// Whether [verifiedType] (`WeiboUser.verifiedType`) has a mark.
-func showsVerified(_ verifiedType: Int?) -> Bool { verifiedType.map { (0...7).contains($0) } ?? false }
+func showsVerified(_ verifiedType: Int?) -> Bool {
+    verifiedType.map { (0...7).contains($0) } ?? false
+}
 
 /// Weibo's verification mark: gold for people, blue for organisations.
 struct VerifiedIcon: View {

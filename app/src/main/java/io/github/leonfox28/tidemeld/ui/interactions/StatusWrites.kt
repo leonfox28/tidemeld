@@ -2,21 +2,16 @@ package io.github.leonfox28.tidemeld.ui.interactions
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -25,14 +20,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import io.github.leonfox28.tidemeld.AppGraph
 import io.github.leonfox28.tidemeld.LocalAppGraph
+import io.github.leonfox28.tidemeld.core.errors.AppFailure
 import io.github.leonfox28.tidemeld.core.net.WeiboException
 import io.github.leonfox28.tidemeld.core.session.SessionController
 import io.github.leonfox28.tidemeld.data.model.Status
@@ -40,11 +34,12 @@ import io.github.leonfox28.tidemeld.data.model.StatusVisibility
 import io.github.leonfox28.tidemeld.ui.compose.VisibilityButton
 import io.github.leonfox28.tidemeld.ui.navigation.LocalNavigator
 import io.github.leonfox28.tidemeld.ui.navigation.Navigator
-import io.github.leonfox28.tidemeld.ui.navigation.Route
+import io.github.leonfox28.tidemeld.ui.post.PostEditor
 import io.github.leonfox28.tidemeld.ui.widget.LocalOverlays
 import io.github.leonfox28.tidemeld.ui.widget.LocalSnackbars
 import io.github.leonfox28.tidemeld.ui.widget.OverlaySheet
 import io.github.leonfox28.tidemeld.ui.widget.Overlays
+import io.github.leonfox28.tidemeld.ui.widget.recover
 import io.github.leonfox28.tidemeld.ui.widget.showError
 import io.github.leonfox28.tidemeld.ui.widget.showMessage
 import kotlinx.coroutines.CoroutineScope
@@ -202,37 +197,26 @@ private fun RepostSheet(status: Status, quote: String, close: (Sent?) -> Unit) {
             }
         }
 
-        Column(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp)) {
-            val focus = remember { FocusRequester() }
-            OutlinedTextField(
-                text,
-                {
-                    text = it
-                    graph.repostDrafts[status.id] = it.text
-                },
-                Modifier.fillMaxWidth().focusRequester(focus),
-                enabled = !sending,
-                // Weibo puts in 转发微博 when there is nothing.
-                placeholder = { Text("说说分享心得…") },
-                minLines = 3,
-                maxLines = 6,
-            )
-            LaunchedEffect(Unit) { focus.requestFocus() }
-            error?.let { e ->
-                SendError(
-                    e,
-                    onVerify = { url ->
-                        dismiss(null)
-                        navigator.push(Route.Web(url))
-                    },
-                )
-            }
-            Spacer(Modifier.height(8.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
+        PostEditor(
+            title = "转发",
+            hint = "说说分享心得…",
+            text = text,
+            onTextChange = {
+                text = it
+                graph.repostDrafts[status.id] = it.text
+            },
+            sending = sending,
+            canSend = true,
+            onSend = { send() },
+            sendLabel = "转发",
+            failure = error?.let(AppFailure::of),
+            onRecover = { recovery ->
+                dismiss(null)
+                navigator.recover(recovery)
+            },
+            options = {
                 FlowRow(
-                    Modifier.weight(1f),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
                     itemVerticalAlignment = Alignment.CenterVertically,
                 ) {
                     VisibilityButton(
@@ -252,9 +236,7 @@ private fun RepostSheet(status: Status, quote: String, close: (Sent?) -> Unit) {
                         Text("同时评论")
                     }
                 }
-                Spacer(Modifier.width(8.dp))
-                SendButton("转发", sending = sending, enabled = true) { send() }
-            }
-        }
+            },
+        )
     }
 }

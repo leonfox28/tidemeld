@@ -46,28 +46,10 @@ struct SearchPage: View {
     var body: some View {
         VStack(spacing: 0) {
             if searching, graph.session.account != nil {
-                HStack(spacing: 10) {
-                    Image(systemName: "magnifyingglass").foregroundStyle(AppTheme.secondary)
-                    TextField("搜索微博", text: $query)
-                        .focused($searchFocused)
-                        .submitLabel(.search)
-                        .onSubmit {
-                            guard graph.session.account != nil,
-                                !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                            else { return }
-                            searchFocused = false
-                            graph.router.openSearch(query)
-                        }
-                    if !query.isEmpty {
-                        Button("清除", systemImage: "xmark.circle.fill") { query = "" }
-                            .labelStyle(.iconOnly)
-                            .foregroundStyle(AppTheme.secondary)
-                    }
+                SocialSearchField(query: $query, hint: "搜索微博", focused: $searchFocused) { query in
+                    guard graph.session.account != nil else { return }
+                    graph.router.openSearch(query)
                 }
-                .padding(.horizontal, 14).padding(.vertical, 12)
-                .background(AppTheme.elevated, in: Capsule())
-                .readingWidth()
-                .padding(.horizontal, 16).padding(.vertical, 8)
             }
             hotList.frame(maxWidth: .infinity, maxHeight: .infinity)
         }

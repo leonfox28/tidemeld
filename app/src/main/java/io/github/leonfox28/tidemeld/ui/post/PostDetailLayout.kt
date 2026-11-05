@@ -30,7 +30,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalDensity
-import io.github.leonfox28.tidemeld.core.net.WeiboException
 import io.github.leonfox28.tidemeld.ui.navigation.LocalNavigator
 import io.github.leonfox28.tidemeld.ui.widget.AppSnackbarHost
 import io.github.leonfox28.tidemeld.ui.widget.BarsOnScroll
@@ -42,6 +41,7 @@ import io.github.leonfox28.tidemeld.ui.widget.WindowSize
 import io.github.leonfox28.tidemeld.ui.widget.readingPadding
 import io.github.leonfox28.tidemeld.ui.widget.showError
 import io.github.leonfox28.tidemeld.ui.widget.windowSize
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
 /** Shared detail chrome, refresh, independent wide panes, scrolling bars and pagination. */
@@ -106,7 +106,8 @@ fun PostDetailLayout(
                     scope.launch {
                         try {
                             onRefresh()
-                        } catch (e: WeiboException) {
+                        } catch (e: Exception) {
+                            if (e is CancellationException) throw e
                             launch { snackbars.showError(e, navigator) }
                         } finally {
                             refreshing = false

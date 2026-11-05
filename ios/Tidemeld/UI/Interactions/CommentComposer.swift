@@ -49,28 +49,19 @@ struct CommentComposer: View {
     }
 }
 
-/// Why sending failed; when Weibo wants a security check first, a way to take
-/// it: [onVerify], or by default the sheet closes (the draft stays) for the
-/// check to show over the page, as the Kotlin sheets do.
+/// Presentation adapter for existing editor callers and verification navigation.
 struct SendError: View {
-    let error: WeiboError
+    let error: Error
     var onVerify: ((URL) -> Void)? = nil
     @Environment(AppGraph.self) private var graph
     @Environment(\.dismiss) private var dismiss
-
     var body: some View {
-        HStack {
-            Text(error.message).font(.footnote).foregroundStyle(AppTheme.error)
-            if let url = error.captchaURL {
-                Button("去验证") {
-                    if let onVerify {
-                        onVerify(url)
-                    } else {
-                        dismiss()
-                        graph.router.web = WebRequest(url: url)
-                    }
-                }
-                .font(.footnote)
+        FailureNotice(failure: AppFailure.of(error)) { recovery in
+            if case .verify(let url) = recovery, let onVerify {
+                onVerify(url)
+            } else {
+                dismiss()
+                graph.router.recover(recovery)
             }
         }
     }

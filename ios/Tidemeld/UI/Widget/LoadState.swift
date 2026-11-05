@@ -3,16 +3,18 @@ import SwiftUI
 /// A failure in place of content, with a retry button; when Weibo wants a
 /// security check first, a button to take it.
 struct ErrorRetry: View {
-    let error: WeiboError
+    let error: Error
     let onRetry: () -> Void
     @Environment(AppGraph.self) private var graph
 
     var body: some View {
+        let failure = AppFailure.of(error)
         ContentUnavailableView {
-            Label(error.message, systemImage: error == .network ? "wifi.slash" : "exclamationmark.triangle")
+            Label(
+                failure.message, systemImage: failure.isNetwork ? "wifi.slash" : "exclamationmark.triangle")
         } actions: {
-            if let url = error.captchaURL {
-                Button("去验证") { graph.router.web = WebRequest(url: url, onClose: onRetry) }
+            if let recovery = failure.recovery {
+                Button(recovery.label) { graph.router.recover(recovery, onVerified: onRetry) }
                     .buttonStyle(.glassProminent)
             } else {
                 Button("重试", action: onRetry).buttonStyle(.glass)
@@ -43,8 +45,8 @@ struct LoadMoreFooter<T>: View {
             } else if let error = list.loadMoreError {
                 VStack(spacing: 6) {
                     Text(error.message).font(.footnote).foregroundStyle(AppTheme.secondary)
-                    if let url = error.captchaURL {
-                        Button("去验证") { graph.router.web = WebRequest(url: url, onClose: onLoadMore) }
+                    if let recovery = error.recovery {
+                        Button(recovery.label) { graph.router.recover(recovery, onVerified: onLoadMore) }
                     } else {
                         Button("重试", action: onLoadMore)
                     }
@@ -93,7 +95,9 @@ private struct LoadsMoreAsScrolled: ViewModifier {
         content
             // From the offset alone: the scroll phase doesn't change on a
             // `List` as it is dragged.
-            .onScrollGeometryChange(for: CGFloat.self) { $0.contentOffset.y + $0.contentInsets.top } action: {
+            .onScrollGeometryChange(for: CGFloat.self) {
+                $0.contentOffset.y + $0.contentInsets.top
+            } action: {
                 old, new in
                 // On toward the end, from below the top: springing back from a
                 // pull to refresh doesn't count.

@@ -2,20 +2,15 @@ package io.github.leonfox28.tidemeld.ui.x
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.leonfox28.tidemeld.LocalAppGraph
 import io.github.leonfox28.tidemeld.R
-import io.github.leonfox28.tidemeld.core.media.WeiboImage
 import io.github.leonfox28.tidemeld.core.util.formatPostTime
 import io.github.leonfox28.tidemeld.data.model.MixedMedia
 import io.github.leonfox28.tidemeld.data.x.XPost
@@ -42,21 +37,15 @@ fun XPostCard(post: XPost, owner: String, detail: Boolean = false) {
                 sourceIcon = R.drawable.ic_platform_x,
                 sourceLabel = "X",
                 tags = if (post.promoted) listOf("广告") else emptyList(),
-                avatar = {
-                    Box(
-                        Modifier.size(40.dp).clip(CircleShape),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        if (post.avatar != null) WeiboImage(post.avatar, Modifier.fillMaxSize())
-                        else Icon(Icons.Default.Person, null)
-                    }
-                },
+                avatar = { PostAvatar(post.avatar, post.author, size = 40.dp) },
             )
         },
         body = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(
+                XPostText(
                     post.text,
+                    owner,
+                    selectable = detail,
                     style =
                         MaterialTheme.typography.bodyMedium.copy(
                             fontSize = 15.sp,
@@ -76,8 +65,10 @@ fun XPostCard(post: XPost, owner: String, detail: Boolean = false) {
                             }
                         ) {
                             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Text(
-                                    "@${quote.author}：${quote.text}",
+                                XPostText(
+                                    quote.text,
+                                    owner,
+                                    author = quote.author,
                                     style = MaterialTheme.typography.bodyMedium,
                                 )
                                 XMedia(quote, owner)
@@ -116,10 +107,7 @@ internal fun XMedia(post: XPost, owner: String, compact: Boolean = false) {
                 )
         }
     }
-    val singleVideo = (items.singleOrNull() as? MixedMedia.Video)?.video
-    if (compact && items.isNotEmpty()) PostCommentMedia(items, ::open)
-    else if (singleVideo != null) VideoCover(singleVideo) { open(0) }
-    else if (items.isNotEmpty()) PicGrid(items, onClick = ::open)
+    PostMedia(items, compact = compact, onOpen = ::open)
 }
 
 @Composable

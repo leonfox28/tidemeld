@@ -13,8 +13,7 @@ struct StatusCardActions {
     /// A picture, among the pictures; the status they belong to (none for a
     /// comment's) is where the viewer gets a live photo's video afresh once its
     /// URL has expired. The last is the id of the tile it zooms out of.
-    var onPicture:
-        ((_ pics: [PicInfo], _ index: Int, _ status: Status?, _ source: String?) -> Void)? = nil
+    var onPicture: ((_ pics: [PicInfo], _ index: Int, _ status: Status?, _ source: String?) -> Void)? = nil
     /// A video; the index picks one in a post mixing pictures and videos.
     var onVideo: ((_ status: Status, _ index: Int?) -> Void)? = nil
     /// The repost count, which reposts the card's post.
@@ -151,16 +150,16 @@ struct StatusMedia: View {
         // once, inside the retweeted post.
         let isRetweet = status.retweeted != nil
         if !status.pics.isEmpty {
-            PicGrid(
+            PostMedia(
                 items: status.pics.map(MixedMedia.pic), total: status.picCount,
-                onTap: { i in
+                onOpen: { i in
                     actions.onPicture?(status.pics, i, status, picSourceID(owner, status.pics[i]))
                 },
                 sourceID: { i in picSourceID(owner, status.pics[i]) })
         } else if !status.mixedMedia.isEmpty {
             mixedGrid
         } else if !isRetweet, let video = status.video {
-            VideoCover(video: video) { actions.onVideo?(status, nil) }
+            PostMedia(items: [.video(video)], onOpen: { _ in actions.onVideo?(status, nil) })
         } else if !isRetweet, let card = status.pageCard {
             PageCardView(card: card)
         }
@@ -173,9 +172,9 @@ struct StatusMedia: View {
         func picIndex(_ i: Int) -> Int {
             items.prefix(i).filter { if case .pic = $0 { true } else { false } }.count
         }
-        return PicGrid(
-            items: items, total: status.picCount,
-            onTap: { i in
+        return PostMedia(
+            items: items, total: status.picCount, preferVideoCover: false,
+            onOpen: { i in
                 let before = items.prefix(i)
                 switch items[i] {
                 case .pic(let pic):

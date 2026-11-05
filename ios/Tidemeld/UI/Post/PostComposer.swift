@@ -35,24 +35,18 @@ struct PostComposer: View {
     /// waits for: it isn't in the draft yet.
     @State private var reading = false
     @State private var notice: String?
-    @State private var error: WeiboError?
-    @FocusState private var focused: Bool
+    @State private var error: AppFailure?
 
     var body: some View {
-        NavigationStack {
-            VStack(alignment: .leading, spacing: 12) {
-                if let context = request.context {
-                    Text(context).font(.subheadline).foregroundStyle(AppTheme.accent)
-                }
-                TextField(request.hint, text: $draft.text, axis: .vertical)
-                    .lineLimit(4...10)
-                    .focused($focused)
-                    .disabled(sending)
-                    .onChange(of: draft) { request.drafts.drafts[request.draftKey] = draft }
-                if let error { SendError(error: error) }
-                if let notice {
-                    Text(notice).font(.footnote).foregroundStyle(AppTheme.secondary)
-                }
+        PostEditor(
+            title: request.title, hint: request.hint, text: $draft.text,
+            sending: sending, canSend: draft.canSend && !reading, context: request.context,
+            failure: error, notice: notice, onSend: submit,
+            onRecover: { recovery in
+                dismiss()
+                graph.router.recover(recovery)
+            },
+            attachments: {
                 if request.attachments != nil {
                     HStack {
                         if let picture = draft.picture {
@@ -79,27 +73,10 @@ struct PostComposer: View {
                         Spacer()
                     }
                 }
-                Spacer(minLength: 0)
-            }
-            .padding(16)
-            .navigationTitle(request.title)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button(role: .close) { dismiss() }.disabled(sending)
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    if sending {
-                        ProgressView()
-                    } else {
-                        Button("发送", systemImage: "paperplane.fill", role: .confirm) { submit() }
-                            .disabled(!draft.canSend || reading)
-                    }
-                }
-            }
-        }
+            }, options: {}
+        )
+        .onChange(of: draft) { request.drafts.drafts[request.draftKey] = draft }
         .presentationDetents([.medium, .large])
-        .interactiveDismissDisabled(sending)
         .photosPicker(isPresented: $picking, selection: $picked, matching: .images)
         .onChange(of: picked) { _, item in
             guard let item else { return }
@@ -119,7 +96,6 @@ struct PostComposer: View {
         }
         .onAppear {
             draft = request.drafts.drafts[request.draftKey] ?? CommentDraft()
-            focused = true
         }
     }
 
@@ -136,7 +112,7 @@ struct PostComposer: View {
                     pictureAllowed = try await support.allowed()
                 } catch {
                     // The platform validates attachment support again when sending.
-                    devLog("Attachment capability check failed: \(WeiboError.of(error))")
+                    devLog("Attachment capability check failed")
                 }
                 asking = false
             }
@@ -162,7 +138,7 @@ struct PostComposer: View {
                 if var unsent = picture, unsent.pid == nil {
                     uploading = true
                     guard let support = request.attachments else {
-                        throw WeiboError.api("此操作不支持图片")
+                        throw AppFailure(message: "此操作不支持图片")
                     }
                     unsent.pid = try await support.upload(unsent)
                     // Kept, so sending again after a failure doesn't upload it again.
@@ -177,7 +153,7 @@ struct PostComposer: View {
                 dismiss()
                 graph.toasts.show(request.sentMessage)
             } catch {
-                self.error = WeiboError.of(error)
+                self.error = AppFailure.of(error)
             }
         }
     }

@@ -1,8 +1,8 @@
 package io.github.leonfox28.tidemeld.core.paging
 
-import io.github.leonfox28.tidemeld.core.net.WeiboException
 import io.github.leonfox28.tidemeld.data.model.Paged
 import kotlin.math.max
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -18,7 +18,7 @@ data class PagedState<T>(
     val total: Int? = null,
     val loadingMore: Boolean = false,
     /** Why the last attempt to load more failed; cleared by the next attempt. */
-    val loadMoreError: WeiboException? = null,
+    val loadMoreError: Exception? = null,
 ) {
     val hasMore: Boolean
         get() = nextCursor != null
@@ -32,7 +32,7 @@ data class PagedState<T>(
 sealed interface ListLoad<out T> {
     data object Loading : ListLoad<Nothing>
 
-    data class Failed(val error: WeiboException) : ListLoad<Nothing>
+    data class Failed(val error: Exception) : ListLoad<Nothing>
 
     data class Ready<T>(val list: PagedState<T>) : ListLoad<T>
 }
@@ -71,7 +71,8 @@ abstract class PagedController<T>(protected val scope: CoroutineScope) {
             val loaded =
                 try {
                     ListLoad.Ready(fetchPage(null).toState())
-                } catch (e: WeiboException) {
+                } catch (e: Exception) {
+                    if (e is CancellationException) throw e
                     ListLoad.Failed(e)
                 }
             if (generation == this@PagedController.generation) _state.value = loaded
@@ -89,7 +90,7 @@ abstract class PagedController<T>(protected val scope: CoroutineScope) {
     /**
      * Replaces the list with its first page, keeping it meanwhile.
      *
-     * @throws WeiboException on failure, the list staying as it was, for the caller to report.
+     * @throws Exception on failure, the list staying as it was, for the caller to report.
      */
     suspend fun refresh() {
         val generation = generation
@@ -109,10 +110,11 @@ abstract class PagedController<T>(protected val scope: CoroutineScope) {
 
         val generation = generation
         var page: Paged<T>? = null
-        var error: WeiboException? = null
+        var error: Exception? = null
         try {
             page = fetchPage(current.nextCursor)
-        } catch (e: WeiboException) {
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
             error = e
         }
         // Drop the result if a refresh replaced the list meanwhile; otherwise

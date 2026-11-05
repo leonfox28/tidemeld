@@ -36,7 +36,9 @@ fun SocialTimeline(selection: FeedSelection, padding: PaddingValues, modifier: M
     KeepAtTop(list, state.items)
     val identities = accounts.map { Triple(it.key, it.revision, it.expired) }
     LaunchedEffect(selection, identities) { controller.select(selection) }
-    LaunchedEffect(selection) { list.scrollToItem(0) }
+    // Defer to the next measure: a platform switch can replace the items
+    // while the initial layout is still completing.
+    LaunchedEffect(selection) { list.requestScrollToItem(0) }
     val reselects = LocalTabReselect.current
     LaunchedEffect(reselects) {
         reselects.collect {

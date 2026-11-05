@@ -1,16 +1,13 @@
 package io.github.leonfox28.tidemeld.ui.search
 
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -22,7 +19,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -44,7 +40,6 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.leonfox28.tidemeld.LocalAppGraph
 import io.github.leonfox28.tidemeld.core.media.WeiboImage
-import io.github.leonfox28.tidemeld.core.net.WeiboException
 import io.github.leonfox28.tidemeld.core.paging.ListLoad
 import io.github.leonfox28.tidemeld.core.paging.PagedController
 import io.github.leonfox28.tidemeld.core.util.formatCount
@@ -54,20 +49,15 @@ import io.github.leonfox28.tidemeld.data.model.Status
 import io.github.leonfox28.tidemeld.data.model.Topic
 import io.github.leonfox28.tidemeld.ui.navigation.LocalNavigator
 import io.github.leonfox28.tidemeld.ui.navigation.Route
+import io.github.leonfox28.tidemeld.ui.social.SocialContentList
 import io.github.leonfox28.tidemeld.ui.status.rememberStatusCardActions
 import io.github.leonfox28.tidemeld.ui.webview.weiboSearchUrl
 import io.github.leonfox28.tidemeld.ui.widget.AppSnackbarHost
 import io.github.leonfox28.tidemeld.ui.widget.HidingAppBarBody
-import io.github.leonfox28.tidemeld.ui.widget.KeepAtTop
-import io.github.leonfox28.tidemeld.ui.widget.LoadMoreTrigger
 import io.github.leonfox28.tidemeld.ui.widget.LocalSnackbars
-import io.github.leonfox28.tidemeld.ui.widget.pagedItems
-import io.github.leonfox28.tidemeld.ui.widget.readingPadding
-import io.github.leonfox28.tidemeld.ui.widget.showError
 import io.github.leonfox28.tidemeld.ui.widget.status.StatusCard
 import io.github.leonfox28.tidemeld.ui.widget.text.StatusLink
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.launch
 
 /** The posts found for [query], newest first, with the topic searched for, if one was. */
 class SearchResultsController(private val api: WeiboApi, val query: String, scope: CoroutineScope) :
@@ -119,16 +109,6 @@ fun SearchResultsPage(query: String) {
             )
         }
     val topic = if (load is ListLoad.Ready) results.topic else null
-    var refreshing by remember { mutableStateOf(false) }
-
-    KeepAtTop(listState, (load as? ListLoad.Ready)?.list?.items)
-    LoadMoreTrigger(
-        listState,
-        onNearEnd =
-            if ((load as? ListLoad.Ready)?.list?.loadMoreError == null)
-                ({ scope.launch { results.loadMore() } })
-            else null,
-    )
     Scaffold(snackbarHost = { AppSnackbarHost() }) { padding ->
         HidingAppBarBody(
             title = { Text(query, maxLines = 1, overflow = TextOverflow.Ellipsis) },
@@ -138,48 +118,23 @@ fun SearchResultsPage(query: String) {
                 }
             },
         ) {
-            PullToRefreshBox(
-                isRefreshing = refreshing,
-                onRefresh = {
-                    refreshing = true
-                    scope.launch {
-                        try {
-                            results.refresh()
-                        } catch (e: WeiboException) {
-                            launch { snackbars.showError(e, navigator) }
-                        } finally {
-                            refreshing = false
-                        }
+            SocialContentList(
+                load,
+                { it.id },
+                "没有找到相关微博",
+                results::reload,
+                { results.refresh() },
+                { results.loadMore() },
+                padding = PaddingValues(bottom = padding.calculateBottomPadding()),
+                keepAtTop = true,
+                header = {
+                    if (topic != null) {
+                        item(key = "topic") { TopicHeader(topic) }
+                        item(key = "line") { HorizontalDivider() }
                     }
                 },
             ) {
-                BoxWithConstraints(Modifier.fillMaxSize()) {
-                    LazyColumn(
-                        Modifier.fillMaxSize(),
-                        state = listState,
-                        contentPadding =
-                            readingPadding(
-                                maxWidth,
-                                PaddingValues(bottom = padding.calculateBottomPadding()),
-                            ),
-                    ) {
-                        if (topic != null) {
-                            item(key = "topic") { TopicHeader(topic) }
-                            // A line like those between the statuses.
-                            item(key = "line") { HorizontalDivider() }
-                        }
-                        pagedItems(
-                            load,
-                            key = { it.id },
-                            onRetry = results::reload,
-                            onLoadMore = { scope.launch { results.loadMore() } },
-                            emptyText = "没有找到相关微博",
-                            dividerIndent = 0.dp,
-                        ) {
-                            StatusCard(it, actions = actions)
-                        }
-                    }
-                }
+                StatusCard(it, actions = actions)
             }
         }
     }

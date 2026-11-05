@@ -6,7 +6,6 @@ struct XPostCard: View {
     let owner: String
     var detail = false
     @Environment(AppGraph.self) private var graph
-    @Environment(\.displayScale) private var scale
     var body: some View {
         XPostActionHost(post: post, owner: owner) { actions in
             PostCard(
@@ -20,24 +19,16 @@ struct XPostCard: View {
                             + (post.createdAt.map { " · \(formatPostTime($0))" } ?? ""),
                         sourceIcon: Image("PlatformX"), sourceLabel: "X",
                         tags: post.promoted ? ["广告"] : [],
-                        avatar: {
-                            Group {
-                                if let avatar = post.avatar {
-                                    WeiboImage(url: avatar, maxPixels: 40 * scale)
-                                } else {
-                                    Image(systemName: "person.fill").foregroundStyle(
-                                        AppTheme.secondary)
-                                }
-                            }.frame(width: 40, height: 40).clipShape(Circle())
-                        }, badge: {},
+                        avatar: { PostAvatar(url: post.avatar, label: post.author, size: 40) }, badge: {},
                         menu: {})
                 },
                 content: {
                     VStack(alignment: .leading, spacing: 8) {
-                        Text(post.text).font(.callout).lineSpacing(4).foregroundStyle(
-                            AppTheme.foreground
-                        ).frame(maxWidth: .infinity, alignment: .leading)
-                        if detail || post.quote != nil { XPostMedia(items: post.media, postID: post.originalID, owner: owner) }
+                        XPostText(text: post.text, owner: owner, selectable: detail).frame(
+                            maxWidth: .infinity, alignment: .leading)
+                        if detail || post.quote != nil {
+                            XPostMedia(items: post.media, postID: post.originalID, owner: owner)
+                        }
                     }
                 },
                 aside: {
@@ -48,8 +39,7 @@ struct XPostCard: View {
                                     owner: owner, id: quote.url.lastPathComponent, initial: nil))
                         }) {
                             VStack(alignment: .leading, spacing: 8) {
-                                Text("@\(quote.author)：\(quote.text)").font(.callout).lineSpacing(4)
-                                    .foregroundStyle(AppTheme.foreground)
+                                XPostText(text: quote.text, owner: owner, author: quote.author)
                                 XPostMedia(items: quote.media, postID: quote.url.lastPathComponent, owner: owner)
                             }
                         }
@@ -71,29 +61,32 @@ struct XPostMedia: View {
     var compact = false
     @Environment(AppGraph.self) private var graph
     @State private var source = UUID().uuidString
-    private var pics: [PicInfo] { items.compactMap { if case .pic(let pic) = $0 { pic } else { nil } } }
-    var body: some View {
-        if compact, !items.isEmpty {
-            PostCommentMedia(items: items, onOpen: open, sourceID: { index in
-                if case .pic(let pic) = items[index] { picSourceID(source, pic) } else { "\(source):\(index)" }
-            })
-        } else if items.count == 1, case .video(let video) = items[0] {
-            VideoCover(video: video) { open(0) }
-        } else if !items.isEmpty {
-            PicGrid(items: items, onTap: open, sourceID: { index in
-                if case .pic(let pic) = items[index] { picSourceID(source, pic) } else { "\(source):\(index)" }
-            })
-        }
+    private var pics: [PicInfo] {
+        items.compactMap { if case .pic(let pic) = $0 { pic } else { nil } }
     }
+    var body: some View {
+        PostMedia(
+            items: items, compact: compact, onOpen: open,
+            sourceID: { index in
+                if case .pic(let pic) = items[index] {
+                    picSourceID(source, pic)
+                } else {
+                    "\(source):\(index)"
+                }
+            })
+    }
+
     private func open(_ index: Int) {
         let before = items.prefix(index)
         switch items[index] {
         case .pic(let pic):
-            graph.router.viewer = ViewerRequest(pics: pics,
+            graph.router.viewer = ViewerRequest(
+                pics: pics,
                 index: before.filter { if case .pic = $0 { true } else { false } }.count,
                 sourceID: picSourceID(source, pic))
         case .video(let video):
-            graph.router.video = graph.xVideoRequest(owner: owner, postID: postID,
+            graph.router.video = graph.xVideoRequest(
+                owner: owner, postID: postID,
                 index: before.filter { if case .video = $0 { true } else { false } }.count, known: video)
         }
     }

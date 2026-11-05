@@ -5,27 +5,16 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AddPhotoAlternate
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
-import androidx.compose.material3.TextFieldDefaults
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -34,9 +23,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
@@ -44,16 +30,13 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.leonfox28.tidemeld.LocalAppGraph
+import io.github.leonfox28.tidemeld.core.errors.AppFailure
 import io.github.leonfox28.tidemeld.core.net.WeiboException
 import io.github.leonfox28.tidemeld.ui.interactions.PictureThumb
-import io.github.leonfox28.tidemeld.ui.interactions.SendButton
-import io.github.leonfox28.tidemeld.ui.interactions.SendError
 import io.github.leonfox28.tidemeld.ui.navigation.LocalNavigator
-import io.github.leonfox28.tidemeld.ui.navigation.Route
-import io.github.leonfox28.tidemeld.ui.widget.AppSnackbarHost
-import io.github.leonfox28.tidemeld.ui.widget.CloseButton
+import io.github.leonfox28.tidemeld.ui.post.PostEditor
 import io.github.leonfox28.tidemeld.ui.widget.LocalSnackbars
-import io.github.leonfox28.tidemeld.ui.widget.readingPadding
+import io.github.leonfox28.tidemeld.ui.widget.recover
 import io.github.leonfox28.tidemeld.ui.widget.showMessage
 import kotlinx.coroutines.launch
 
@@ -116,94 +99,32 @@ fun ComposePage() {
         }
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("发微博") },
-                navigationIcon = { CloseButton() },
-                actions = {
-                    Box(Modifier.padding(end = 12.dp)) {
-                        SendButton("发送", sending = sending, enabled = draft.canSend) { send() }
-                    }
-                },
+    PostEditor(
+        title = "发微博",
+        hint = "分享新鲜事…",
+        text = text,
+        onTextChange = {
+            text = it
+            if (it.text != controller.draft.value.text) controller.setText(it.text)
+        },
+        sending = sending,
+        canSend = draft.canSend,
+        onSend = { send() },
+        fullPage = true,
+        failure = error?.let(AppFailure::of),
+        progress = uploading?.let { "正在上传图片 ${it + 1}/${draft.pictures.size}" },
+        onClose = { navigator.pop() },
+        onRecover = { navigator.recover(it) },
+        attachments = {
+            PictureGrid(draft.pictures, uploading, !sending, { pick() }, controller::removePicture)
+        },
+        options = {
+            VisibilityButton(
+                draft.visibility,
+                onChange = if (sending) null else controller::setVisibility,
             )
         },
-        snackbarHost = { AppSnackbarHost() },
-    ) { padding ->
-        BoxWithConstraints(Modifier.fillMaxSize().imePadding()) {
-            val focus = remember { FocusRequester() }
-            LazyColumn(
-                Modifier.fillMaxSize(),
-                contentPadding =
-                    readingPadding(
-                        maxWidth,
-                        PaddingValues(
-                            start = 16.dp,
-                            top = padding.calculateTopPadding() + 8.dp,
-                            end = 16.dp,
-                            bottom = padding.calculateBottomPadding() + 16.dp,
-                        ),
-                    ),
-            ) {
-                item(key = "text") {
-                    TextField(
-                        text,
-                        {
-                            text = it
-                            // It also hears the cursor move.
-                            if (it.text != controller.draft.value.text) controller.setText(it.text)
-                        },
-                        Modifier.fillMaxWidth().focusRequester(focus),
-                        enabled = !sending,
-                        placeholder = { Text("分享新鲜事…") },
-                        minLines = 5,
-                        colors =
-                            TextFieldDefaults.colors(
-                                focusedContainerColor = Color.Transparent,
-                                unfocusedContainerColor = Color.Transparent,
-                                disabledContainerColor = Color.Transparent,
-                                focusedIndicatorColor = Color.Transparent,
-                                unfocusedIndicatorColor = Color.Transparent,
-                                disabledIndicatorColor = Color.Transparent,
-                            ),
-                    )
-                }
-                item(key = "pictures") {
-                    PictureGrid(
-                        draft.pictures,
-                        uploading = uploading,
-                        enabled = !sending,
-                        onAdd = { pick() },
-                        onRemove = controller::removePicture,
-                        modifier = Modifier.padding(top = 8.dp),
-                    )
-                }
-                item(key = "visibility") {
-                    Box(Modifier.padding(top = 12.dp)) {
-                        VisibilityButton(
-                            draft.visibility,
-                            onChange = if (sending) null else controller::setVisibility,
-                        )
-                    }
-                }
-                uploading?.let { i ->
-                    item(key = "uploading") {
-                        Text(
-                            "正在上传图片 ${i + 1}/${draft.pictures.size}",
-                            modifier = Modifier.padding(top = 8.dp),
-                            style = MaterialTheme.typography.bodySmall,
-                        )
-                    }
-                }
-                error?.let { e ->
-                    item(key = "error") {
-                        SendError(e, onVerify = { navigator.push(Route.Web(it)) })
-                    }
-                }
-            }
-            LaunchedEffect(Unit) { focus.requestFocus() }
-        }
-    }
+    )
 }
 
 private val Gap = 4.dp

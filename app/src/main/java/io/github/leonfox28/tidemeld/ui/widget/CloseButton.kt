@@ -9,7 +9,9 @@ import io.github.leonfox28.tidemeld.ui.navigation.LocalNavigator
 
 /** An app bar's close button, for pages that work like a dialog, such as logging in. */
 @Composable
-fun CloseButton() {
+fun CloseButton(onClick: (() -> Unit)? = null) {
     val navigator = LocalNavigator.current
-    IconButton(onClick = navigator::pop) { Icon(Icons.Filled.Close, contentDescription = "关闭") }
+    IconButton(onClick = onClick ?: navigator::pop) {
+        Icon(Icons.Filled.Close, contentDescription = "关闭")
+    }
 }

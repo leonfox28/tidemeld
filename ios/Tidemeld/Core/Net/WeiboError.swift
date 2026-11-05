@@ -48,13 +48,15 @@ enum WeiboError: Error, Sendable, Equatable, LocalizedError {
 }
 
 /// The message to show for a failed load.
-func loadErrorMessage(_ error: Error) -> String { WeiboError.of(error).message }
+func loadErrorMessage(_ error: Error) -> String { AppFailure.of(error).message }
 
 private let rateLimitStatuses: Set<Int> = [418, 429, 432]
 
 func isRateLimitStatus(_ status: Int) -> Bool { rateLimitStatuses.contains(status) }
 
-private let loginHosts: Set<String> = ["passport.weibo.com", "passport.weibo.cn", "login.sina.com.cn"]
+private let loginHosts: Set<String> = [
+    "passport.weibo.com", "passport.weibo.cn", "login.sina.com.cn",
+]
 
 func isLoginHost(_ host: String?) -> Bool { host.map(loginHosts.contains) ?? false }
 
@@ -120,4 +122,17 @@ func unwrapResponse(_ reply: HTTPReply, json: JSON?) throws(WeiboError) -> JSON 
     }
     if status >= 400 { throw .api("请求失败（\(status)）", status: status) }
     throw .api("微博返回了无法识别的内容", status: status)
+}
+
+// This mapping belongs to the platform, not to the shared presentation components.
+extension WeiboError: UserFacingFailure {
+    var appFailure: AppFailure {
+        switch self {
+        case .sessionExpired: AppFailure(message: message, recovery: .signIn)
+        case .captchaRequired(let url): AppFailure(message: message, recovery: .verify(url))
+        case .network: .network
+        case .cancelled: .cancelled
+        default: AppFailure(message: message)
+        }
+    }
 }

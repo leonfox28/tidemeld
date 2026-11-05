@@ -30,14 +30,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import io.github.leonfox28.tidemeld.core.net.CaptchaRequiredException
-import io.github.leonfox28.tidemeld.core.net.WeiboException
+import io.github.leonfox28.tidemeld.core.errors.*
 import io.github.leonfox28.tidemeld.ui.navigation.LocalNavigator
 import io.github.leonfox28.tidemeld.ui.navigation.Navigator
 import io.github.leonfox28.tidemeld.ui.navigation.Route
 
 /** The message to show for a failed load. */
-fun loadErrorMessage(error: Throwable?): String = (error as? WeiboException)?.message ?: "加载失败"
+fun loadErrorMessage(error: Throwable?): String = AppFailure.of(error).message
 
 /**
  * Calls [onNearEnd] as the user scrolls [state] close to its end, to load the next page before they
@@ -93,7 +92,7 @@ private class ShownItems(var items: List<*>?)
 fun LoadMoreFooter(
     loading: Boolean,
     hasMore: Boolean,
-    error: WeiboException?,
+    error: Throwable?,
     onLoadMore: () -> Unit,
     endText: String = "没有更多了",
 ) {
@@ -103,10 +102,11 @@ fun LoadMoreFooter(
             loading -> CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
             error != null ->
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(error.message, style = MaterialTheme.typography.bodySmall)
-                    if (error is CaptchaRequiredException) {
-                        TextButton(onClick = { verifyThenRetry(navigator, error, onLoadMore) }) {
-                            Text("去验证")
+                    Text(AppFailure.of(error).message, style = MaterialTheme.typography.bodySmall)
+                    if (AppFailure.of(error).recovery != null) {
+                        val recovery = AppFailure.of(error).recovery!!
+                        TextButton(onClick = { navigator.recover(recovery, onLoadMore) }) {
+                            Text(recovery.label)
                         }
                     } else {
                         TextButton(onClick = onLoadMore) { Text("重试") }
@@ -140,8 +140,9 @@ fun ErrorRetry(error: Throwable?, onRetry: () -> Unit, modifier: Modifier = Modi
         ) {
             Text(loadErrorMessage(error), textAlign = TextAlign.Center)
             Spacer(Modifier.height(16.dp))
-            if (error is CaptchaRequiredException) {
-                Button(onClick = { verifyThenRetry(navigator, error, onRetry) }) { Text("去验证") }
+            if (AppFailure.of(error).recovery != null) {
+                val recovery = AppFailure.of(error).recovery!!
+                Button(onClick = { navigator.recover(recovery, onRetry) }) { Text(recovery.label) }
             } else {
                 FilledTonalButton(onClick = onRetry) { Text("重试") }
             }
@@ -154,26 +155,21 @@ fun ErrorRetry(error: Throwable?, onRetry: () -> Unit, modifier: Modifier = Modi
  * take it (they then try again themselves).
  */
 suspend fun SnackbarHostState.showError(error: Throwable, navigator: Navigator) {
+    val failure = AppFailure.of(error)
+    if (failure.isCancelled) return
     currentSnackbarData?.dismiss()
     val result =
         showSnackbar(
-            message = (error as? WeiboException)?.message ?: "操作失败",
-            actionLabel = if (error is CaptchaRequiredException) "去验证" else null,
+            message = failure.message,
+            actionLabel = failure.recovery?.label,
             duration = SnackbarDuration.Short,
         )
-    if (result == SnackbarResult.ActionPerformed && error is CaptchaRequiredException) {
-        navigator.push(Route.Web(error.url.toString()))
-    }
+    if (result == SnackbarResult.ActionPerformed) failure.recovery?.let { navigator.recover(it) }
 }
 
-/**
- * Lets the user take Weibo's security check at the error's URL in the in-app browser (never
- * automatically, PLAN §2), then calls [retry] once they come back.
- */
-private fun verifyThenRetry(
-    navigator: Navigator,
-    error: CaptchaRequiredException,
-    retry: () -> Unit,
-) {
-    navigator.push(Route.Web(error.url.toString(), onClose = retry))
+fun Navigator.recover(recovery: FailureRecovery, onVerified: (() -> Unit)? = null) {
+    when (recovery) {
+        FailureRecovery.SignIn -> push(Route.Accounts)
+        is FailureRecovery.Verify -> push(Route.Web(recovery.url, onClose = onVerified))
+    }
 }

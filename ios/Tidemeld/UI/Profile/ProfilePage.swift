@@ -41,7 +41,8 @@ final class ProfileModel {
     private func startStatuses(_ uid: String) {
         let api = graph!.api
         let list = PagedList<Status>(
-            fetch: { try await api.fetchUserStatuses(uid: uid, page: $0.flatMap(Int.init) ?? 1) }, id: \.id)
+            fetch: { try await api.fetchUserStatuses(uid: uid, page: $0.flatMap(Int.init) ?? 1) },
+            id: \.id)
         // So the user's own posts and reposts show, and deleted ones go.
         graph!.openLists.userStatuses.add(uid, list)
         statuses = list
@@ -81,23 +82,12 @@ struct ProfilePage: View {
         let user = model.profile?.user ?? initial
         Group {
             if let statuses = model.statuses {
-                List {
+                SocialContentList(refresh: { try await model.refresh() }) {
                     ProfileHeader(model: model, initial: initial).readingWidth().plainRow()
                     PagedRows(list: statuses, emptyText: "还没有微博") { status in
                         StatusCard(status: status, actions: actions(statuses))
                             .readingWidth()
                             .statusRow()
-                    }
-                }
-                .listStyle(.plain)
-                .appListStyle()
-                .loadsMoreAsScrolled()
-                .tabBarHidesOnScroll()
-                .refreshable {
-                    do {
-                        try await model.refresh()
-                    } catch {
-                        graph.toasts.showError(error, router: graph.router)
                     }
                 }
             } else if let error = model.error {
@@ -136,35 +126,24 @@ private struct ProfileHeader: View {
             if let p {
                 p.following && p.followsMe ? "互相关注" : p.following ? "已关注" : p.followsMe ? "关注了你" : nil
             } else { nil }
-        VStack(alignment: .leading, spacing: 0) {
-            if let cover = p?.coverURL {
-                WeiboImage(url: cover, maxPixels: 1200).frame(height: 120).frame(maxWidth: .infinity)
+        let loading = p == nil && !failed
+        let counts = [("关注", p?.friendsCount), ("粉丝", p?.followersCount), ("微博", p?.statusesCount)]
+            .compactMap { label, value in
+                (value ?? (loading ? 0 : nil)).map { ProfileCount(label: label, value: $0) }
             }
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(spacing: 14) {
-                    UserAvatar(user: user, size: 64)
-                    VStack(alignment: .leading, spacing: 6) {
-                        HStack(spacing: 6) {
-                            Text(user?.screenName ?? " ")
-                                .font(.title3.weight(.semibold))
-                                .lineLimit(1)
-                                .redacted(reason: user == nil && !failed ? .placeholder : [])
-                            if let verified = user?.verifiedType, showsVerified(verified) {
-                                VerifiedIcon(verifiedType: verified, size: 18)
-                            }
-                            if let relation { TagLabel(text: relation) }
-                        }
-                        if let p {
-                            ProfileCounts(profile: p)
-                        } else if !failed {
-                            Text("0 关注    0 粉丝    0 微博").font(.subheadline).redacted(reason: .placeholder)
-                        }
-                    }
+        SocialProfileHeader(
+            profile: ProfilePresentation(
+                name: user?.screenName, avatarURL: user?.avatarURL,
+                coverURL: p?.coverURL, counts: counts, relation: relation,
+                verification: p?.verifiedReason.map { "微博认证：\($0)" }, description: p?.description,
+                loading: loading, failure: failed ? "资料加载失败：\(model.error!.message)" : nil),
+            onRetry: { model.reload() },
+            badge: {
+                if let verified = user?.verifiedType, showsVerified(verified) {
+                    VerifiedIcon(verifiedType: verified, size: 18)
                 }
-                if let reason = p?.verifiedReason {
-                    Text("微博认证：\(reason)").font(.caption).foregroundStyle(AppTheme.secondary)
-                }
-                if let description = p?.description { Text(description).font(.subheadline) }
+            },
+            details: {
                 if let p, p.gender != nil || p.location != nil {
                     HStack(spacing: 4) {
                         switch p.gender {
@@ -176,35 +155,6 @@ private struct ProfileHeader: View {
                     }
                     .font(.caption)
                 }
-                if failed, let error = model.error {
-                    HStack {
-                        Text("资料加载失败：\(error.message)").font(.caption).foregroundStyle(AppTheme.error)
-                        Spacer()
-                        Button("重试") { model.reload() }.font(.caption)
-                    }
-                }
-            }
-            .foregroundStyle(AppTheme.foreground)
-            .padding(16)
-            Divider().overlay(AppTheme.outline)
-        }
-    }
-}
-
-/// Following, follower and status counts. Display only: follower lists aren't
-/// part of tidemeld.
-private struct ProfileCounts: View {
-    let profile: UserProfile
-
-    var body: some View {
-        let counts = [("关注", profile.friendsCount), ("粉丝", profile.followersCount), ("微博", profile.statusesCount)]
-            .compactMap { label, count in count.map { (label, $0) } }
-        HStack(spacing: 16) {
-            ForEach(counts, id: \.0) { label, count in
-                Text("\(Text(formatCount(count)).fontWeight(.semibold).foregroundStyle(AppTheme.foreground)) \(label)")
-                    .foregroundStyle(AppTheme.secondary)
-            }
-        }
-        .font(.subheadline)
+            })
     }
 }
