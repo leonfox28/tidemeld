@@ -55,7 +55,8 @@ struct TransitionSource: ViewModifier {
 
     func body(content: Content) -> some View {
         if let id, let namespace {
-            content.matchedTransitionSource(id: id, in: namespace)
+            content.environment(\.imageTransitionSourceID, id)
+                .matchedTransitionSource(id: id, in: namespace)
         } else {
             content
         }

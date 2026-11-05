@@ -7,6 +7,7 @@ struct RootView: View {
     @Environment(\.dynamicTypeSize) private var systemTypeSize
     @Environment(\.scenePhase) private var scenePhase
     @Namespace private var media
+    @State private var imageSources = ImageTransitionSources()
     /// Whether the app went to the background since it was last opened.
     @State private var away = false
 
@@ -17,6 +18,7 @@ struct RootView: View {
             .modifier(Presentations(media: media))
             .environment(graph.toasts)
             .environment(\.mediaNamespace, media)
+            .environment(\.imageTransitionSources, imageSources)
             .tint(AppTheme.accent)
             .preferredColorScheme(settings.themeMode.colorScheme)
             .dynamicTypeSize(settings.textSize.applied(to: systemTypeSize))
@@ -208,13 +210,17 @@ struct RouteView: View {
 }
 
 /// Zooms a viewer out of the tile it was opened from, when there is one.
-private struct ZoomTransition: ViewModifier {
+struct ZoomTransition: ViewModifier {
     let sourceID: String?
     let namespace: Namespace.ID
+    @Environment(\.imageTransitionSources) private var sources
 
     func body(content: Content) -> some View {
         if let sourceID {
             content.navigationTransition(.zoom(sourceID: sourceID, in: namespace))
+                .background {
+                    if let sources { ImageTransitionAlignment(sourceID: sourceID, sources: sources) }
+                }
         } else {
             content
         }

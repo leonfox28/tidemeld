@@ -14,6 +14,8 @@ extension ImageLoader {
 /// `PicInfo.variant(for:)`) and say how many pixels to decode it to, so lists
 /// never hold full-size pictures.
 struct WeiboImage: View {
+    @Environment(\.imageTransitionSourceID) private var sourceID
+    @Environment(\.imageTransitionSources) private var sources
     let url: String?
     /// The longer side to decode to, in pixels; nil for the picture's own size.
     var maxPixels: CGFloat? = nil
@@ -36,7 +38,10 @@ struct WeiboImage: View {
         Color.clear
             .overlay(alignment: alignment) {
                 if let image {
-                    if image.images != nil {
+                    if let sourceID, let sources {
+                        TransitionImage(image: image, contentMode: contentMode, alignment: alignment,
+                                        sourceID: sourceID, sources: sources)
+                    } else if image.images != nil {
                         AnimatedImage(image: image, contentMode: contentMode)
                     } else {
                         Image(uiImage: image)

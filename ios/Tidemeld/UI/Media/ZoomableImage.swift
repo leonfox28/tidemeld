@@ -67,8 +67,17 @@ struct ZoomableImage: UIViewRepresentable {
 
         func show(_ image: UIImage) {
             guard imageView.image !== image else { return }
+            let previous = imageView.image?.size
+            imageView.stopAnimating()
             imageView.image = image
             if image.images != nil { imageView.startAnimating() }
+            // Replacing a preview with more pixels must not reset a gesture
+            // or scroll position while the larger rendition is downloading.
+            if let previous, previous.width > 0, image.size.width > 0,
+                abs(previous.height / previous.width - image.size.height / image.size.width) < 0.001
+            {
+                return
+            }
             shownSize = .zero
             setNeedsLayout()
         }
@@ -99,6 +108,10 @@ struct ZoomableImage: UIViewRepresentable {
         }
 
         func viewForZooming(in scrollView: UIScrollView) -> UIView? { imageView }
+
+        func imageFrame(in view: UIView) -> CGRect {
+            imageView.convert(imageView.bounds, to: view)
+        }
 
         func unzoom() {
             guard zoomScale > minimumZoomScale + 0.01 else { return }

@@ -104,31 +104,30 @@ private struct ViewerPage: View {
 
     var body: some View {
         let variant = graph.settings.settings.imageQuality.viewerVariant(pic)
+        let loaded = image ?? ImageLoader.shared.cached(variant.url, maxPixels: 8192)
+        // The preview and full rendition use the same scroll view and layout
+        // from the first frame, including top alignment for long pictures.
+        let shown = loaded ?? ([variant] + pic.variants.reversed()).lazy.compactMap {
+            ImageLoader.shared.cachedAtAnySize($0.url)
+        }.first
         ZStack {
-            if let image {
+            if let shown {
                 ZoomableImage(
-                    image: image, onTap: onTap, onLongPress: onLongPress, onZoomed: onZoomed,
+                    image: shown, onTap: onTap, onLongPress: onLongPress, onZoomed: onZoomed,
                     moving: live?.current?.id == pic.id)
-            } else if failed {
+            } else {
+                Color.clear
+                    .contentShape(Rectangle())
+                    .onTapGesture(perform: onTap)
+            }
+            if failed {
                 VStack(spacing: 12) {
                     Image(systemName: "photo.badge.exclamationmark").font(.largeTitle)
                     Button("重试") { attempt += 1 }.buttonStyle(.glass)
                 }
                 .foregroundStyle(.white)
-            } else {
-                // The rendition the list showed, while the larger one loads,
-                // if it is still in memory: nothing more is downloaded for it.
-                Color.clear
-                    .overlay {
-                        if let shown = pic.variants.reversed().lazy.compactMap({
-                            ImageLoader.shared.cachedAtAnySize($0.url)
-                        }).first {
-                            Image(uiImage: shown).resizable().aspectRatio(contentMode: .fit)
-                        }
-                    }
-                    .overlay { ProgressView().tint(.white) }
-                    .contentShape(Rectangle())
-                    .onTapGesture(perform: onTap)
+            } else if loaded == nil {
+                ProgressView().tint(.white).allowsHitTesting(false)
             }
             if let live, live.current?.id == pic.id {
                 PlayerLayerView(player: live.player)
