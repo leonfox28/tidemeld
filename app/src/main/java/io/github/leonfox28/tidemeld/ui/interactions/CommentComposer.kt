@@ -5,24 +5,20 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.outlined.AddPhotoAlternate
 import androidx.compose.material.icons.outlined.BrokenImage
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -31,9 +27,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -53,16 +47,10 @@ import io.github.leonfox28.tidemeld.LocalAppGraph
 import io.github.leonfox28.tidemeld.core.media.LocalImageLoader
 import io.github.leonfox28.tidemeld.core.net.CaptchaRequiredException
 import io.github.leonfox28.tidemeld.core.net.WeiboException
-import io.github.leonfox28.tidemeld.core.util.devLog
 import io.github.leonfox28.tidemeld.ui.compose.DraftPicture
-import io.github.leonfox28.tidemeld.ui.compose.LocalPicturePicker
-import io.github.leonfox28.tidemeld.ui.compose.PickerUnavailableException
-import io.github.leonfox28.tidemeld.ui.navigation.LocalNavigator
-import io.github.leonfox28.tidemeld.ui.navigation.Route
 import io.github.leonfox28.tidemeld.ui.widget.AppAlertDialog
 import io.github.leonfox28.tidemeld.ui.widget.OverlaySheet
 import io.github.leonfox28.tidemeld.ui.widget.Overlays
-import kotlinx.coroutines.launch
 
 /** A comment or reply the user is writing: text, and a picture. */
 data class CommentDraft(val text: String = "", val picture: DraftPicture? = null) {
@@ -98,130 +86,19 @@ private fun CommentComposer(
     close: (Boolean?) -> Unit,
 ) {
     val graph = LocalAppGraph.current
-    val picker = LocalPicturePicker.current
-    val navigator = LocalNavigator.current
-    val scope = rememberCoroutineScope()
-    var draft by remember { mutableStateOf(drafts[draftKey] ?: CommentDraft()) }
-    fun keep(changed: CommentDraft) {
-        draft = changed
-        drafts[draftKey] = changed
-    }
-    var sending by remember { mutableStateOf(false) }
-    var uploading by remember { mutableStateOf(false) }
-    // Whether Weibo said comments here may carry a picture, once asked.
-    var pictureAllowed by remember { mutableStateOf<Boolean?>(null) }
-    var asking by remember { mutableStateOf(false) }
-    var notice by remember { mutableStateOf<String?>(null) }
-    var error by remember { mutableStateOf<WeiboException?>(null) }
-
-    fun pick() = scope.launch {
-        notice = null
-        error = null
-        // Asked only when the user wants a picture, so opening the sheet
-        // requests nothing (PLAN §2).
-        if (pictureAllowed == null) {
-            asking = true
-            try {
-                pictureAllowed = graph.api.allowsCommentPicture(statusId)
-            } catch (e: WeiboException) {
-                // As on weibo.com: Weibo still has its say when it is sent.
-                devLog("checkAllowCommentWithPic failed: ${e.javaClass.simpleName}")
-            } finally {
-                asking = false
-            }
-        }
-        if (pictureAllowed == false) {
-            notice = "这条微博的评论不能带图"
-            return@launch
-        }
-        val uris =
-            try {
-                picker.pick(1)
-            } catch (_: PickerUnavailableException) {
-                notice = "无法打开相册"
-                return@launch
-            }
-        uris.firstOrNull()?.let { keep(draft.copy(picture = DraftPicture(it))) }
-    }
-
-    OverlaySheet(close, canDismiss = !sending) { dismiss ->
-        fun submit() = scope.launch {
-            sending = true
-            notice = null
-            error = null
-            try {
-                var picture = draft.picture
-                if (picture != null && picture.pid == null) {
-                    uploading = true
-                    val pid = graph.api.uploadPicture(graph.pictures.read(picture.uri))
-                    // Kept, so sending again after a failure doesn't upload it again.
-                    picture = picture.copy(pid = pid)
-                    keep(draft.copy(picture = picture))
-                    uploading = false
-                }
-                send(draft.text.trim(), picture?.pid)
-                drafts -= draftKey
-                sending = false
-                dismiss(true)
-            } catch (e: WeiboException) {
-                error = e
-                sending = false
-                uploading = false
-            }
-        }
-
-        Column(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp)) {
-            ComposerField(
-                draft.text,
-                onChange = { keep(draft.copy(text = it)) },
-                hint = hint,
-                enabled = !sending,
-            )
-            error?.let { e ->
-                SendError(
-                    e,
-                    // The sheet would stay over the page; the draft stays too.
-                    onVerify = { url ->
-                        dismiss(null)
-                        navigator.push(Route.Web(url))
-                    },
-                )
-            }
-            notice?.let {
-                Text(
-                    it,
-                    modifier = Modifier.padding(top = 8.dp),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            Spacer(Modifier.height(8.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                val picture = draft.picture
-                if (picture != null) {
-                    PictureThumb(
-                        picture.uri,
-                        size = 64.dp,
-                        uploading = uploading,
-                        onRemove = if (sending) null else ({ keep(draft.copy(picture = null)) }),
-                    )
-                } else {
-                    IconButton(
-                        onClick = { pick() },
-                        enabled = !sending && !asking && pictureAllowed != false,
-                    ) {
-                        if (asking) {
-                            CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
-                        } else {
-                            Icon(Icons.Outlined.AddPhotoAlternate, contentDescription = "添加图片")
-                        }
-                    }
-                }
-                Spacer(Modifier.weight(1f))
-                SendButton("发送", sending = sending, enabled = draft.canSend) { submit() }
-            }
-        }
-    }
+    io.github.leonfox28.tidemeld.ui.post.PostComposer(
+        hint,
+        drafts,
+        draftKey,
+        send,
+        close,
+        attachments =
+            io.github.leonfox28.tidemeld.ui.post.PostAttachments(
+                allowed = { graph.api.allowsCommentPicture(statusId) },
+                upload = { graph.api.uploadPicture(graph.pictures.read(it.uri)) },
+                unavailableMessage = "这条微博的评论不能带图",
+            ),
+    )
 }
 
 /** The text field of a composer sheet, focused as it opens. */

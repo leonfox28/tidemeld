@@ -2,12 +2,9 @@ package io.github.leonfox28.tidemeld.ui.widget.status
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
@@ -19,34 +16,22 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MoreHoriz
-import androidx.compose.material.icons.filled.Repeat
-import androidx.compose.material.icons.filled.ThumbUp
-import androidx.compose.material.icons.outlined.ChatBubbleOutline
-import androidx.compose.material.icons.outlined.ThumbUp
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.layout.Layout
-import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.leonfox28.tidemeld.LocalAppGraph
 import io.github.leonfox28.tidemeld.core.media.WeiboImage
 import io.github.leonfox28.tidemeld.core.session.SessionState
-import io.github.leonfox28.tidemeld.core.util.formatCount
 import io.github.leonfox28.tidemeld.core.util.formatDuration
 import io.github.leonfox28.tidemeld.core.util.formatPostTime
 import io.github.leonfox28.tidemeld.data.model.MixedMedia
@@ -60,11 +45,10 @@ import io.github.leonfox28.tidemeld.ui.interactions.LikeKind
 import io.github.leonfox28.tidemeld.ui.interactions.LikeTarget
 import io.github.leonfox28.tidemeld.ui.interactions.like
 import io.github.leonfox28.tidemeld.ui.interactions.rememberLike
+import io.github.leonfox28.tidemeld.ui.post.*
 import io.github.leonfox28.tidemeld.ui.widget.MediaBadge
 import io.github.leonfox28.tidemeld.ui.widget.PicGrid
 import io.github.leonfox28.tidemeld.ui.widget.PlayIcon
-import io.github.leonfox28.tidemeld.ui.widget.ReadingWidth
-import io.github.leonfox28.tidemeld.ui.widget.TagLabel
 import io.github.leonfox28.tidemeld.ui.widget.UserAvatar
 import io.github.leonfox28.tidemeld.ui.widget.VerifiedIcon
 import io.github.leonfox28.tidemeld.ui.widget.WideCardFrom
@@ -116,138 +100,21 @@ fun StatusCard(
     actions: StatusCardActions = StatusCardActions(),
     detail: Boolean = false,
 ) {
-    val onOpen = actions.onOpen
-    val activity = if (detail) null else status.activity
-    Column(
-        modifier
-            .then(
-                if (!detail && onOpen != null) Modifier.clickable { onOpen(status) } else Modifier
-            )
-            .padding(start = 16.dp, top = 12.dp, end = 16.dp, bottom = if (detail) 12.dp else 0.dp)
-    ) {
-        if (activity != null) {
-            Activity(activity)
-            Spacer(Modifier.height(8.dp))
-        }
-        if (detail) {
-            Header(status, actions)
-            Spacer(Modifier.height(8.dp))
-            Body(status, actions)
-            status.retweeted?.let {
-                Spacer(Modifier.height(8.dp))
-                Retweeted(it, actions)
-            }
-        } else {
-            val retweeted = status.retweeted
-            CardLayout(
-                main = {
-                    Column {
-                        Header(status, actions)
-                        Spacer(Modifier.height(8.dp))
-                        // A retweet's own pictures, if it has any, stay with its text.
-                        Body(status, actions, withMedia = retweeted != null)
-                    }
-                },
-                aside =
-                    when {
-                        retweeted != null -> ({ Retweeted(retweeted, actions) })
-                        hasMedia(status) -> ({ Media(status, actions) })
-                        else -> null
-                    },
-                footer = { Counts(status, actions) },
-            )
-        }
-    }
-}
-
-/** Beside media the text keeps to about a phone's width of line; the media takes the rest. */
-private val WideMainWidth = 400.dp
-private val WideAsideGap = 24.dp
-
-/** With no media, the longest line the text runs to. */
-private val WideMainAloneWidth = ReadingWidth
-
-/** Under media beside the text, as above it at the top of the card. */
-private val WideAsideBottom = 12.dp
-
-/** Between the text and the media under it. */
-private val NarrowAsideGap = 8.dp
-
-/**
- * A timeline card's text ([main]), its counts ([footer]) and its media ([aside]), if any. Narrow,
- * they go one under another. Wide, the media goes to the right of the text and counts; the counts
- * come right after the text, or at the foot of the card if the media runs further down, so they
- * never leave a gap under it.
- */
-@Composable
-private fun CardLayout(
-    main: @Composable () -> Unit,
-    aside: (@Composable () -> Unit)?,
-    footer: @Composable () -> Unit,
-) {
-    Layout(listOf(main, footer, aside ?: {})) { (mains, footers, asides), constraints ->
-        val width = constraints.maxWidth
-        // The card's own padding counts towards the width a card is given.
-        val wide = width + 32.dp.roundToPx() >= WideCardFrom.roundToPx()
-        val hasAside = aside != null
-        val mainWidth =
-            if (!wide) width
-            else minOf(width, (if (hasAside) WideMainWidth else WideMainAloneWidth).roundToPx())
-        val exact = Constraints.fixedWidth(mainWidth)
-        val mainPlaced = mains.single().measure(exact)
-        val footerPlaced = footers.single().measure(exact)
-        val asideWidth = if (wide) maxOf(0, width - WideAsideGap.roundToPx() - mainWidth) else width
-        val asidePlaced = asides.singleOrNull()?.measure(Constraints(maxWidth = asideWidth))
-        if (wide) {
-            val height =
-                maxOf(
-                    mainPlaced.height + footerPlaced.height,
-                    asidePlaced?.let { it.height + WideAsideBottom.roundToPx() } ?: 0,
-                )
-            layout(width, height) {
-                mainPlaced.place(0, 0)
-                footerPlaced.place(0, height - footerPlaced.height)
-                asidePlaced?.place(mainWidth + WideAsideGap.roundToPx(), 0)
-            }
-        } else {
-            val gap = if (asidePlaced != null) NarrowAsideGap.roundToPx() else 0
-            val asideHeight = asidePlaced?.height ?: 0
-            layout(width, mainPlaced.height + gap + asideHeight + footerPlaced.height) {
-                mainPlaced.place(0, 0)
-                asidePlaced?.place(0, mainPlaced.height + gap)
-                footerPlaced.place(0, mainPlaced.height + gap + asideHeight)
-            }
-        }
-    }
-}
-
-/**
- * `Status.activity`, above the card, so a post by someone else on a user's profile doesn't pass for
- * theirs.
- */
-@Composable
-private fun Activity(label: String) {
-    val color = MaterialTheme.colorScheme.onSurfaceVariant
-    // The icons of the counts under a card.
-    val icon =
-        when {
-            label.contains("赞") -> Icons.Outlined.ThumbUp
-            label.contains("评论") -> Icons.Outlined.ChatBubbleOutline
-            else -> null
-        }
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        if (icon != null) {
-            Icon(icon, contentDescription = null, modifier = Modifier.size(14.dp), tint = color)
-            Spacer(Modifier.width(6.dp))
-        }
-        Text(
-            label,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            style = MaterialTheme.typography.bodySmall,
-            color = color,
-        )
-    }
+    PostCard(
+        modifier = modifier,
+        detail = detail,
+        activity = status.activity,
+        onOpen = actions.onOpen?.let { { it(status) } },
+        header = { Header(status, actions) },
+        body = { Body(status, actions, withMedia = detail || status.retweeted != null) },
+        aside =
+            when {
+                status.retweeted != null -> ({ Retweeted(status.retweeted, actions) })
+                !detail && hasMedia(status) -> ({ Media(status, actions) })
+                else -> null
+            },
+        footer = { Counts(status, actions) },
+    )
 }
 
 @Composable
@@ -256,18 +123,8 @@ private fun Retweeted(status: Status, actions: StatusCardActions) {
     // Deleted or hidden posts come without an author or time and can't be
     // opened; those in `statuses/mentions` may lack only the author.
     val canOpen = onOpen != null && (status.user != null || status.createdAt != null)
-    Surface(
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        shape = RoundedCornerShape(8.dp),
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        Box(
-            Modifier.testTag("retweet")
-                .then(if (canOpen) Modifier.clickable { onOpen(status) } else Modifier)
-                .padding(10.dp)
-        ) {
-            Body(status, actions, nested = true)
-        }
+    QuotedPost(onOpen = if (canOpen) ({ onOpen!!(status) }) else null) {
+        Body(status, actions, nested = true)
     }
 }
 
@@ -290,45 +147,22 @@ private fun Header(status: Status, actions: StatusCardActions) {
             status.visibility.label.takeIf { status.visibility != StatusVisibility.Public },
             "广告".takeIf { status.isAd },
         )
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        UserAvatar(user, onClick = onUser)
-        Spacer(Modifier.width(10.dp))
-        Column(Modifier.weight(1f)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    user?.screenName ?: "微博用户",
-                    modifier =
-                        Modifier.weight(1f, fill = false)
-                            .then(
-                                if (user != null && onUser != null)
-                                    Modifier.clickable { onUser(user) }
-                                else Modifier
-                            ),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    style = MaterialTheme.typography.titleSmall,
-                )
-                if (showsVerified(verified)) {
-                    Spacer(Modifier.width(4.dp))
-                    VerifiedIcon(verified!!)
-                }
+    PostHeader(
+        name = user?.screenName ?: "微博用户",
+        metadata = meta,
+        tags = tags,
+        onAuthor = if (user != null && onUser != null) ({ onUser(user) }) else null,
+        avatar = { UserAvatar(user, onClick = onUser) },
+        badge = {
+            if (showsVerified(verified)) {
+                Spacer(Modifier.width(4.dp))
+                VerifiedIcon(verified!!)
             }
-            if (meta.isNotEmpty()) {
-                Text(
-                    meta,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-        tags.forEachIndexed { i, tag ->
-            if (i > 0) Spacer(Modifier.width(4.dp))
-            TagLabel(tag)
-        }
-        if (onDelete != null && user != null) OwnStatusMenu(user.id) { onDelete(status) }
-    }
+        },
+        menu = {
+            if (onDelete != null && user != null) OwnStatusMenu(user.id) { onDelete(status) }
+        },
+    )
 }
 
 /** A menu for the signed-in user's own posts; nothing on others'. */
@@ -482,64 +316,17 @@ private fun PageCardView(card: PageCard) {
  */
 @Composable
 private fun Counts(status: Status, actions: StatusCardActions) {
-    val colors = MaterialTheme.colorScheme
-    val onRepost = actions.onRepost
-    val onOpen = actions.onOpen
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-        CountItem(
-            Icons.Filled.Repeat,
-            status.repostsCount,
-            "转发",
-            onClick = onRepost?.let { { it(status) } },
+    val shown = rememberLike(LikeTarget(LikeKind.Status, status.id), status.like)
+    PostInteractionBar(
+        PostInteractionActions(
+            reposts = status.repostsCount,
+            comments = status.commentsCount,
+            likes = shown.like.count,
+            liked = shown.like.liked,
+            likePending = shown.pending,
+            onRepost = actions.onRepost?.let { { it(status) } },
+            onComment = actions.onOpen?.let { { it(status) } },
+            onLike = actions.onLike?.let { { it(status) } } ?: shown.onToggle,
         )
-        // Opens the status, as the card does, without lighting it all up.
-        CountItem(
-            Icons.Outlined.ChatBubbleOutline,
-            status.commentsCount,
-            "评论",
-            onClick = onOpen?.let { { it(status) } },
-        )
-        val shown = rememberLike(LikeTarget(LikeKind.Status, status.id), status.like)
-        val like = shown.like
-        CountItem(
-            if (like.liked) Icons.Filled.ThumbUp else Icons.Outlined.ThumbUp,
-            like.count,
-            "赞",
-            color = if (like.liked) colors.primary else null,
-            // While a like is on its way, the button takes no taps but still
-            // swallows them, so they don't open the status.
-            onClick = actions.onLike?.let { { it(status) } } ?: shown.onToggle ?: {},
-        )
-    }
-}
-
-/** No ink on the counts, nor on the card behind them. */
-@Composable
-private fun RowScope.CountItem(
-    icon: ImageVector,
-    count: Int,
-    label: String,
-    color: Color? = null,
-    onClick: (() -> Unit)?,
-) {
-    val tint = color ?: MaterialTheme.colorScheme.onSurfaceVariant
-    Row(
-        Modifier.weight(1f)
-            .then(
-                if (onClick == null) Modifier
-                else
-                    Modifier.clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
-                        onClick = onClick,
-                    )
-            )
-            .padding(vertical = 10.dp),
-        horizontalArrangement = Arrangement.Center,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Icon(icon, contentDescription = null, modifier = Modifier.size(16.dp), tint = tint)
-        Spacer(Modifier.width(4.dp))
-        Text(if (count > 0) formatCount(count) else label, fontSize = 13.sp, color = tint)
-    }
+    )
 }

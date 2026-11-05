@@ -1,5 +1,8 @@
 package io.github.leonfox28.tidemeld.ui.notifications
 
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.performClick
@@ -105,7 +108,11 @@ class NotificationsPageTest {
         checkUnread()
     }
 
-    private fun tab(label: String) = compose.onNodeWithContentDescription(label)
+    private fun tab(label: String) =
+        compose.onNode(
+            hasContentDescription(label) and
+                SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Tab)
+        )
 
     private fun loads(path: String) = app.paths().count { it == path }
 

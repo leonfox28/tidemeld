@@ -14,7 +14,7 @@ enum XWrite { case like, repost, reply, quote }
     private var states: [String: XInteractionState] = [:]
     @ObservationIgnored private let accounts: AccountManager
     @ObservationIgnored private let api: XWebAPI?
-    @ObservationIgnored var drafts: [String: String] = [:]
+    @ObservationIgnored let drafts = CommentDrafts()
     @ObservationIgnored private(set) var readStamp = 0
     init(accounts: AccountManager, api: XWebAPI?) {
         self.accounts = accounts

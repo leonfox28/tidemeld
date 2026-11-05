@@ -70,7 +70,9 @@ final class StatusDetailModel {
         max(0, status.commentsCount + (counted(status)?.comments ?? 0))
     }
 
-    func repostsCount(_ status: Status) -> Int { status.repostsCount + (counted(status)?.reposts ?? 0) }
+    func repostsCount(_ status: Status) -> Int {
+        status.repostsCount + (counted(status)?.reposts ?? 0)
+    }
 
     private func counted(_ status: Status) -> (generation: Int, comments: Int, reposts: Int)? {
         guard let added, added.generation == generation else { return nil }
@@ -90,7 +92,10 @@ final class StatusDetailModel {
         if let list = comments[order] { return list }
         let api = graph!.api
         let list = PagedList<Comment>(
-            fetch: { try await api.fetchComments(statusId: status.id, authorId: authorId, order: order, maxId: $0) },
+            fetch: {
+                try await api.fetchComments(
+                    statusId: status.id, authorId: authorId, order: order, maxId: $0)
+            },
             id: \.id)
         comments[order] = list
         graph!.openLists.comments.add(status.id, list)
@@ -103,7 +108,9 @@ final class StatusDetailModel {
         if let reposts { return reposts }
         let api = graph!.api
         let list = PagedList<Status>(
-            fetch: { try await api.fetchReposts(statusId: status.id, page: $0.flatMap(Int.init) ?? 1) },
+            fetch: {
+                try await api.fetchReposts(statusId: status.id, page: $0.flatMap(Int.init) ?? 1)
+            },
             id: \.id)
         reposts = list
         graph!.openLists.reposts.add(status.id, list)
@@ -169,32 +176,36 @@ private struct StatusDetail: View {
 
     @Environment(AppGraph.self) private var graph
     @State private var commentToDelete: Comment?
-    @State private var actionsVisible = true
 
     var body: some View {
         @Bindable var model = model
         let authorId = status.user?.id
         let comments = authorId.map { model.comments(status, authorId: $0, order: model.order) }
-        List {
-            StatusCard(status: status, actions: cardActions, detail: true)
-                .readingWidth()
-                .plainRow()
-            if model.status == nil, let error = model.error {
-                HStack {
-                    Text("正文加载失败：\(error.message)").font(.footnote)
-                    Spacer()
-                    Button("重试") { model.reload() }.font(.footnote)
+        PostDetailLayout(
+            actions: status.user == nil ? nil : interactionActions,
+            refresh: { try await model.refresh(status) },
+            post: {
+                StatusCard(status: status, actions: cardActions, detail: true)
+                    .readingWidth()
+                    .plainRow()
+                if model.status == nil, let error = model.error {
+                    HStack {
+                        Text("正文加载失败：\(error.message)").font(.footnote)
+                        Spacer()
+                        Button("重试") { model.reload() }.font(.footnote)
+                    }
+                    .foregroundStyle(AppTheme.error)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                    .background(AppTheme.errorContainer)
+                    .plainRow()
                 }
-                .foregroundStyle(AppTheme.error)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
-                .background(AppTheme.errorContainer)
-                .plainRow()
-            }
-            Section {
+            }, responseHeader: { DetailTabs(model: model, status: status) },
+            responses: {
                 if model.tab == .reposts {
                     PagedRows(list: model.reposts(status), emptyText: "还没有人转发") { repost in
-                        RepostTile(status: repost, actions: graph.statusActions).readingWidth().responseRow()
+                        RepostTile(status: repost, actions: graph.statusActions).readingWidth()
+                            .responseRow()
                     }
                 } else if let comments, let authorId {
                     PagedRows(list: comments, emptyText: "还没有评论") { comment in
@@ -202,10 +213,14 @@ private struct StatusDetail: View {
                             comment: comment, authorId: authorId, actions: graph.statusActions,
                             onThread: {
                                 graph.router.push(
-                                    .comments(CommentThread(root: comment, statusId: status.id, statusAuthorId: authorId)))
+                                    .comments(
+                                        CommentThread(
+                                            root: comment, statusId: status.id,
+                                            statusAuthorId: authorId)))
                             },
                             onTap: comment.canReply ? { reply(comment) } : nil,
-                            onDelete: comment.user?.id == graph.session.state.uid && graph.session.state.uid != nil
+                            onDelete: comment.user?.id == graph.session.state.uid
+                                && graph.session.state.uid != nil
                                 ? { commentToDelete = comment } : nil
                         )
                         .readingWidth()
@@ -218,25 +233,8 @@ private struct StatusDetail: View {
                         .padding(40)
                         .plainRow()
                 }
-            } header: {
-                DetailTabs(model: model, status: status).readingWidth().listHeader()
             }
-        }
-        .listStyle(.plain)
-        .listSectionSpacing(0)
-        .appListStyle()
-        .loadsMoreAsScrolled()
-        .refreshable {
-            do {
-                try await model.refresh(status)
-            } catch {
-                graph.toasts.showError(error, router: graph.router)
-            }
-        }
-        .toolbar {
-            if status.user != nil { actions }
-        }
-        .bottomBarHidesOnScroll($actionsVisible)
+        )
         .confirmationDialog(
             "确定删除这条评论吗？", isPresented: deletingComment, titleVisibility: .visible,
             presenting: commentToDelete
@@ -258,7 +256,9 @@ private struct StatusDetail: View {
         // The page has nothing left to show once deleted.
         actions.onDelete = { [graph] deleted in
             graph.delete(deleted) {
-                if case .status(let shown, _)? = graph.router.paths[graph.router.tab]?.last, shown == id {
+                if case .status(let shown, _)? = graph.router.paths[graph.router.tab]?.last,
+                    shown == id
+                {
                     graph.router.pop()
                 }
             }
@@ -266,31 +266,13 @@ private struct StatusDetail: View {
         return actions
     }
 
-    /// Comment, repost and like, as one group at the right of the bottom
-    /// toolbar; the counts are on the tabs above the list, but for likes.
-    @ToolbarContentBuilder
-    private var actions: some ToolbarContent {
+    private var interactionActions: PostInteractionActions {
         let target = LikeTarget(kind: .status, id: status.id)
         let shown = graph.likes.shown(target, loaded: status.like)
-        ToolbarSpacer(.flexible, placement: .bottomBar)
-        ToolbarItemGroup(placement: .bottomBar) {
-            Button("写评论", systemImage: "square.and.pencil") { comment() }
-            // The list of reposts, if open, gets the new one from the repost itself.
-            Button("转发", systemImage: "arrow.2.squarepath") {
-                graph.repost(status) { model.count(reposts: 1) }
-            }
-            Button {
-                if !shown.pending { graph.toggleLike(target, loaded: status.like) }
-            } label: {
-                HStack(spacing: 4) {
-                    Image(systemName: shown.like.liked ? "hand.thumbsup.fill" : "hand.thumbsup")
-                    if shown.like.count > 0 { Text(formatCount(shown.like.count)).monospacedDigit() }
-                }
-            }
-            .tint(shown.like.liked ? AppTheme.primary : nil)
-            .accessibilityLabel(shown.like.count > 0 ? "赞 \(shown.like.count)" : "赞")
-            .sensoryFeedback(.selection, trigger: shown.like.liked)
-        }
+        return PostInteractionActions(
+            likes: shown.like.count, liked: shown.like.liked, likePending: shown.pending,
+            onRepost: { graph.repost(status) { model.count(reposts: 1) } },
+            onComment: { comment() }, onLike: { graph.toggleLike(target, loaded: status.like) })
     }
 
     private func editComments(_ edit: (PagedList<Comment>) -> Void) {
@@ -301,7 +283,8 @@ private struct StatusDetail: View {
         let api = graph.api
         let statusId = status.id
         graph.router.commentComposer = CommentComposerRequest(
-            statusId: statusId, title: "写评论", hint: "写评论…", drafts: model.drafts, draftKey: "status",
+            statusId: statusId, title: "写评论", hint: "写评论…", drafts: model.drafts,
+            draftKey: "status",
             send: { text, pid in
                 let comment = try await api.postComment(statusId: statusId, text: text, pid: pid)
                 model.count(comments: 1)
@@ -319,7 +302,8 @@ private struct StatusDetail: View {
             statusId: statusId, title: name.map { "回复 @\($0)" } ?? "回复评论",
             hint: name.map { "回复 @\($0)" } ?? "回复评论…", drafts: model.drafts, draftKey: target.id,
             send: { text, pid in
-                let reply = try await api.postComment(statusId: statusId, text: text, replyTo: target.id, pid: pid)
+                let reply = try await api.postComment(
+                    statusId: statusId, text: text, replyTo: target.id, pid: pid)
                 // Weibo counts replies among a status's comments.
                 model.count(comments: 1)
                 editComments { list in list.replace(target.id) { $0.withReply(reply) } }
@@ -351,33 +335,31 @@ private struct DetailTabs: View {
     @Environment(AppGraph.self) private var graph
 
     var body: some View {
-        let like = graph.likes.shown(LikeTarget(kind: .status, id: status.id), loaded: status.like).like
-        HStack(spacing: 12) {
-            Picker("列表", selection: $model.tab) {
-                Text("转发 \(formatCount(model.repostsCount(status)))").tag(DetailTab.reposts)
-                Text("评论 \(formatCount(model.commentsCount(status)))").tag(DetailTab.comments)
-            }
-            .pickerStyle(.segmented)
-            .fixedSize()
-            if model.tab == .comments {
-                Menu {
-                    Picker("排序", selection: $model.order) {
-                        Text("按热度").tag(CommentOrder.hot)
-                        Text("按时间").tag(CommentOrder.time)
+        let like = graph.likes.shown(LikeTarget(kind: .status, id: status.id), loaded: status.like)
+            .like
+        PostResponseHeader(
+            tabs: [
+                PostResponseTab(id: "reposts", label: "转发", count: model.repostsCount(status)),
+                PostResponseTab(id: "comments", label: "评论", count: model.commentsCount(status)),
+            ],
+            selected: model.tab == .reposts ? "reposts" : "comments", likes: like.count,
+            select: { model.tab = $0 == "reposts" ? .reposts : .comments },
+            order: {
+                if model.tab == .comments {
+                    Menu {
+                        Picker("排序", selection: $model.order) {
+                            Text("按热度").tag(CommentOrder.hot)
+                            Text("按时间").tag(CommentOrder.time)
+                        }
+                    } label: {
+                        HStack(spacing: 2) {
+                            Text(model.order == .hot ? "按热度" : "按时间")
+                            Image(systemName: "chevron.up.chevron.down").font(.caption2)
+                        }
+                        .font(.footnote)
                     }
-                } label: {
-                    HStack(spacing: 2) {
-                        Text(model.order == .hot ? "按热度" : "按时间")
-                        Image(systemName: "chevron.up.chevron.down").font(.caption2)
-                    }
-                    .font(.footnote)
                 }
-            }
-            Spacer()
-            Text("赞 \(formatCount(like.count))").font(.footnote).foregroundStyle(AppTheme.secondary)
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 8)
+            })
     }
 }
 

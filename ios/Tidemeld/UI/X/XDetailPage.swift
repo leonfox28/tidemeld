@@ -30,38 +30,46 @@ struct XDetailPage: View {
         _model = State(wrappedValue: XDetailModel(initial: initial))
     }
     var body: some View {
-        List {
+        Group {
             if let post = model.post {
-                XPostCard(post: post, owner: owner, onReply: { showingReply = true }).readingWidth()
-                    .statusRow()
-            }
-            Text("评论").font(.headline).padding(16).readingWidth().plainRow()
-            if let replies = model.replies {
-                PagedRows(list: replies, emptyText: "还没有评论") { post in
-                    XPostCard(post: post, owner: owner).readingWidth().statusRow()
+                XPostActionHost(post: post, owner: owner, onReply: { showingReply = true }) {
+                    actions in
+                    layout(actions: actions)
                 }
+            } else {
+                layout(actions: nil)
             }
-        }.listStyle(.plain).appListStyle().loadsMoreAsScrolled()
-            .navigationTitle("帖子").navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) { Button("刷新") { model.replies?.reload() } }
+        }.navigationTitle("帖子").navigationBarTitleDisplayMode(.inline).toolbar(
+            .hidden, for: .tabBar
+        )
+        .task { model.start(graph.xInteractions, owner: owner, id: id) }
+        .sheet(isPresented: $showingReply) {
+            if let post = model.post {
+                XComposer(owner: owner, post: post, onSent: { model.replies?.reload() })
             }
-            .safeAreaInset(edge: .bottom) {
-                if model.post != nil {
-                    Button("写评论…") { showingReply = true }.frame(maxWidth: .infinity, minHeight: 48)
-                        .background(.bar)
-                }
-            }
-            .refreshable {
-                do { try await model.replies?.refresh() } catch {
-                    graph.toasts.showError(error, router: graph.router)
-                }
-            }
-            .task { model.start(graph.xInteractions, owner: owner, id: id) }
-            .sheet(isPresented: $showingReply) {
+        }
+    }
+    private func layout(actions: PostInteractionActions?) -> some View {
+        PostDetailLayout(
+            actions: actions, refresh: { try await model.replies?.refresh() },
+            post: {
                 if let post = model.post {
-                    XComposer(owner: owner, post: post, onSent: { model.replies?.reload() })
+                    XPostCard(post: post, owner: owner, detail: true).readingWidth().plainRow()
                 }
-            }
+            },
+            responseHeader: {
+                PostResponseHeader(
+                    tabs: [
+                        PostResponseTab(id: "comments", label: "评论", count: actions?.comments ?? 0)
+                    ], selected: "comments", likes: actions?.likes ?? 0, select: { _ in }, order: {}
+                )
+            },
+            responses: {
+                if let replies = model.replies {
+                    PagedRows(list: replies, emptyText: "还没有评论") { post in
+                        XPostCard(post: post, owner: owner).readingWidth().statusRow()
+                    }
+                }
+            })
     }
 }

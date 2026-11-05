@@ -1,15 +1,14 @@
 package io.github.leonfox28.tidemeld.ui.x
 
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.leonfox28.tidemeld.LocalAppGraph
+import io.github.leonfox28.tidemeld.core.paging.ListLoad
 import io.github.leonfox28.tidemeld.core.paging.PagedController
 import io.github.leonfox28.tidemeld.data.x.XPost
+import io.github.leonfox28.tidemeld.ui.post.*
 import io.github.leonfox28.tidemeld.ui.widget.*
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -52,54 +51,39 @@ fun XDetailPage(owner: String, id: String, initial: XPost?) {
         }
     }
     LaunchedEffect(controller) { controller.start() }
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("帖子") },
-                navigationIcon = { BackButton() },
-                actions = { IconButton(onClick = controller::reload) { Text("刷新") } },
-            )
+    val actions = post?.let { rememberXPostActions(owner, it, ::reply) }
+    PostDetailLayout(
+        title = "帖子",
+        actions = actions,
+        onRefresh = { controller.refresh() },
+        onLoadMore =
+            if ((state as? ListLoad.Ready)?.list?.loadMoreError == null)
+                ({
+                    scope.launch { controller.loadMore() }
+                    Unit
+                })
+            else null,
+        postItems = {
+            post?.let { value -> item(key = "focal") { XPostCard(value, owner, detail = true) } }
         },
-        bottomBar = {
-            if (post != null)
-                Surface(tonalElevation = 3.dp) {
-                    TextButton(
-                        onClick = ::reply,
-                        modifier = Modifier.fillMaxWidth().navigationBarsPadding(),
-                    ) {
-                        Text("写评论…")
-                    }
-                }
-        },
-    ) { padding ->
-        BoxWithConstraints(Modifier.fillMaxSize()) {
-            LazyColumn(
-                contentPadding = readingPadding(maxWidth, padding),
-                modifier = Modifier.fillMaxSize(),
-            ) {
-                post?.let { value ->
-                    item(key = "focal") {
-                        XPostCard(value, owner, onReply = ::reply)
-                        HorizontalDivider()
-                    }
-                }
-                item {
-                    Text(
-                        "评论",
-                        Modifier.padding(16.dp),
-                        style = MaterialTheme.typography.titleMedium,
-                    )
-                }
-                pagedItems(
-                    state,
-                    key = { "reply:${it.id}" },
-                    onRetry = controller::reload,
-                    onLoadMore = { scope.launch { controller.loadMore() } },
-                    emptyText = "还没有评论",
-                ) {
-                    XPostCard(it, owner)
-                }
+        responseItems = {
+            item {
+                PostResponseHeader(
+                    listOf(PostResponseTab("comments", "评论", actions?.comments ?: 0)),
+                    "comments",
+                    actions?.likes ?: 0,
+                    onSelect = {},
+                )
             }
-        }
-    }
+            pagedItems(
+                state,
+                key = { "reply:${it.id}" },
+                onRetry = controller::reload,
+                onLoadMore = { scope.launch { controller.loadMore() } },
+                emptyText = "还没有评论",
+            ) {
+                XPostCard(it, owner)
+            }
+        },
+    )
 }

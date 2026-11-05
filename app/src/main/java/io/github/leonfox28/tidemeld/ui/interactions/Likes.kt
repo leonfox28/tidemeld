@@ -100,7 +100,7 @@ class LikesController(
 }
 
 /** A like as the user last left it, and how to toggle it: null while a toggle is on its way. */
-class ShownLike(val like: LikeState, val onToggle: (() -> Unit)?)
+class ShownLike(val like: LikeState, val onToggle: (() -> Unit)?, val pending: Boolean = false)
 
 /**
  * The like of [target], which the loaded data says is [loaded], as the user last left it. A refused
@@ -127,5 +127,5 @@ fun rememberLike(target: LikeTarget, loaded: LikeState): ShownLike {
                 }
             }
         }
-    return ShownLike(LikesController.resolve(change, loaded), onToggle)
+    return ShownLike(LikesController.resolve(change, loaded), onToggle, change?.pending == true)
 }

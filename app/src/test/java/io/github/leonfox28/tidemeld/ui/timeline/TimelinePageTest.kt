@@ -82,7 +82,7 @@ class TimelinePageTest {
         compose.onNodeWithContentDescription("选择信息流").performClick()
         compose.onNodeWithText("X", useUnmergedTree = true).performClick()
         compose.waitUntil(5_000) { !shown(0, "来自微博的信息") && shown(0, "来自X的信息") }
-        compose.onNodeWithText("评论 0").performClick()
+        compose.onNodeWithContentDescription("评论").performClick()
         val route =
             navigator.backStack.last() as io.github.leonfox28.tidemeld.ui.navigation.Route.XDetail
         assertEquals("x:9", route.owner)

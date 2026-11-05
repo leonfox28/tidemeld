@@ -1,62 +1,36 @@
 package io.github.leonfox28.tidemeld.ui.status
 
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.WindowInsetsSides
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Repeat
-import androidx.compose.material.icons.filled.ThumbUp
-import androidx.compose.material.icons.outlined.ThumbUp
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.LocalRippleConfiguration
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -66,7 +40,6 @@ import io.github.leonfox28.tidemeld.LocalAppGraph
 import io.github.leonfox28.tidemeld.core.net.WeiboException
 import io.github.leonfox28.tidemeld.core.paging.ListLoad
 import io.github.leonfox28.tidemeld.core.session.SessionState
-import io.github.leonfox28.tidemeld.core.util.formatCount
 import io.github.leonfox28.tidemeld.core.util.formatPostTime
 import io.github.leonfox28.tidemeld.data.model.Comment
 import io.github.leonfox28.tidemeld.data.model.CommentOrder
@@ -84,27 +57,19 @@ import io.github.leonfox28.tidemeld.ui.interactions.rememberStatusWrites
 import io.github.leonfox28.tidemeld.ui.interactions.showCommentComposer
 import io.github.leonfox28.tidemeld.ui.navigation.LocalNavigator
 import io.github.leonfox28.tidemeld.ui.navigation.Route
-import io.github.leonfox28.tidemeld.ui.widget.AppSnackbarHost
+import io.github.leonfox28.tidemeld.ui.post.*
 import io.github.leonfox28.tidemeld.ui.widget.BackButton
-import io.github.leonfox28.tidemeld.ui.widget.BarsOnScroll
-import io.github.leonfox28.tidemeld.ui.widget.CommentBar
 import io.github.leonfox28.tidemeld.ui.widget.ErrorRetry
-import io.github.leonfox28.tidemeld.ui.widget.HidingAppBar
-import io.github.leonfox28.tidemeld.ui.widget.LoadMoreTrigger
 import io.github.leonfox28.tidemeld.ui.widget.LocalOverlays
 import io.github.leonfox28.tidemeld.ui.widget.LocalSnackbars
-import io.github.leonfox28.tidemeld.ui.widget.ReadingPanes
 import io.github.leonfox28.tidemeld.ui.widget.UserAvatar
-import io.github.leonfox28.tidemeld.ui.widget.WindowSize
 import io.github.leonfox28.tidemeld.ui.widget.loadErrorMessage
 import io.github.leonfox28.tidemeld.ui.widget.pagedItems
-import io.github.leonfox28.tidemeld.ui.widget.readingPadding
 import io.github.leonfox28.tidemeld.ui.widget.showError
 import io.github.leonfox28.tidemeld.ui.widget.showMessage
 import io.github.leonfox28.tidemeld.ui.widget.status.StatusCard
 import io.github.leonfox28.tidemeld.ui.widget.status.StatusCardActions
 import io.github.leonfox28.tidemeld.ui.widget.text.StatusText
-import io.github.leonfox28.tidemeld.ui.widget.windowSize
 import kotlinx.coroutines.launch
 
 private const val TITLE = "微博正文"
@@ -154,10 +119,6 @@ private fun Detail(
     val scope = rememberCoroutineScope()
     val session by graph.session.state.collectAsStateWithLifecycle()
     val me = (session as? SessionState.SignedIn)?.account?.uid
-    val threshold = with(LocalDensity.current) { BarsOnScroll.Threshold.toPx() }
-    val bars = remember(threshold) { BarsOnScroll(threshold) }
-    val hidden by
-        animateFloatAsState(if (bars.visible) 0f else 1f, BarsOnScroll.spec(), label = "bars")
     val base = rememberStatusCardActions()
     val cardActions =
         remember(base, status.id) {
@@ -220,9 +181,6 @@ private fun Detail(
             model.deleting -= comment.id
         }
     }
-    var refreshing by remember { mutableStateOf(false) }
-    val listState = rememberLazyListState()
-    val split = windowSize() == WindowSize.Expanded
 
     val comments = authorId?.let { model.comments(status, it, model.order) }
     val reposts = if (model.tab == DetailTab.Reposts) model.reposts(status) else null
@@ -306,149 +264,33 @@ private fun Detail(
         }
     }
 
-    LoadMoreTrigger(
-        listState,
-        onNearEnd =
+    val shown = rememberLike(LikeTarget(LikeKind.Status, status.id), status.like)
+    PostDetailLayout(
+        title = TITLE,
+        actions =
+            if (status.user == null) null
+            else
+                PostInteractionActions(
+                    likes = shown.like.count,
+                    liked = shown.like.liked,
+                    likePending = shown.pending,
+                    onComment = { comment() },
+                    onRepost = { writes.repost(status) { model.count(status, reposts = 1) } },
+                    onLike = shown.onToggle,
+                ),
+        onRefresh = { model.refresh(status) },
+        onLoadMore =
             list?.let { controller ->
                 val ready = listLoad as? ListLoad.Ready
-                if (ready?.list?.loadMoreError == null) ({ scope.launch { controller.loadMore() } })
+                if (ready?.list?.loadMoreError == null)
+                    ({
+                        scope.launch { controller.loadMore() }
+                        Unit
+                    })
                 else null
             },
-    )
-
-    Scaffold(
-        Modifier.nestedScroll(bars.connection),
-        bottomBar = {
-            if (status.user != null) {
-                val slide = Modifier.graphicsLayer { translationY = hidden * 1.5f * size.height }
-                val bar: @Composable (Modifier) -> Unit = { modifier ->
-                    BottomBar(
-                        status,
-                        onComment = ::comment,
-                        // The list of reposts, if open, gets the new one from the repost itself.
-                        onRepost = { writes.repost(status) { model.count(status, reposts = 1) } },
-                        modifier = modifier,
-                    )
-                }
-                // Under the lists it writes to.
-                if (split) {
-                    ReadingPanes(
-                        slide,
-                        divider = false,
-                        fillHeight = false,
-                        end = { bar(Modifier) },
-                    )
-                } else {
-                    bar(slide)
-                }
-            }
-        },
-        snackbarHost = { AppSnackbarHost() },
-        contentWindowInsets = WindowInsets(0),
-    ) { padding ->
-        Column(
-            Modifier.fillMaxSize()
-                .windowInsetsPadding(
-                    WindowInsets.safeDrawing.only(
-                        WindowInsetsSides.Top + WindowInsetsSides.Horizontal
-                    )
-                )
-        ) {
-            HidingAppBar(bars.visible, title = { Text(TITLE) })
-            PullToRefreshBox(
-                isRefreshing = refreshing,
-                onRefresh = {
-                    refreshing = true
-                    scope.launch {
-                        try {
-                            model.refresh(status)
-                        } catch (e: WeiboException) {
-                            launch { snackbars.showError(e, navigator) }
-                        } finally {
-                            refreshing = false
-                        }
-                    }
-                },
-            ) {
-                // Room to scroll the last item out from under the comment bar.
-                val bottom = PaddingValues(bottom = padding.calculateBottomPadding())
-                if (split) {
-                    // The lists scroll on their own, leaving the status where it is.
-                    ReadingPanes(
-                        start = {
-                            LazyColumn(Modifier.fillMaxSize(), contentPadding = bottom) {
-                                postItems()
-                            }
-                        },
-                        end = {
-                            LazyColumn(
-                                Modifier.fillMaxSize(),
-                                state = listState,
-                                contentPadding = bottom,
-                            ) {
-                                responseItems()
-                            }
-                        },
-                    )
-                } else {
-                    BoxWithConstraints(Modifier.fillMaxSize()) {
-                        LazyColumn(
-                            Modifier.fillMaxSize(),
-                            state = listState,
-                            contentPadding = readingPadding(maxWidth, bottom),
-                        ) {
-                            postItems()
-                            responseItems()
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-/** The comment bar, with repost and like buttons: the counts are on the tabs above. */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun BottomBar(
-    status: Status,
-    onComment: () -> Unit,
-    onRepost: () -> Unit,
-    modifier: Modifier,
-) {
-    val colors = MaterialTheme.colorScheme
-    val shown = rememberLike(LikeTarget(LikeKind.Status, status.id), status.like)
-    val like = shown.like
-    CommentBar(
-        hint = "写评论…",
-        onClick = onComment,
-        modifier = modifier,
-        trailing = {
-            // No ink, as on a card's counts.
-            CompositionLocalProvider(LocalRippleConfiguration provides null) {
-                Row {
-                    TextButton(onClick = onRepost) {
-                        Icon(
-                            Icons.Filled.Repeat,
-                            contentDescription = null,
-                            tint = colors.onSurfaceVariant,
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Text("转发", color = colors.onSurfaceVariant)
-                    }
-                    val color = if (like.liked) colors.primary else colors.onSurfaceVariant
-                    TextButton(onClick = shown.onToggle ?: {}, enabled = shown.onToggle != null) {
-                        Icon(
-                            if (like.liked) Icons.Filled.ThumbUp else Icons.Outlined.ThumbUp,
-                            contentDescription = null,
-                            tint = color,
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Text(if (like.count > 0) formatCount(like.count) else "赞", color = color)
-                    }
-                }
-            }
-        },
+        postItems = postItems,
+        responseItems = responseItems,
     )
 }
 
@@ -483,52 +325,17 @@ private fun Tabs(
     tab: DetailTab,
     onTab: (DetailTab) -> Unit,
 ) {
-    val colors = MaterialTheme.colorScheme
     val like = rememberLike(LikeTarget(LikeKind.Status, status.id), status.like).like
-    Column(Modifier.fillMaxWidth().background(colors.surface)) {
-        Row(Modifier.height(43.dp), verticalAlignment = Alignment.CenterVertically) {
-            TabButton("转发 ${formatCount(repostsCount)}", tab == DetailTab.Reposts) {
-                onTab(DetailTab.Reposts)
-            }
-            TabButton("评论 ${formatCount(commentsCount)}", tab == DetailTab.Comments) {
-                onTab(DetailTab.Comments)
-            }
-            Spacer(Modifier.weight(1f))
-            Text(
-                "赞 ${formatCount(like.count)}",
-                modifier = Modifier.padding(end = 16.dp),
-                style = MaterialTheme.typography.bodyMedium,
-                color = colors.onSurfaceVariant,
-            )
-        }
-        HorizontalDivider()
-    }
-}
-
-@Composable
-private fun TabButton(label: String, selected: Boolean, onClick: () -> Unit) {
-    val colors = MaterialTheme.colorScheme
-    Column(
-        Modifier.fillMaxHeight().clickable(onClick = onClick).padding(horizontal = 16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
-    ) {
-        Spacer(Modifier.height(3.dp))
-        Text(
-            label,
-            style = MaterialTheme.typography.bodyMedium,
-            color = if (selected) colors.onSurface else colors.onSurfaceVariant,
-            fontWeight = if (selected) FontWeight.SemiBold else null,
-        )
-        Spacer(Modifier.height(4.dp))
-        Box(
-            Modifier.size(20.dp, 3.dp)
-                .background(
-                    if (selected) colors.primary else Color.Transparent,
-                    RoundedCornerShape(2.dp),
-                )
-        )
-    }
+    PostResponseHeader(
+        tabs =
+            listOf(
+                PostResponseTab("reposts", "转发", repostsCount),
+                PostResponseTab("comments", "评论", commentsCount),
+            ),
+        selected = if (tab == DetailTab.Reposts) "reposts" else "comments",
+        likes = like.count,
+        onSelect = { onTab(if (it == "reposts") DetailTab.Reposts else DetailTab.Comments) },
+    )
 }
 
 @Composable

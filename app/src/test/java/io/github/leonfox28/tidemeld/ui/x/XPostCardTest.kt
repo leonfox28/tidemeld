@@ -56,12 +56,12 @@ class XPostCardTest {
                 }
             }
         }
-        compose.onAllNodesWithText("赞 0")[0].performClick()
+        compose.onAllNodesWithContentDescription("赞")[0].performClick()
         compose.waitUntil(5000) {
-            compose.onAllNodesWithText("已赞 1").fetchSemanticsNodes().size == 2
+            compose.onAllNodesWithContentDescription("赞 1").fetchSemanticsNodes().size == 2
         }
         assertEquals(1, web.requests.size)
-        compose.onAllNodesWithText("评论 0")[0].performClick()
+        compose.onAllNodesWithContentDescription("评论")[0].performClick()
         assertEquals(Route.XDetail("x:7", "42", post), navigator.backStack.last())
         compose.onNodeWithText("在 X 中查看与互动").assertDoesNotExist()
     }
@@ -70,7 +70,7 @@ class XPostCardTest {
     fun `repost menu does not send until selected and failed comment preserves draft`() {
         web.respond = { json("{}", 500) }
         compose.setContent { TestHost(graph) { XPostCard(post, "x:7") } }
-        compose.onNodeWithText("转发 0").performClick()
+        compose.onNodeWithContentDescription("转发").performClick()
         compose.onNodeWithText("转发到我的时间线").assertIsDisplayed()
         assertTrue(web.requests.isEmpty())
         compose.onNodeWithText("引用转发").performClick()
@@ -82,10 +82,9 @@ class XPostCardTest {
         compose.onNodeWithText("合成草稿").assertExists()
         assertEquals(
             "合成草稿",
-            graph.xInteractions.drafts[graph.xInteractions.key("x:7", "42") + ":quote"],
+            graph.xInteractions.drafts[graph.xInteractions.key("x:7", "42") + ":quote"]?.text,
         )
         assertEquals(1, web.requests.size)
-        compose.onNodeWithText("取消").performClick()
-        compose.onNodeWithText("转发 0").assertExists()
+        compose.onNodeWithContentDescription("添加图片").assertDoesNotExist()
     }
 }

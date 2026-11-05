@@ -23,7 +23,7 @@ enum class XWrite {
 class XInteractions(private val accounts: AccountManager, private val api: XWebApi?) {
     private val mutable = MutableStateFlow<Map<String, XInteractionState>>(emptyMap())
     val states = mutable.asStateFlow()
-    val drafts = mutableMapOf<String, String>()
+    val drafts = mutableMapOf<String, io.github.leonfox28.tidemeld.ui.interactions.CommentDraft>()
     var readStamp = 0L
         private set
 
