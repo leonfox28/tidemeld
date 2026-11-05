@@ -121,6 +121,7 @@ struct LoginPrompt: View {
             Label(expired ? "登录已过期，请重新登录" : "登录后即可浏览关注的人的微博", systemImage: "lock")
         } description: {
             Text("登录在微博官方页面中完成，maxbo 不会接触你的密码，登录状态只保存在本机。")
+            Text("也可以在“搜索”页先看热搜和部分公开内容。")
         } actions: {
             Button("登录微博") { graph.router.showingLogin = true }
                 .buttonStyle(.glassProminent)

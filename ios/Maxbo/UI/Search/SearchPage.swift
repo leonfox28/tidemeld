@@ -43,21 +43,31 @@ struct SearchPage: View {
     @State private var refreshing = false
 
     var body: some View {
-        Group {
-            switch graph.session.state {
-            case .signedOut(let expired): LoginPrompt(expired: expired)
-            // Only then: searching needs a session, as in the Kotlin app.
-            case .signedIn:
-                hotList
-                    .searchable(text: $query, prompt: "搜索微博")
-                    .onSubmit(of: .search) {
-                        graph.router.openSearch(query)
-                    }
+        VStack(spacing: 0) {
+            if graph.session.account == nil {
+                Text("游客可浏览热搜和部分公开内容，更多内容及互动需登录。")
+                    .font(.footnote)
+                    .foregroundStyle(AppTheme.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
             }
+            hotList.frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        .searchable(text: $query, prompt: "搜索微博")
+        .onSubmit(of: .search) {
+            graph.router.openSearch(query, asGuest: graph.session.account == nil)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .appBackground()
         .navigationTitle("搜索")
+        .toolbar {
+            if graph.session.account == nil {
+                ToolbarItem(placement: .primaryAction) {
+                    Button("登录微博") { graph.router.showingLogin = true }
+                }
+            }
+        }
     }
 
     /// Loads the list again, keeping it meanwhile; one at a time, a failure
@@ -122,7 +132,7 @@ private struct HotSearchRow: View {
 
     var body: some View {
         Button {
-            graph.router.openSearch(item.query)
+            graph.router.openSearch(item.query, asGuest: graph.session.account == nil)
         } label: {
             HStack(spacing: 8) {
                 Group {

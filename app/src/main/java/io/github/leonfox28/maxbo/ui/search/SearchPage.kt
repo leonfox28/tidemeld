@@ -40,6 +40,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -72,8 +73,8 @@ import io.github.leonfox28.maxbo.core.util.formatCount
 import io.github.leonfox28.maxbo.data.api.WeiboApi
 import io.github.leonfox28.maxbo.data.model.HotSearch
 import io.github.leonfox28.maxbo.data.model.HotSearchItem
-import io.github.leonfox28.maxbo.ui.auth.LoginPrompt
 import io.github.leonfox28.maxbo.ui.navigation.LocalNavigator
+import io.github.leonfox28.maxbo.ui.navigation.Route
 import io.github.leonfox28.maxbo.ui.shell.LocalTabReselect
 import io.github.leonfox28.maxbo.ui.status.openSearchResults
 import io.github.leonfox28.maxbo.ui.widget.ErrorRetry
@@ -124,23 +125,35 @@ class HotSearchViewModel(private val api: WeiboApi) : ViewModel() {
 @Composable
 fun SearchPage(padding: PaddingValues) {
     val session by LocalAppGraph.current.session.state.collectAsStateWithLifecycle()
+    val asGuest = session is SessionState.SignedOut
+    val navigator = LocalNavigator.current
     val area =
         Modifier.fillMaxSize()
             .windowInsetsPadding(
                 WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)
             )
-    when (val state = session) {
-        is SessionState.SignedOut -> LoginPrompt(state.expired, area)
-        is SessionState.SignedIn ->
-            Column(area) {
-                SearchField()
-                Box(Modifier.weight(1f)) { HotSearchList(padding) }
+    Column(area) {
+        SearchField(asGuest)
+        if (asGuest) {
+            Row(
+                Modifier.padding(horizontal = 16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    "游客可浏览热搜和部分公开内容，更多内容及互动需登录。",
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                TextButton(onClick = { navigator.push(Route.Login) }) { Text("登录微博") }
             }
+        }
+        Box(Modifier.weight(1f)) { HotSearchList(padding, asGuest) }
     }
 }
 
 @Composable
-private fun SearchField() {
+private fun SearchField(asGuest: Boolean) {
     val navigator = LocalNavigator.current
     val focus = LocalFocusManager.current
     val text = rememberTextFieldState()
@@ -150,7 +163,7 @@ private fun SearchField() {
         if (query.isEmpty()) return
         // Or the keyboard comes back with the field when the results close.
         focus.clearFocus()
-        openSearchResults(navigator, query)
+        openSearchResults(navigator, query, asGuest)
     }
     // Over the list's column, not spread across a wide window.
     Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
@@ -205,7 +218,7 @@ private fun SearchField() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun HotSearchList(padding: PaddingValues) {
+private fun HotSearchList(padding: PaddingValues, asGuest: Boolean) {
     val api = LocalAppGraph.current.api
     val model = viewModel { HotSearchViewModel(api) }
     val load by model.state.collectAsStateWithLifecycle()
@@ -266,8 +279,8 @@ private fun HotSearchList(padding: PaddingValues) {
                 state = listState,
                 contentPadding = readingPadding(maxWidth, padding),
             ) {
-                items(hot.pinned) { HotSearchTile(it, pinned = true) }
-                items(hot.items) { HotSearchTile(it) }
+                items(hot.pinned) { HotSearchTile(it, asGuest, pinned = true) }
+                items(hot.items) { HotSearchTile(it, asGuest) }
             }
         }
     }
@@ -277,7 +290,7 @@ private fun HotSearchList(padding: PaddingValues) {
 private val TopColors = listOf(Color(0xFFF5222D), Color(0xFFFF6A00), Color(0xFFFAA90E))
 
 @Composable
-private fun HotSearchTile(item: HotSearchItem, pinned: Boolean = false) {
+private fun HotSearchTile(item: HotSearchItem, asGuest: Boolean, pinned: Boolean = false) {
     val navigator = LocalNavigator.current
     val focus = LocalFocusManager.current
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
@@ -286,7 +299,7 @@ private fun HotSearchTile(item: HotSearchItem, pinned: Boolean = false) {
         Modifier.fillMaxWidth()
             .clickable {
                 focus.clearFocus()
-                openSearchResults(navigator, item.query)
+                openSearchResults(navigator, item.query, asGuest)
             }
             .padding(start = 12.dp, top = 13.dp, end = 16.dp, bottom = 13.dp),
         verticalAlignment = Alignment.CenterVertically,

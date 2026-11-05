@@ -34,7 +34,7 @@ Make reading comfortable
 
 Before you download
 • The app interface is in Simplified Chinese. iOS 26 or later is required.
-• Core features require an existing Weibo account. Sign-in takes place on Weibo's official website inside the app.
+• Without signing in, view trending topics and some public content on Weibo's web pages. Further browsing, your following feed and interactions require an existing Weibo account. Sign-in takes place on Weibo's official website inside the app.
 • The maintainer does not operate a backend receiving your Weibo data. Data needed to use Weibo is sent directly to that service.
 • maxbo is not affiliated with or endorsed by Weibo. Feature availability depends on Weibo and your account status.
 

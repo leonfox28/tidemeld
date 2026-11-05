@@ -13,8 +13,11 @@ import io.github.leonfox28.maxbo.support.hotSearchJson
 import io.github.leonfox28.maxbo.support.json
 import io.github.leonfox28.maxbo.support.obj
 import io.github.leonfox28.maxbo.ui.navigation.Route
+import io.github.leonfox28.maxbo.ui.webview.weiboSearchUrl
+import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -50,6 +53,43 @@ class SearchPageTest {
 
     private val field
         get() = compose.onNode(hasSetTextAction())
+
+    private fun openAsGuest() {
+        runBlocking { app.graph.session.logout() }
+        web.respond = { json(list.toString()) }
+        open()
+        app.waitFor("第一条")
+    }
+
+    @Test
+    fun `guests load only public hot search without an account cookie`() {
+        openAsGuest()
+
+        assertEquals(listOf("/ajax/side/hotSearch"), app.paths())
+        assertNull(web.requests.single().headers["Cookie"])
+        app.text("游客可浏览热搜", substring = true).assertExists()
+        app.text("登录微博").performClick()
+        assertEquals(Route.Login, app.top)
+    }
+
+    @Test
+    fun `guests open hot topics in Weibo's own public web page`() {
+        openAsGuest()
+
+        app.text("第一条").performClick()
+        assertEquals(weiboSearchUrl("#第一条#"), (app.top as Route.Web).url)
+        assertEquals(listOf("/ajax/side/hotSearch"), app.paths())
+    }
+
+    @Test
+    fun `a guest's typed query opens web search rather than the authenticated API`() {
+        openAsGuest()
+
+        field.performTextReplacement("  天气 & 日落  ")
+        field.performImeAction()
+        assertEquals(weiboSearchUrl("天气 & 日落"), (app.top as Route.Web).url)
+        assertEquals(listOf("/ajax/side/hotSearch"), app.paths())
+    }
 
     @Test
     fun `lists the pinned entries, then the ranking as sent`() {

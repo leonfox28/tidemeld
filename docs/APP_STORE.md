@@ -48,6 +48,7 @@ GitHub 的 `noreply` 地址用于提交身份，不是接收支持请求的邮�
 
 ### 审核登录和第三方服务
 
+- 2026-11-05 增加有限游客浏览：未登录可打开“搜索”看原生热搜榜，点热搜或提交关键词进入 `m.weibo.cn` 官方网页。实测无 Cookie 热搜返回 `ok:1`，原生搜索返回 `ok:-100`；无真实账号的测试模拟器能查看网页首批结果，继续翻页会转到登录页。没有绕过游客限制，也未将网页游客 Cookie 当作账号登录态。此路径不能代替关注时间线、通知和写操作的审核访问。
 - 2026-11-05 用户说明：专门小号仍需要手机验证码，询问能否免登录。审核访问方案尚未确定，不能仅凭提供账号密码就标记完成。
 - 方案 A：如果能提供可独立登录的微博审核账号，通过 App Store Connect 填凭据，并用新会话验证。需要维护者临时扫码或收短信的流程无法保证审核员独立访问。
 - 方案 B：事先向 Apple 说明第三方短信验证限制，申请用完整内置演示模式代替账号。[2.1(a)](https://developer.apple.com/app-store/review/guidelines/#app-completeness) 对因法律或安全义务无法提供账号的情况要求事先取得 Apple 同意；短信验证是否被认可尚未确认。[英文请求草稿](app-store/reviewer-access-request.md) 已准备，尚未发送。
@@ -105,3 +106,4 @@ xcodebuild -exportArchive -archivePath build/app-store/Maxbo.xcarchive \
 - 2026-11-05：价格已设为 USD 0.00；供应范围仅美国，后台显示“供应情况（1 个国家或地区）”，美国状态为“App 发布时供应”。Mac 和 Apple Vision Pro 分发未开启，首发先覆盖已确定的 iPhone / iPad。
 - 2026-11-05：App Store 分发 IPA 导出成功，位于 `ios/build/app-store/export/Maxbo.ipa`。核对 Bundle ID、0.13.1 (1)、iPhone/iPad、随包隐私政策和隐私清单；图标无 alpha，归档签名校验通过。修复 XcodeGen 默认英文，安装包开发语言已确认为 `zh-Hans`。
 - 2026-11-05：在无真实账号的 `maxbo test` 模拟器检查了离线隐私页，正文、滚动和末尾支持入口正常。尚未上传二进制或提交审核，真实账号及内容安全验收待完成。
+- 2026-11-05：增加游客热搜及公开网页浏览后，iOS 76 项测试通过，Android 全量格式、lint、380 项单元测试与 Debug 构建通过。在无真实账号的 `maxbo test` 模拟器确认热搜及点击后的公开网页能加载；Release 重新归档、导出和签名校验通过。游客网页继续翻页会要求登录，审核访问问题仍需解决。

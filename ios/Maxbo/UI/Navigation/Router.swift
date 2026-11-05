@@ -130,8 +130,10 @@ final class Router {
     }
 
     /// Opens the results of searching for [query]; `#话题#` searches the topic.
-    func openSearch(_ query: String) {
+    func openSearch(_ query: String, asGuest: Bool = false) {
         let query = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !query.isEmpty { push(.searchResults(query)) }
+        if !query.isEmpty {
+            push(asGuest ? .web(weiboSearchURL(query)) : .searchResults(query))
+        }
     }
 }

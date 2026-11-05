@@ -13,7 +13,7 @@ Authentication and network access:
 
 Navigation:
 - 首页: following feed. Tap a post to open its details, photos or video.
-- 搜索: trending topics and post search.
+- 搜索: trending topics and post search. This tab is available without signing in: guests see the native trending list, and tapping a topic or submitting a search opens Weibo's public web page. Weibo limits guest results and may require login for further browsing. Signed-in users get native search results. This limited guest access does not expose the following feed, notifications or account actions for review.
 - 通知: mentions, comments and likes.
 - 我: current profile, settings and sign-out. Settings → 关于 maxbo → 隐私政策 opens the bundled policy without a network connection. The login screen also offers a policy button.
 

@@ -51,6 +51,12 @@ fun LoginPrompt(expired: Boolean, modifier: Modifier = Modifier) {
                 style = MaterialTheme.typography.bodySmall,
                 textAlign = TextAlign.Center,
             )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "也可以在“搜索”页先看热搜和部分公开内容。",
+                style = MaterialTheme.typography.bodySmall,
+                textAlign = TextAlign.Center,
+            )
         }
     }
 }

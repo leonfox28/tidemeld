@@ -18,6 +18,8 @@ Planned storefront: United States
 
 The app signs users in through Weibo's official web page and uses the resulting session for direct access to Weibo. I do not control Weibo's authentication system. Sign-in with a dedicated test account still requires a one-time SMS code sent to the account's phone, so providing a username and password alone would not reliably give your reviewers independent access. I cannot disable that verification through my app.
 
+The app now offers limited guest browsing: reviewers can view the native trending list and open public Weibo web results without signing in. Weibo restricts further browsing, and this guest path does not cover the following feed, notifications or account interactions.
+
 Before implementing an alternative, I would like to ask whether you would approve a built-in, fully featured demo mode for review under Guideline 2.1(a) in these circumstances, or recommend another supported way to provide access.
 
 The proposed mode would be openly available to every user, clearly labeled as sample data, and use the same app screens for the feed, post details, search, profiles, media, notifications, settings and interaction flows. Writes in this mode would affect only local sample data. Real Weibo sign-in and live functionality would remain available, and the review notes would explain exactly which actions are simulated. It would not disable or conceal live features during review.

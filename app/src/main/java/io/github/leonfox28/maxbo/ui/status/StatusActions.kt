@@ -10,6 +10,7 @@ import io.github.leonfox28.maxbo.ui.interactions.rememberStatusWrites
 import io.github.leonfox28.maxbo.ui.navigation.LocalNavigator
 import io.github.leonfox28.maxbo.ui.navigation.Navigator
 import io.github.leonfox28.maxbo.ui.navigation.Route
+import io.github.leonfox28.maxbo.ui.webview.weiboSearchUrl
 import io.github.leonfox28.maxbo.ui.widget.LocalSnackbars
 import io.github.leonfox28.maxbo.ui.widget.openExternally
 import io.github.leonfox28.maxbo.ui.widget.status.StatusCardActions
@@ -59,6 +60,11 @@ fun rememberStatusCardActions(): StatusCardActions {
 }
 
 /** Opens the results of searching for [query]; `#话题#` searches the topic. */
-fun openSearchResults(navigator: Navigator, query: String) {
-    if (query.isNotBlank()) navigator.push(Route.SearchResults(query))
+fun openSearchResults(navigator: Navigator, query: String, asGuest: Boolean = false) {
+    val trimmed = query.trim()
+    if (trimmed.isNotEmpty()) {
+        navigator.push(
+            if (asGuest) Route.Web(weiboSearchUrl(trimmed)) else Route.SearchResults(trimmed)
+        )
+    }
 }
