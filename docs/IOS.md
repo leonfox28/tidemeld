@@ -83,5 +83,5 @@ TEST_RUNNER_MAXBO_SHOTS=<截图目录> TEST_RUNNER_MAXBO_PAGE=<-maxbo-open 的�
 
 2026-11-04 的审查结果（bug、和 Android 的差异、修复进度）在 [IOS_REVIEW.md](IOS_REVIEW.md)。
 
-- **分发**：PLAN §10 当初不做 iOS 的理由（App Store 基本上不了架，只能发无签名 IPA 自签，免费 Apple ID 每 7 天要重签）依然成立。要不要发、怎么发（无签名 IPA 进 Release、CI 构建），等用户决定。
+- **分发**：2026-11-05 用户决定准备 App Store 美区首发，免费、界面保留中文，使用当前 Mac 的付费开发者账号。此前“基本上不了架”的判断过于绝对，已撤回；第三方微博客户端有上架先例，但仍需满足第三方服务使用许可、内容安全和隐私披露等要求。当前准备状态、资料与未完成项见 [APP_STORE.md](APP_STORE.md)。
 - **CI**：`ci.yml` 还只跑 Android；iOS 的构建和测试要 macOS runner。

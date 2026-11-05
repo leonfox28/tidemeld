@@ -54,9 +54,9 @@ private val disclaimer =
 
 private val privacy =
     listOf(
-        "登录在微博官方网页登录页中完成，maxbo 接触不到你的密码。",
+        "登录在微博官方网页登录页中完成，maxbo 的原生代码不读取你的密码或验证码。",
         "登录状态只保存在本机（Android Keystore），退出登录时清除。",
-        "没有服务器，没有统计、埋点或崩溃上报，不收集任何数据；应用只和微博的服务器通信。",
+        "维护者不运营接收用户数据的后端，没有统计、埋点或崩溃上报。使用微博时，所需的登录凭据、搜索词和你提交的内容会直接发送给微博。",
         "只在你操作时请求微博，不在后台轮询或预取，请求频率有上限。遇到验证码时，由你本人在微博的页面里完成。",
     )
 
@@ -93,6 +93,24 @@ fun AboutPage() {
                 item { Section("声明", disclaimer) }
                 item { Section("隐私", privacy) }
                 item { HorizontalDivider(Modifier.padding(vertical = 16.dp)) }
+                item {
+                    Link(Icons.Outlined.Description, "隐私政策", "数据使用、本地存储与删除方式") {
+                        context.openExternally(
+                            "$REPO_URL/blob/main/docs/PRIVACY.md",
+                            snackbars,
+                            scope,
+                        )
+                    }
+                }
+                item {
+                    Link(Icons.Outlined.Feedback, "使用帮助与支持", "常见问题与联系维护者") {
+                        context.openExternally(
+                            "$REPO_URL/blob/main/docs/SUPPORT.md",
+                            snackbars,
+                            scope,
+                        )
+                    }
+                }
                 item {
                     Link(Icons.Outlined.Code, "项目主页", REPO_URL) {
                         context.openExternally(REPO_URL, snackbars, scope)

@@ -12,9 +12,9 @@ private let disclaimer = [
 ]
 
 private let privacy = [
-    "登录在微博官方网页登录页中完成，maxbo 接触不到你的密码。",
+    "登录在微博官方网页登录页中完成，maxbo 的原生代码不读取你的密码或验证码。",
     "登录状态只保存在本机（iOS 钥匙串），退出登录时清除。",
-    "没有服务器，没有统计、埋点或崩溃上报，不收集任何数据；应用只和微博的服务器通信。",
+    "维护者不运营接收用户数据的后端，没有统计、埋点或崩溃上报。使用微博时，所需的登录凭据、搜索词和你提交的内容会直接发送给微博。",
     "只在你操作时请求微博，不在后台轮询或预取，请求频率有上限。遇到验证码时，由你本人在微博的页面里完成。",
 ]
 
@@ -41,6 +41,8 @@ struct AboutPage: View {
             bullets("声明", disclaimer)
             bullets("隐私", privacy)
             Section {
+                NavigationLink("隐私政策", value: Route.privacy)
+                Button("使用帮助与支持") { graph.openExternally(supportURL) }
                 Button {
                     graph.openExternally(repoURL)
                 } label: {

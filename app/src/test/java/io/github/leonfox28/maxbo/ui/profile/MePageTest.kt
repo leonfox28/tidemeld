@@ -76,7 +76,8 @@ class MePageTest {
 
         compose.onNodeWithText("登录微博").performClick()
 
-        compose.onNodeWithText("下方是微博官方登录页面。maxbo 不会接触你的密码，登录状态只保存在本机。").assertExists()
+        compose.onNodeWithText("下方是微博官方登录页面。", substring = true).assertExists()
+        compose.onNodeWithText("隐私政策").assertExists()
         compose.onNodeWithContentDescription("关闭").performClick()
         compose.onNodeWithText("登录后即可浏览关注的人的微博").assertExists()
     }

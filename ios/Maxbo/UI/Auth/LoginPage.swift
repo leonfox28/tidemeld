@@ -19,6 +19,7 @@ struct LoginPage: View {
     @Environment(\.dismiss) private var dismiss
     @State private var page = WebPage(navigationDecider: WebOnlyNavigation())
     @State private var verifying = false
+    @State private var showingPrivacy = false
     /// A SUB the API identified as a visitor's; not checked again until the
     /// web view has another.
     @State private var visitorSub: String?
@@ -26,13 +27,16 @@ struct LoginPage: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                Text("下方是微博官方登录页面。maxbo 不会接触你的密码，登录状态只保存在本机。")
+                Text("下方是微博官方登录页面。登录信息直接提交给微博，maxbo 在本机保存登录状态以访问微博服务。")
                     .font(.footnote)
                     .foregroundStyle(AppTheme.secondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 8)
                     .background(AppTheme.elevated)
+                Button("隐私政策") { showingPrivacy = true }
+                    .font(.footnote)
+                    .padding(.bottom, 4)
                 if page.isLoading {
                     ProgressView(value: page.estimatedProgress).progressViewStyle(.linear)
                 }
@@ -60,6 +64,15 @@ struct LoginPage: View {
         // The app's own is under the sheet, where a failed check would go
         // unseen; the Kotlin page shows them as well.
         .overlay { ToastHost() }
+        .sheet(isPresented: $showingPrivacy) {
+            NavigationStack {
+                PrivacyPage().toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("关闭", systemImage: "xmark") { showingPrivacy = false }
+                    }
+                }
+            }
+        }
         .onAppear {
             guard page.url == nil else { return }
             page.customUserAgent = browserUserAgent

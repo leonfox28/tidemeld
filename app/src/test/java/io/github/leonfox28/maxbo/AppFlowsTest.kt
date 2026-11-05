@@ -2,10 +2,13 @@ package io.github.leonfox28.maxbo
 
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.hasScrollToNodeAction
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollToNode
 import io.github.leonfox28.maxbo.support.AppHarness
 import io.github.leonfox28.maxbo.support.FakeWeibo
 import io.github.leonfox28.maxbo.support.feedJson
@@ -88,6 +91,7 @@ class AppFlowsTest {
         tap("关于 maxbo")
         app.text("maxbo 是非官方客户端", substring = true).assertExists()
 
+        compose.onNode(hasScrollToNodeAction()).performScrollToNode(hasText("开源许可"))
         tap("开源许可")
         app.waitFor("以 GNU GPL-3.0 许可发布")
         // The libraries, as the plugin listed them at build time, with their

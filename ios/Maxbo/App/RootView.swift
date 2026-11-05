@@ -121,6 +121,7 @@ struct RouteView: View {
         case .settings: SettingsPage()
         case .textSize: TextSizePage()
         case .about: AboutPage()
+        case .privacy: PrivacyPage()
         case .licenses: LicensesPage()
         case .diagnostics: DiagnosticsPage()
         }

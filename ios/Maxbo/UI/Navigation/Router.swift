@@ -24,6 +24,7 @@ enum Route: Hashable {
     case settings
     case textSize
     case about
+    case privacy
     case licenses
     /// Debug builds only.
     case diagnostics
@@ -39,6 +40,7 @@ enum Route: Hashable {
         case .settings: "settings"
         case .textSize: "textSize"
         case .about: "about"
+        case .privacy: "privacy"
         case .licenses: "licenses"
         case .diagnostics: "diagnostics"
         }

@@ -3,7 +3,7 @@ import Foundation
 #if DEBUG
 /// Opens a page named by the `-maxbo-open` launch argument, in debug builds
 /// only, so a page can be checked without tapping through to it:
-/// `login`, `compose`, `settings`, `about`, `licenses`,
+/// `login`, `compose`, `settings`, `about`, `privacy`, `licenses`,
 /// `tab/<home|search|notifications|me>`, `reselect/<home|search|notifications>`
 /// (the tab tapped again a few seconds after it opens),
 /// `status/<id>`, `u/<uid>`, `n/<screen name>`, `results/<query>`,
@@ -29,6 +29,7 @@ enum DebugLaunch {
         case "compose": router.showingCompose = true
         case "settings": router.tab = .me; router.push(.settings)
         case "about": router.tab = .me; router.push(.about)
+        case "privacy": router.tab = .me; router.push(.privacy)
         case "licenses": router.tab = .me; router.push(.about); router.push(.licenses)
         case "tab":
             router.tab = ["search": .search, "notifications": .notifications, "me": .me][rest] ?? .home

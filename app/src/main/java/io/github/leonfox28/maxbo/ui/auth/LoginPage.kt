@@ -25,6 +25,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -36,6 +37,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import io.github.leonfox28.maxbo.AppGraph
@@ -47,9 +49,11 @@ import io.github.leonfox28.maxbo.core.net.WeiboException
 import io.github.leonfox28.maxbo.core.util.devLog
 import io.github.leonfox28.maxbo.ui.navigation.LocalNavigator
 import io.github.leonfox28.maxbo.ui.navigation.Navigator
+import io.github.leonfox28.maxbo.ui.settings.REPO_URL
 import io.github.leonfox28.maxbo.ui.widget.AppSnackbarHost
 import io.github.leonfox28.maxbo.ui.widget.CloseButton
 import io.github.leonfox28.maxbo.ui.widget.LocalSnackbars
+import io.github.leonfox28.maxbo.ui.widget.openExternally
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
@@ -72,6 +76,7 @@ const val LOGIN_URL =
 @Composable
 fun LoginPage() {
     val graph = LocalAppGraph.current
+    val context = LocalContext.current
     val navigator = LocalNavigator.current
     val snackbars = LocalSnackbars.current
     val scope = rememberCoroutineScope()
@@ -94,13 +99,21 @@ fun LoginPage() {
     ) { padding ->
         Column(Modifier.padding(padding).consumeWindowInsets(padding).imePadding()) {
             Text(
-                "下方是微博官方登录页面。maxbo 不会接触你的密码，登录状态只保存在本机。",
+                "下方是微博官方登录页面。登录信息直接提交给微博，maxbo 在本机保存登录状态以访问微博服务。",
                 modifier =
                     Modifier.fillMaxWidth()
                         .background(MaterialTheme.colorScheme.surfaceContainerHighest)
                         .padding(horizontal = 16.dp, vertical = 8.dp),
                 style = MaterialTheme.typography.bodySmall,
             )
+            TextButton(
+                onClick = {
+                    context.openExternally("$REPO_URL/blob/main/docs/PRIVACY.md", snackbars, scope)
+                },
+                modifier = Modifier.align(Alignment.CenterHorizontally),
+            ) {
+                Text("隐私政策")
+            }
             if (login.progress < 100) {
                 LinearProgressIndicator(
                     progress = { login.progress / 100f },

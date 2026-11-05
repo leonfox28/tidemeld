@@ -287,7 +287,7 @@ app/src/androidTest/            # 设备测试（读 WebView 的 HttpOnly Cookie
 ## 9. 分发
 
 - **Android**：GitHub Releases 发布一个通用 APK `maxbo-vX.Y.Z.apk`（`./gradlew assembleRelease`；v0.11.0 及以前的 Flutter 版按 ABI 拆成三个）。签名密钥不进 git：本地密钥库是 `~/.config/maxbo/release.jks`（别名 `maxbo`），密码在仓库根目录的 `key.properties`（已 gitignore，Flutter 时期在 `android/key.properties`）；CI 用的副本存在 GitHub 仓库 `release` 环境的 Secrets 里（见下方 CI）。Secrets 写入后读不回来，不能当备份。证书 SHA-256 是 `A1:7A:66:0B:CA:65:D7:BB:89:D6:F3:07:AB:A4:61:06:F3:F8:AF:CB:90:F5:D0:B3:EC:40:EB:28:6D:71:79:E2`。**密钥丢了，已安装的用户就无法覆盖升级**，这两个文件要另外备份。没有 `key.properties` 时 release 包退回调试密钥签名。调试版的包名带 `.debug` 后缀，名称是「maxbo debug」，和 release 版可以同时安装。国行手机通常没有 GMS，暂不受 Google 开发者验证影响；2027 年该政策全球生效后再评估。
-- **iOS**：v0.2.0 到 v0.11.0（Flutter 版）的 Release 附有无签名 IPA，v0.12.0 起没有。2026-10-30 起有原生 SwiftUI 版（§10），还没发布，怎么分发待定（IOS.md §6）。
+- **iOS**：v0.2.0 到 v0.11.0（Flutter 版）的 Release 附有无签名 IPA，v0.12.0 起没有。2026-10-30 起有原生 SwiftUI 版（§10）；2026-11-05 用户决定准备 App Store 美区首发，免费、中文界面，详见 [APP_STORE.md](APP_STORE.md)。准备不等于已经提审或获批。
 - **CI**（`.github/workflows/`）：
   - `ci.yml`：push 到 main 和每个 PR 时运行 `./gradlew spotlessCheck lint testDebugUnitTest assembleDebug`。不接触签名密钥。
   - `release.yml`：推送 `v*` tag 时触发，分两个 job。`android`：先核对 tag 和 `app/build.gradle.kts` 的 `versionName` 一致，再跑格式检查、lint 和测试，然后用 Secrets 里的密钥打 release APK，核对签名证书指纹必须等于上面的 SHA-256（防止误用调试密钥），改名为 `maxbo-vX.Y.Z.apk`。`release`：等 `android` 完成，下载产物，生成 `SHA256SUMS.txt`，建一个**草稿** Release。只有 `release` 有写仓库的权限。发布说明手写，确认后手动发布。
@@ -302,7 +302,8 @@ app/src/androidTest/            # 设备测试（读 WebView 的 HttpOnly Cookie
 - **包名**：`io.github.leonfox28.maxbo`（v0.1.0 起不再改，换成 Kotlin 时也没改）；调试版加后缀 `.debug`。Kotlin 版的 versionCode 从 5022 起（Flutter 版按 ABI 拆分，最大是 4021），每发一版加 1，所以能直接覆盖安装旧版。
 - **平板/折叠屏不做列表加详情的双栏**（2026-10-16 用户决定，10-17 调整）：不做左边列表、右边详情的双栏布局。10-17 改为：导航用悬浮胶囊放在右下角（去掉左侧导航栏）；详情页在 expanded 档把正文和评论/转发左右并排；首页时间线不做瀑布流（会打乱时间顺序），改为卡片加宽、媒体放到正文右侧。
 - ~~**不再支持 iOS**~~（2026-10-22 用户决定，**2026-10-30 推翻**，见下一条）：第三方微博客户端几乎不可能上架 App Store（审核条款 5.2.2 要求第三方服务的授权，国区还要 ICP 备案），只能发无签名 IPA 让用户自签，用免费 Apple ID 签的每 7 天要重签，门槛很高；而且 iOS 一直只验证过能编译和启动。删掉了 `ios/` 工程、CI 和 `release.yml` 的 iOS 构建、侧载文档，以及只对 iOS 有用的代码（Keychain 残留登录态的清理、选图的 `requestFullMetadata`、iOS 的页面转场配置和对应测试）。v0.11.0 是最后一个带 IPA 的版本。框架仍是 Flutter，是否改用 Kotlin 原生还在讨论。
-- **重新做 iOS，原生 SwiftUI**（2026-10-30 用户决定）：用 SwiftUI 和系统控件，按钮和导航栏用系统的液态玻璃，深浅色用 voytty iOS 版的整套配色，不做预测性返回（用 iOS 的右滑返回）。部署目标 iOS 26，只用 Apple 的框架。代码在 `ios/`，说明在 IOS.md。上面那条里不上架 App Store、自签门槛高的理由依然成立，所以分发方式还没定。
+- **重新做 iOS，原生 SwiftUI**（2026-10-30 用户决定）：用 SwiftUI 和系统控件，按钮和导航栏用系统的液态玻璃，深浅色用 voytty iOS 版的整套配色，不做预测性返回（用 iOS 的右滑返回）。部署目标 iOS 26，只用 Apple 的框架。代码在 `ios/`，说明在 IOS.md。当时分发未定，现由下一条更新。
+- **准备 App Store 美区首发**（2026-11-05 用户决定）：免费，界面保持中文，使用当前 Mac 的付费 Apple Developer 账号。历史记录中“第三方微博客户端几乎不可能上架”的判断过于绝对，撤回；上架先例不代表 maxbo 已取得微博许可或必然通过审核。按 [APP_STORE.md](APP_STORE.md) 完成内容安全、隐私、审核登录和发布资料。
 
 ## 11. 进度与交接（更新于 2026-10-30，换成 Kotlin 之后；iOS 版另见 IOS.md）
 
