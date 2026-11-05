@@ -88,7 +88,6 @@ struct CommentRepliesPage: View {
         }
         .navigationTitle("评论详情")
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar(.hidden, for: .tabBar)
         .toolbar {
             if root.canReply {
                 ToolbarSpacer(.flexible, placement: .bottomBar)

@@ -40,7 +40,7 @@ struct SearchPage: View {
     @State private var query = ""
     @State private var atTop = true
     @State private var refreshing = false
-    @State private var searching = false
+    @Binding var searching: Bool
     @FocusState private var searchFocused: Bool
 
     var body: some View {
@@ -55,20 +55,10 @@ struct SearchPage: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .appBackground()
-        .navigationTitle("搜索")
-        .toolbarTitleDisplayMode(.inline)
-        .toolbar {
-            if graph.session.account != nil {
-                ToolbarItem(placement: .primaryAction) {
-                    Button(searching ? "取消搜索" : "搜索微博", systemImage: searching ? "xmark" : "magnifyingglass") {
-                        searching.toggle()
-                        if !searching { query = "" }
-                    }
-                    .labelStyle(.iconOnly)
-                }
-            }
+        .onChange(of: searching) { _, active in
+            searchFocused = active
+            if !active { query = "" }
         }
-        .onChange(of: searching) { _, active in searchFocused = active }
         .onDisappear { searchFocused = false }
         .onChange(of: graph.session.state.uid) {
             searching = false

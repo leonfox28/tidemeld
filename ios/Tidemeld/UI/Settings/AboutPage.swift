@@ -67,7 +67,6 @@ struct AboutPage: View {
             .listRowBackground(AppTheme.surface)
         }
         .appListStyle()
-        .tabBarHidesOnScroll()
         .navigationTitle("关于")
         .navigationBarTitleDisplayMode(.inline)
     }
@@ -101,7 +100,6 @@ struct LicensesPage: View {
             .frame(maxWidth: 640)
             .frame(maxWidth: .infinity)
         }
-        .tabBarHidesOnScroll()
         .appBackground()
         .navigationTitle("开源许可")
         .navigationBarTitleDisplayMode(.inline)

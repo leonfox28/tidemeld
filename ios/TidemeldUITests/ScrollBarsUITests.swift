@@ -8,7 +8,7 @@ final class ScrollBarsUITests: XCTestCase {
     func testBarsFollowTheScroll() throws {
         let shots = ProcessInfo.processInfo.environment["TIDEMELD_SHOTS"] ?? NSTemporaryDirectory()
         let app = XCUIApplication()
-        app.launchArguments = ["-tidemeld-open", ProcessInfo.processInfo.environment["TIDEMELD_PAGE"] ?? "licenses"]
+        app.launchArguments = ["-tidemeld-open", ProcessInfo.processInfo.environment["TIDEMELD_PAGE"] ?? "settings"]
         app.launch()
         sleep(2)
         func shot(_ name: String) {
@@ -37,8 +37,8 @@ final class ScrollBarsUITests: XCTestCase {
         shot("4-flick")
     }
 
-    /// The tab bar hidden on 关于, then 开源许可 opened over it and closed
-    /// again: the new page shows its bar, and About keeps its hidden state.
+    /// About and licences are both secondary pages: neither owns a tab bar.
+    /// Opening licences and returning should keep the home page covered.
     @MainActor
     func testBarsOverAPageOpened() throws {
         let shots = ProcessInfo.processInfo.environment["TIDEMELD_SHOTS"] ?? NSTemporaryDirectory()

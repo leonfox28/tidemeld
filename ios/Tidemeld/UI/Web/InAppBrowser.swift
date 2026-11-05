@@ -23,7 +23,6 @@ struct InAppBrowser: View {
         let previous = page.backForwardList.backList.last
         WebView(page)
             .webViewBackForwardNavigationGestures(.enabled)
-            .tabBarHidesOnScroll(web: true)
             .overlay(alignment: .top) {
                 if page.isLoading {
                     ProgressView(value: page.estimatedProgress).progressViewStyle(.linear)

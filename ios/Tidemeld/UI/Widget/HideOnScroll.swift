@@ -1,10 +1,8 @@
 import SwiftUI
 import UIKit
-import WebKit
 
 extension EnvironmentValues {
-    /// Set by the navigation stack so covered pages keep their own scroll
-    /// state without imposing toolbar preferences on the page above them.
+    /// Covered pages keep their own scroll state while navigation is active.
     @Entry var isCurrentNavigationPage = true
 }
 
@@ -90,8 +88,6 @@ extension ScrollGeometry {
 struct HideOnScroll: ViewModifier {
     @Binding var visible: Bool
     var enabled = true
-    /// Whether the content is a web view, which tells of its scrolling its own way.
-    var web = false
     /// Whether [visible] is the tab bar's, which fades out before it hides; see
     /// [TabBarFade].
     var tabBar = false
@@ -103,27 +99,19 @@ struct HideOnScroll: ViewModifier {
     @State private var fades = 0
 
     func body(content: Content) -> some View {
-        Group {
-            if web {
-                content.webViewOnScrollGeometryChange(for: ScrollHider.Position.self, of: \.hiderPosition) {
-                    scrolled($1)
+        content.onScrollGeometryChange(for: ScrollHider.Position.self, of: \.hiderPosition) { scrolled($1) }
+            .onAppear {
+                if !tabBar {
+                    hider.show()
+                    visible = true
                 }
-            } else {
-                content.onScrollGeometryChange(for: ScrollHider.Position.self, of: \.hiderPosition) { scrolled($1) }
             }
-        }
-        .onAppear {
-            if !tabBar {
-                hider.show()
-                visible = true
+            .onDisappear {
+                finishScrolling()
             }
-        }
-        .onDisappear {
-            finishScrolling()
-        }
-        .onChange(of: active) { _, active in
-            if !active { finishScrolling() }
-        }
+            .onChange(of: active) { _, active in
+                if !active { finishScrolling() }
+            }
     }
 
     private func finishScrolling() {
@@ -227,7 +215,7 @@ extension View {
     /// The tab bar under the page, likewise. The system's own way, shrinking it
     /// to two buttons, brings it back only at the top or the end, and has no
     /// way to bring it back with an animation.
-    func tabBarHidesOnScroll(web: Bool = false) -> some View { modifier(TabBarHidesOnScroll(web: web)) }
+    func tabBarHidesOnScroll() -> some View { modifier(TabBarHidesOnScroll()) }
 
     /// Shows or hides the tab bar as [visible] says, for a page whose lists set
     /// it through `HideOnScroll(tabBar: true)`.
@@ -236,15 +224,13 @@ extension View {
     }
 }
 
-/// A covered page releases its toolbar preference without changing its saved
-/// scroll state, so that the next page can choose its own visibility.
+/// The bar belongs to home and keeps its visibility while home is covered.
 private struct PageTabBarVisibility: ViewModifier {
     let visible: Bool
     @Environment(\.isCurrentNavigationPage) private var active
 
     func body(content: Content) -> some View {
-        // `.visible` would override a detail's `.hidden` further up the stack.
-        content.toolbarVisibility(active && !visible ? .hidden : .automatic, for: .tabBar)
+        content.toolbarVisibility(visible ? .automatic : .hidden, for: .tabBar)
             .onChange(of: active && visible) { _, shown in
                 if shown { TabBarFade.checkShown() }
             }
@@ -252,11 +238,10 @@ private struct PageTabBarVisibility: ViewModifier {
 }
 
 private struct TabBarHidesOnScroll: ViewModifier {
-    let web: Bool
     @State private var visible = true
 
     func body(content: Content) -> some View {
-        content.modifier(HideOnScroll(visible: $visible, web: web, tabBar: true))
+        content.modifier(HideOnScroll(visible: $visible, tabBar: true))
             .tabBarVisible(visible)
     }
 }

@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// The tabs, each with its own stack of pages, and what goes over them.
+/// The home tabs, covered as a whole by pages in the outer navigation stack.
 struct RootView: View {
     @Environment(AppGraph.self) private var graph
     /// The device's text size, which the text size setting moves from.
@@ -12,7 +12,8 @@ struct RootView: View {
 
     var body: some View {
         let settings = graph.settings.settings
-        tabs
+        AppNavigation { HomeTabs() }
+            .overlay { ToastHost() }
             .modifier(Presentations(media: media))
             .environment(graph.toasts)
             .environment(\.mediaNamespace, media)
@@ -26,7 +27,7 @@ struct RootView: View {
                 if graph.session.state.uid != nil { await graph.unread.check() }
             }
             #if DEBUG
-            .task { DebugLaunch.apply(graph) }
+                .task { DebugLaunch.apply(graph) }
             #endif
             .onChange(of: scenePhase) { _, phase in
                 switch phase {
@@ -39,26 +40,70 @@ struct RootView: View {
             }
     }
 
-    private var tabs: some View {
+}
+
+/// The home page owns both bars and their controls. TabView does not forward
+/// its children's navigation items to an enclosing NavigationStack.
+private struct HomeTabs: View {
+    @Environment(AppGraph.self) private var graph
+    @State private var searching = false
+    @State private var noticeKind: NoticeKind = .comments
+    @State private var width: CGFloat = 0
+
+    var body: some View {
         let unread = graph.unread.state.any
         return TabView(selection: graph.router.selection) {
             Tab("首页", systemImage: "house", value: AppTab.home) {
-                TabStack(tab: .home) { TimelinePage() }
+                TabRoot(tab: .home) { TimelinePage() }
             }
             Tab("搜索", systemImage: "magnifyingglass", value: AppTab.search) {
-                TabStack(tab: .search) { SearchPage() }
+                TabRoot(tab: .search) { SearchPage(searching: $searching) }
             }
             if graph.session.state.uid != nil {
                 Tab("通知", systemImage: "bell", value: AppTab.notifications) {
-                    TabStack(tab: .notifications) { NotificationsPage() }
+                    TabRoot(tab: .notifications) { NotificationsPage(kind: $noticeKind) }
                 }
                 .badge(unread ? Text(verbatim: "") : nil)
             }
             Tab("设置", systemImage: "gearshape", value: AppTab.settings) {
-                TabStack(tab: .settings) { SettingsPage() }
+                TabRoot(tab: .settings) { SettingsPage() }
             }
         }
-        .overlay { ToastHost() }
+        .navigationTitle(title)
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar { homeToolbar }
+        .onGeometryChange(for: CGFloat.self) {
+            $0.size.width
+        } action: {
+            width = $0
+        }
+    }
+
+    private var title: String {
+        switch graph.router.tab {
+        case .home: ""
+        case .search: "搜索"
+        case .notifications: "通知"
+        case .settings: "设置"
+        }
+    }
+
+    @ToolbarContentBuilder private var homeToolbar: some ToolbarContent {
+        if graph.router.tab == .home { TimelineToolbar() }
+        if graph.router.tab == .search, graph.session.account != nil {
+            ToolbarItem(placement: .primaryAction) {
+                Button(searching ? "取消搜索" : "搜索微博", systemImage: searching ? "xmark" : "magnifyingglass") {
+                    searching.toggle()
+                }
+                .labelStyle(.iconOnly)
+            }
+        }
+        if graph.router.tab == .notifications, graph.session.account != nil {
+            ToolbarItem(placement: .principal) {
+                NotificationKindBar(kind: $noticeKind).frame(width: min(max(width - 32, 0), 400))
+            }
+            .sharedBackgroundVisibility(.hidden)
+        }
     }
 }
 
@@ -94,25 +139,35 @@ private struct Presentations: ViewModifier {
     }
 }
 
-/// A tab's stack of pages.
-private struct TabStack<Root: View>: View {
+/// Pushes every secondary page over the entire home, including its tab bar.
+/// The system owns both the push transition and interactive back navigation.
+struct AppNavigation<Root: View>: View {
+    @ViewBuilder let root: () -> Root
+    @Environment(AppGraph.self) private var graph
+
+    var body: some View {
+        NavigationStack(path: graph.router.path(graph.router.tab)) {
+            root()
+                .navigationDestination(for: Route.self) { route in
+                    RouteView(route: route)
+                        .environment(
+                            \.isCurrentNavigationPage, graph.router.paths[graph.router.tab]?.last == route
+                        )
+                }
+        }
+    }
+}
+
+/// Only the selected home tab may react to scrolling while home is visible.
+private struct TabRoot<Root: View>: View {
     let tab: AppTab
     @ViewBuilder let root: () -> Root
     @Environment(AppGraph.self) private var graph
 
     var body: some View {
-        NavigationStack(path: graph.router.path(tab)) {
-            root()
-                .environment(
-                    \.isCurrentNavigationPage, graph.router.tab == tab && graph.router.paths[tab, default: []].isEmpty
-                )
-                .navigationDestination(for: Route.self) { route in
-                    RouteView(route: route)
-                        .environment(
-                            \.isCurrentNavigationPage, graph.router.tab == tab && graph.router.paths[tab]?.last == route
-                        )
-                }
-        }
+        root().environment(
+            \.isCurrentNavigationPage, graph.router.tab == tab && graph.router.paths[tab, default: []].isEmpty
+        )
     }
 }
 
@@ -125,16 +180,22 @@ struct RouteView: View {
         switch route {
         case .accounts: AccountsPage()
         case .account(let key, let route):
-            if let context = graph.forAccount(key) { AnyView(RouteView(route: route).environment(context)) }
-            else { AnyView(AccountsPage()) }
+            if let context = graph.forAccount(key) {
+                AnyView(RouteView(route: route).environment(context))
+            } else {
+                AnyView(AccountsPage())
+            }
         case .status(let id, let initial): StatusDetailPage(id: id, initial: initial)
         case .comments(let thread): CommentRepliesPage(thread: thread)
         case .profile(let uid, let initial): ProfilePage(uid: uid, initial: initial)
         case .profileByName(let name): ProfilePage(screenName: name)
         case .searchResults(let query): SearchResultsPage(query: query)
         case .web(let url):
-            if let owner = graph.router.accountKey { AccountWebPage(owner: owner, url: url) }
-            else { InAppBrowser(url: url) }
+            if let owner = graph.router.accountKey {
+                AccountWebPage(owner: owner, url: url)
+            } else {
+                InAppBrowser(url: url)
+            }
         case .xStatus(let owner, let id, let initial): XDetailPage(owner: owner, id: id, initial: initial)
         case .accountWeb(let owner, let url): AccountWebPage(owner: owner, url: url)
         case .textSize: TextSizePage()

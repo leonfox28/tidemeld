@@ -56,8 +56,6 @@ struct SettingsPage: View {
         }
         .appListStyle()
         .tabBarHidesOnScroll()
-        .navigationTitle("设置")
-        .navigationBarTitleDisplayMode(.inline)
         .task { measureCache() }
         // A lower limit drops pictures, which the cache does in its own time,
         // so looked at again a moment later; the Kotlin page reads it again
@@ -110,7 +108,6 @@ struct TextSizePage: View {
         }
         .listStyle(.plain)
         .appListStyle()
-        .tabBarHidesOnScroll()
         .safeAreaInset(edge: .bottom) {
             VStack(spacing: 8) {
                 Text(size.label).font(.headline)

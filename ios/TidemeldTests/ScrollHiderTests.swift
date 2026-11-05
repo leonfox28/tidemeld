@@ -9,8 +9,8 @@ struct ScrollHiderTests {
         let scene = try #require(UIApplication.shared.connectedScenes.first as? UIWindowScene)
         let previousWindow = scene.keyWindow
         let window = UIWindow(windowScene: scene)
-        let fixture = BarNavigationFixture()
-        let host = UIHostingController(rootView: BarNavigationPage(fixture: fixture))
+        let graph = testGraph(restored: nil)
+        let host = UIHostingController(rootView: BarNavigationPage(graph: graph))
         window.rootViewController = host
         window.makeKeyAndVisible()
         defer {
@@ -23,37 +23,55 @@ struct ScrollHiderTests {
         #expect(!tabs.isTabBarHidden)
         #expect(tabs.tabBar.alpha > 0.99)
 
-        // A visible home stays visible after visiting a detail that hides the bar.
-        withAnimation { fixture.path = [true] }
+        let navigation = try #require(descendant(of: host, as: UINavigationController.self))
+        #expect(navigation.navigationBar.topItem?.title == "首页")
+        #expect(!navigation.isNavigationBarHidden)
+        let visibleFrames = BarVisibilityFrames(tabs: tabs)
+        defer { visibleFrames.stop() }
+        // Navigation covers home without changing the bar's own visibility.
+        withAnimation { graph.router.push(.about) }
         try await Task.sleep(for: .milliseconds(600))
-        #expect(tabs.isTabBarHidden)
-        withAnimation { fixture.path = [] }
+        #expect(!tabs.isTabBarHidden)
+        #expect(navigation.viewControllers.count == 2)
+        #expect(!navigation.isNavigationBarHidden)
+        #expect(navigation.navigationBar.topItem?.title == "关于")
+        let top = try #require(navigation.topViewController)
+        #expect(!tabs.view.isDescendant(of: top.view), "A secondary page must cover the whole TabView")
+        withAnimation { graph.router.pop() }
         try await Task.sleep(for: .milliseconds(600))
         #expect(!tabs.isTabBarHidden)
         #expect(tabs.tabBar.alpha > 0.99)
 
+        visibleFrames.stop()
+        #expect(!visibleFrames.hidden.isEmpty)
+        #expect(
+            visibleFrames.hidden.allSatisfy { !$0 }, "A visible bar must travel with home, not hide during navigation")
+        #expect(visibleFrames.alphas.allSatisfy { $0 > 0.99 })
         scroll.setContentOffset(CGPoint(x: 0, y: 400), animated: false)
         try await Task.sleep(for: .milliseconds(600))
         #expect(tabs.isTabBarHidden)
-        withAnimation { fixture.path = [true] }
+        withAnimation { graph.router.push(.about) }
         try await Task.sleep(for: .milliseconds(600))
         #expect(tabs.isTabBarHidden)
         let frames = BarVisibilityFrames(tabs: tabs)
         defer { frames.stop() }
-        withAnimation { fixture.path = [] }
+        withAnimation { graph.router.pop() }
         try await Task.sleep(for: .milliseconds(800))
         #expect(!frames.hidden.isEmpty)
         #expect(frames.hidden.allSatisfy { $0 }, "Returning to a hidden bar must not show it during the transition")
         frames.stop()
         #expect(tabs.isTabBarHidden)
 
-        // A new scrolling page owns its own bar; the hidden page underneath
-        // must not hide that page's bar, or lose its state when it comes back.
-        withAnimation { fixture.path = [false] }
+        // A chain of secondary pages stays outside TabView as well.
+        withAnimation { graph.router.push(.about) }
         try await Task.sleep(for: .milliseconds(600))
-        #expect(!tabs.isTabBarHidden)
-        #expect(tabs.tabBar.alpha > 0.99)
-        withAnimation { fixture.path = [] }
+        withAnimation { graph.router.push(.licenses) }
+        try await Task.sleep(for: .milliseconds(600))
+        #expect(navigation.viewControllers.count == 3)
+        #expect(tabs.isTabBarHidden)
+        withAnimation { graph.router.pop() }
+        try await Task.sleep(for: .milliseconds(600))
+        withAnimation { graph.router.pop() }
         try await Task.sleep(for: .milliseconds(600))
         #expect(tabs.isTabBarHidden)
         scroll.setContentOffset(CGPoint(x: 0, y: 300), animated: false)
@@ -150,36 +168,21 @@ struct ScrollHiderTests {
     }
 }
 
-@MainActor @Observable private final class BarNavigationFixture {
-    var path: [Bool] = []
-}
-
 private struct BarNavigationPage: View {
-    @Bindable var fixture: BarNavigationFixture
+    let graph: AppGraph
     var body: some View {
-        TabView {
-            Tab("首页", systemImage: "house") {
-                NavigationStack(path: $fixture.path) {
+        AppNavigation {
+            TabView {
+                Tab("首页", systemImage: "house") {
                     List(0..<80) { index in Text("合成帖子 \(index)").frame(height: 80) }
                         .tabBarHidesOnScroll()
-                        .navigationTitle("首页")
-                        .navigationBarTitleDisplayMode(.inline)
-                        .environment(\.isCurrentNavigationPage, fixture.path.isEmpty)
-                        .navigationDestination(for: Bool.self) { detail in
-                            Group {
-                                if detail {
-                                    Text("合成详情").toolbar(.hidden, for: .tabBar)
-                                } else {
-                                    List(0..<80) { index in Text("合成列表 \(index)") }
-                                        .tabBarHidesOnScroll()
-                                }
-                            }
-                            .environment(\.isCurrentNavigationPage, fixture.path.last == detail)
-                        }
+                        .environment(\.isCurrentNavigationPage, graph.router.paths[.home, default: []].isEmpty)
                 }
+                Tab("设置", systemImage: "gearshape") { Text("设置") }
             }
-            Tab("设置", systemImage: "gearshape") { Text("设置") }
-        }
+            .navigationTitle("首页")
+            .navigationBarTitleDisplayMode(.inline)
+        }.environment(graph)
     }
 }
 
@@ -197,6 +200,7 @@ private struct BarNavigationPage: View {
     private let tabs: UITabBarController
     private var link: CADisplayLink?
     private(set) var hidden: [Bool] = []
+    private(set) var alphas: [CGFloat] = []
     init(tabs: UITabBarController) {
         self.tabs = tabs
         super.init()
@@ -204,5 +208,8 @@ private struct BarNavigationPage: View {
         link?.add(to: .main, forMode: .common)
     }
     func stop() { link?.invalidate() }
-    @objc private func sample() { hidden.append(tabs.isTabBarHidden) }
+    @objc private func sample() {
+        hidden.append(tabs.isTabBarHidden)
+        alphas.append(tabs.tabBar.alpha)
+    }
 }

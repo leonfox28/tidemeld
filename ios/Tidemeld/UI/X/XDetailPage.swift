@@ -51,9 +51,7 @@ struct XDetailPage: View {
             } else {
                 layout(actions: nil)
             }
-        }.navigationTitle("帖子").navigationBarTitleDisplayMode(.inline).toolbar(
-            .hidden, for: .tabBar
-        )
+        }.navigationTitle("帖子").navigationBarTitleDisplayMode(.inline)
         .task { model.start(graph.xInteractions, owner: owner, id: id) }
         .sheet(isPresented: $showingReply) {
             if let post = model.post {

@@ -86,7 +86,7 @@ final class NotificationsModel {
 struct NotificationsPage: View {
     @Environment(AppGraph.self) private var graph
     @State private var model = NotificationsModel()
-    @State private var kind: NoticeKind = .comments
+    @Binding var kind: NoticeKind
     /// The tab bar's, as the list shown scrolls; one for the page, as the
     /// lists side by side would each set it.
     @State private var tabBarVisible = true
@@ -94,7 +94,6 @@ struct NotificationsPage: View {
     @State private var atTop = true
     /// How far the bars reach over the lists; see [notices].
     @State private var barInsets = EdgeInsets()
-    @State private var width: CGFloat = 0
 
     var body: some View {
         Group {
@@ -105,8 +104,6 @@ struct NotificationsPage: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .appBackground()
-        .navigationTitle("通知")
-        .toolbarTitleDisplayMode(.inline)
         .tabBarVisible(tabBarVisible)
     }
 
@@ -148,22 +145,6 @@ struct NotificationsPage: View {
         } action: {
             barInsets = $0
         }
-        .onGeometryChange(for: CGFloat.self) {
-            $0.size.width
-        } action: {
-            width = $0
-        }
-        // In the navigation bar, in place of the title, which the tab bar
-        // already gives: under it, they made the top bar twice as tall. The
-        // bar gives them only what they need unless told how wide to be: the
-        // page's width within its margins, but no wider than a phone's, as
-        // across a wide window they would drift apart.
-        .toolbar {
-            ToolbarItem(placement: .principal) {
-                KindBar(kind: $kind).frame(width: min(max(width - 32, 0), 400))
-            }
-            .sharedBackgroundVisibility(.hidden)
-        }
         .onChange(of: kind) { withAnimation(.snappy(duration: 0.3)) { tabBarVisible = true } }
         // The user is looking at the open tab: clear its mark, and reload its
         // list if that came before whatever is new. The reload goes on in a
@@ -185,7 +166,7 @@ struct NotificationsPage: View {
 /// which moves along as the open tab changes; one with something unread has a
 /// dot. Even shares of the width would leave the two long labels all but
 /// touching.
-private struct KindBar: View {
+struct NotificationKindBar: View {
     @Binding var kind: NoticeKind
     @Environment(AppGraph.self) private var graph
     @Namespace private var line

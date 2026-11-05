@@ -165,7 +165,6 @@ struct StatusDetailPage: View {
         .appBackground()
         .navigationTitle("微博正文")
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar(.hidden, for: .tabBar)
         .onAppear { model.start() }
     }
 }

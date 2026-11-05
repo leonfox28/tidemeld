@@ -5,36 +5,49 @@ struct TimelinePage: View {
     @Environment(AppGraph.self) private var graph
 
     var body: some View {
-        let uid = graph.session.state.uid
         Group {
-            if graph.accounts.accounts.isEmpty && graph.settings.settings.feedSelection != .x { Timeline(uid: nil) }
-            else { SocialTimeline() }
+            if graph.accounts.accounts.isEmpty && graph.settings.settings.feedSelection != .x {
+                Timeline(uid: nil)
+            } else {
+                SocialTimeline()
+            }
         }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .appBackground()
-            .navigationTitle("")
-            .toolbarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .principal) {
-                    Menu {
-                        Picker("信息流", selection: Binding(get: { graph.settings.settings.feedSelection }, set: { choice in graph.settings.update { $0.feedSelection = choice } })) {
-                            ForEach(FeedSelection.allCases) { Text($0.label).tag($0) }
-                        }
-                    } label: {
-                        HStack(spacing: 4) { Text(graph.settings.settings.feedSelection.label).font(.headline); Image(systemName: "chevron.down").font(.caption) }
-                    }
-                    .accessibilityLabel("选择信息流")
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .appBackground()
+    }
+}
+
+/// Home's navigation controls are attached to the TabView by HomeTabs.
+struct TimelineToolbar: ToolbarContent {
+    @Environment(AppGraph.self) private var graph
+    var body: some ToolbarContent {
+        ToolbarItem(placement: .principal) {
+            Menu {
+                Picker(
+                    "信息流",
+                    selection: Binding(
+                        get: { graph.settings.settings.feedSelection },
+                        set: { choice in graph.settings.update { $0.feedSelection = choice } })
+                ) {
+                    ForEach(FeedSelection.allCases) { Text($0.label).tag($0) }
                 }
-                ToolbarItem(placement: .topBarLeading) {
-                    Button("账号管理", systemImage: "person") { graph.router.push(.accounts) }
-                        .labelStyle(.iconOnly)
-                }
-                if uid != nil {
-                    ToolbarItem(placement: .primaryAction) {
-                        Button("发微博", systemImage: "square.and.pencil") { graph.router.showingCompose = true }
-                    }
+            } label: {
+                HStack(spacing: 4) {
+                    Text(graph.settings.settings.feedSelection.label).font(.headline)
+                    Image(systemName: "chevron.down").font(.caption)
                 }
             }
+            .accessibilityLabel("选择信息流")
+        }
+        ToolbarItem(placement: .topBarLeading) {
+            Button("账号管理", systemImage: "person") { graph.router.push(.accounts) }
+                .labelStyle(.iconOnly)
+        }
+        if graph.session.state.uid != nil {
+            ToolbarItem(placement: .primaryAction) {
+                Button("发微博", systemImage: "square.and.pencil") { graph.router.showingCompose = true }
+            }
+        }
     }
 }
 
@@ -64,9 +77,11 @@ private struct Timeline: View {
                             .plainRow()
                     } else {
                         ForEach(state.items) { status in
-                            StatusCard(status: status, actions: uid == nil ? graph.guestStatusActions : graph.statusActions)
-                                .feedWidth(in: width)
-                                .statusRow()
+                            StatusCard(
+                                status: status, actions: uid == nil ? graph.guestStatusActions : graph.statusActions
+                            )
+                            .feedWidth(in: width)
+                            .statusRow()
                         }
                         if uid != nil {
                             LoadMoreFooter(list: state) { Task { await timeline.loadMore() } }.plainRow()
@@ -85,7 +100,11 @@ private struct Timeline: View {
             .listStyle(.plain)
             .appListStyle()
             .loadsMoreAsScrolled()
-            .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
+            .onGeometryChange(for: CGFloat.self) {
+                $0.size.width
+            } action: {
+                width = $0
+            }
             .refreshable { await refresh() }
             .pullToRefresh(pull)
             .tabBarHidesOnScroll()
