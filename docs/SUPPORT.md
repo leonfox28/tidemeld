@@ -14,7 +14,7 @@
 
 从首页左上角或“设置 → 账号管理”进入账号管理，添加时选择微博或 X，并在对应平台官方页面登录。同一平台可添加多个账号，也可同时登录不同平台。首页顶栏的下拉菜单选择“聚合 / 微博 / X”：聚合合并所有已登录账号，平台选项合并该平台的全部账号。
 
-X 为接入原型，真实登录和读取尚未验收。X 卡片的图片可原生查看，视频及互动打开对应账号的官方网页。遇到 X 拒绝访问或格式变化，先检查官方网页的账号状态，不反复自动重试。
+X 为接入原型，iOS 已实测单个真实账号的登录、原生读取和平台筛选；多账号真实合并、分页边界及 Android X 实机验证仍待完成。X 卡片的图片可原生查看，视频及互动打开对应账号的官方网页。遇到 X 拒绝访问或格式变化，先检查官方网页的账号状态，不反复自动重试。
 
 验证码由你本人完成；叠澜不会自动处理验证码。出现频率限制时，请稍后再试。接口或登录流程可能随微博调整而变化。
 
@@ -34,7 +34,7 @@ X 为接入原型，真实登录和读取尚未验收。X 卡片的图片可原�
 
 # Support in English
 
-Tidemeld is a free, open-source, unofficial social media aggregator with Weibo support and an experimental X web integration. Its app interface is in Simplified Chinese. It is not affiliated with or endorsed by Weibo or X. Multiple accounts per platform are supported. The Home menu selects all accounts, Weibo, or X; each platform view combines all signed-in accounts on that platform. Live X authentication and feed access have not yet been validated.
+Tidemeld is a free, open-source, unofficial social media aggregator with Weibo support and an experimental X web integration. Its app interface is in Simplified Chinese. It is not affiliated with or endorsed by Weibo or X. Multiple accounts per platform are supported. The Home menu selects all accounts, Weibo, or X; each platform view combines all signed-in accounts on that platform. Single-account X authentication, native feed reading and platform filtering have been verified on iOS. Live multi-account merging, pagination boundaries and Android X access still need validation.
 
 Without signing in, 首页 (Home) displays public posts using native cards, with pull-to-refresh and media viewing. Weibo currently limits guests to the first page; further reading, profiles and interactions prompt sign-in. 搜索 (Search) also offers trending topics that open public web results. After sign-in, Home switches to the following feed, and the button at the top right of Search opens a field for keyword searches with native results.
 

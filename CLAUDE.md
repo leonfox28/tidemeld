@@ -9,7 +9,7 @@ v0.11.0 及以前是 Flutter 版，2026-10-23 起换成 Kotlin 重写的版本�
 - 中文名「叠澜」，英文名 `Tidemeld`，仓库与目录名 `tidemeld`。
 - Android 源码 namespace 为 `io.github.leonfox28.tidemeld`；安装用的 applicationId 保留 `io.github.leonfox28.maxbo`（Debug 带 `.debug`），Android Keystore 的 `maxbo.session` 也保留，以延续已发布版本的更新和登录态。
 - 2026-11-05 用户要求重建不能更名的 App Store 记录：iOS 正式 Bundle ID 改为 `io.github.leonfox28.tidemeld`，新 SKU 为 `tidemeld-ios`。iOS Debug 暂保留 `io.github.leonfox28.maxbo.debug`，用于已有开发安装和真实登录态；这不属于商店记录。正式新标识不继承旧正式安装的数据容器。
-- v0.14.0 开发版加入多账号管理、聚合/平台信息流和 X 网页读取原型；X 真实账号登录与读取尚未验收，不能在商店文案中声称稳定支持 X。无需注册域名，支持和隐私政策继续使用 GitHub。
+- v0.14.0 开发版加入多账号管理、聚合/平台信息流和 X 网页读取原型；iOS 已实测单个真实 X 账号登录、原生读取与平台筛选；多账号真实合并、分页边界及 Android X 实机验证仍待完成，不能在商店文案中声称稳定支持 X。无需注册域名，支持和隐私政策继续使用 GitHub。
 
 ## 常用命令
 
@@ -45,7 +45,7 @@ xcrun simctl launch <模拟器> io.github.leonfox28.maxbo.debug -tidemeld-open f
 - **参考项目不能复制代码**：Android_16_Weibo、weiboX 没有 License，只能参考它们的接口形态。
 - **测试数据**：只用手写的合成数据。真实响应放在 `captured/`（已 gitignore），不得提交。
 - **日志**：日志和诊断输出里不得出现 Cookie 值或微博正文。调试日志用 `devLog()`，它只在调试版输出。
-- **保护真实登录态**：真实登录需要短信验证码和人机验证。保存着登录态的设备只能用 `install -r` 更新（调试版包名是 `io.github.leonfox28.maxbo.debug`），不要卸载或清除数据，也不要在上面跑 `connectedDebugAndroidTest`（它会清空 WebView Cookie，跑完还会卸载应用）。设备测试用没有真实登录的 AVD `maxbo_test`。iOS 同理：iOS 模拟器 `Tidemeld iPhone` 上有真实登录，只用 `simctl install` 覆盖安装，不卸载、不 `erase`、不在上面跑测试；测试用 `Tidemeld test`。
+- **保护真实登录态**：真实登录需要短信验证码和人机验证。保存着登录态的设备只能用 `install -r` 更新（调试版包名是 `io.github.leonfox28.maxbo.debug`），不要卸载或清除数据，也不要在上面跑 `connectedDebugAndroidTest`（它会清空 WebView Cookie，跑完还会卸载应用）。设备测试用没有真实登录的 AVD `maxbo_test`。iOS 同理：iOS 模拟器 `Tidemeld iPhone`（`7EB56B5A-6B0D-470C-B479-5BA60B102864`）和 `Tidemeld test`（`7D96F02A-891D-4A38-B4E5-850A081A04B8`）现均有真实登录，后者于 2026-11-05 由用户登录 X。两者只能用 `simctl install` 覆盖安装，不卸载、不 `erase`、不跑任何自动化测试。自动化测试改用全新的 `Tidemeld regression`（`4041A259-B0C0-40B3-81DA-B9258F6474F6`），不要在此设备登录真实账号。
 - **先问用户**：完成人机验证、勾选用户协议、以用户身份对外操作（关注、点赞、评论），都必须先得到用户确认。写操作只在用户指定的测试微博上测，测完恢复原状。
 
 ## 架构速览

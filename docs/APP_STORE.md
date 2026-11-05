@@ -87,7 +87,7 @@ GitHub 的 `noreply` 地址用于提交身份，不是接收支持请求的邮�
 ```sh
 xcodegen generate
 xcodebuild test -project Tidemeld.xcodeproj -scheme Tidemeld \
-  -destination 'platform=iOS Simulator,id=7D96F02A-891D-4A38-B4E5-850A081A04B8' \
+  -destination 'platform=iOS Simulator,id=4041A259-B0C0-40B3-81DA-B9258F6474F6' \
   -derivedDataPath build/store-prep -collect-test-diagnostics never
 xcodebuild archive -project Tidemeld.xcodeproj -scheme Tidemeld -configuration Release \
   -destination 'generic/platform=iOS' -archivePath build/app-store/Tidemeld.xcarchive \
@@ -115,4 +115,4 @@ xcodebuild -exportArchive -archivePath build/app-store/Tidemeld.xcarchive \
 - 重建后的验证：iOS 79 项测试通过；Android `spotlessCheck lint testDebugUnitTest assembleDebug` 通过，385 项测试无失败（未变的检查使用 Gradle 增量结果）。已停止 Gradle daemon。
 - 新记录已恢复简体中文名称、副标题、宣传文本、描述、关键词、支持/营销/隐私政策链接及社交类别；版本设为 `0.13.1`、手动发布。价格已保存为 USD 0，供应情况已确认仅美国（App 发布时供应）；Mac 和 Apple Vision Pro 供应保持关闭。新记录仍未上传构建或提交审核。
 
-- 后续开发状态：源码版本已推进至 `0.14.0 (1)`，加入多账号、聚合信息流及 X 网页接入原型。App Store Connect 仍保留 `0.13.1` 和原先文案，旧归档未重建、未上传。X 真实账号验证尚未完成；更新商店文案与构建前应按最终验收结果描述能力。
+- 后续开发状态：源码版本已推进至 `0.14.0 (1)`，加入多账号、聚合信息流及 X 网页接入原型。App Store Connect 仍保留 `0.13.1` 和原先文案，旧归档未重建、未上传。X 后续已完成 iOS 单账号登录与原生读取补测，多账号及其余端到端验证未完成；更新商店文案与构建前应按最终验收结果描述能力。

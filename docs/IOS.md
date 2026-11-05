@@ -55,11 +55,11 @@ xcrun simctl launch <模拟器> io.github.leonfox28.maxbo.debug -tidemeld-open f
 
 `ios/TidemeldTests/`，Swift Testing，只用手写的合成数据：正文解析（照搬 Android `StatusTextParserTest` 的用例）、模型解析、错误映射、Cookie 存取、查询和表单的编码、`$CONFIG` 提取、上传结果、缓存 key、视频地址、格式化、分页列表，以及换账号、请求排队时的 Cookie、图片下载的取消、GIF 的内存、看图的长图、转发。`Support.swift` 里有假的会话存储、网页 Cookie、续期，`testGraph()` 拼出一个 `AppGraph`（已登录，uid 7，不传 `configuration` 时请求一律按离线失败），`FakeWeibo` 是 URL 加载层的假微博（全局一个，用到它的测试放在 `FakeWeiboTests` 下面串行跑）。页面测试还没有，页面都是在模拟器上逐个看过的（§5）。
 
-`ios/TidemeldUITests/` 不是测试而是工具：`ScrollBarsUITests` 打开一页，往下滑、往回滑一点、再往下、再快速往回甩，每步截一张图，用来看页签栏和底部工具栏怎么跟着滚动；另一个方法在关于页滑到页签栏隐藏后打开开源许可再返回，看两页的页签栏。动画要看录屏（`xcrun simctl io <UDID> recordVideo`），再用 ffmpeg 按 60 帧拼图逐帧看。scheme 是 `TidemeldUI`，**只在 `Tidemeld test` 上跑**：
+`ios/TidemeldUITests/` 不是测试而是工具：`ScrollBarsUITests` 打开一页，往下滑、往回滑一点、再往下、再快速往回甩，每步截一张图，用来看页签栏和底部工具栏怎么跟着滚动；另一个方法在关于页滑到页签栏隐藏后打开开源许可再返回，看两页的页签栏。动画要看录屏（`xcrun simctl io <UDID> recordVideo`），再用 ffmpeg 按 60 帧拼图逐帧看。scheme 是 `TidemeldUI`，**只在没有真实账号的 `Tidemeld regression` 上跑**：
 
 ```sh
 TEST_RUNNER_TIDEMELD_SHOTS=<截图目录> TEST_RUNNER_TIDEMELD_PAGE=<-tidemeld-open 的路径，默认 licenses> \
-  xcodebuild test -project Tidemeld.xcodeproj -scheme TidemeldUI -destination 'id=<Tidemeld test>' -derivedDataPath build/dd -collect-test-diagnostics never
+  xcodebuild test -project Tidemeld.xcodeproj -scheme TidemeldUI -destination 'id=4041A259-B0C0-40B3-81DA-B9258F6474F6' -derivedDataPath build/dd -collect-test-diagnostics never
 ```
 
 视频加载回归在 `VideoAssetTests.swift`：本地生成的合成 MP4/MOV 验证加载和定位、Referer/UA/Range 与签名 URL 保留、200 忽略 Range、403、截断响应、释放播放器资源时取消请求，以及 206 总长度和 MOV 类型识别。另用本地 HTTP 服务验证过跨主机 302 后请求头和 Range 保留；真实 CDN、真机画中画仍需验证。
@@ -67,15 +67,16 @@ TEST_RUNNER_TIDEMELD_SHOTS=<截图目录> TEST_RUNNER_TIDEMELD_PAGE=<-tidemeld-o
 ## 5. 模拟器与验收
 
 - **`Tidemeld iPhone`**（iPhone 18 Pro，iOS 27.0，UDID `7EB56B5A-6B0D-470C-B479-5BA60B102864`）：2026-10-30 用户在上面登录了测试账号。**只能用 `simctl install` 覆盖安装**（数据保留），不要卸载、抹掉（`simctl erase`）或在上面跑测试。登录态在它的 Keychain 和 WebKit Cookie 里。
-- **`Tidemeld test`**（同型号，没有登录）：跑单元测试、看未登录的页面。本机其他模拟器（iPhone 18 Pro、iPad Pro、iPhone Duo 等）属于 voytty，不要用。
-- 本机没有独立的 Simulator.app，模拟器由用户在 Xcode 里打开；截图用 `xcrun simctl io <UDID> screenshot`。点按和滑动只能在 `Tidemeld test` 上经 UI 测试（§4），所以要登录才有内容的页面滑不了。
+- **`Tidemeld test`**（`7D96F02A-891D-4A38-B4E5-850A081A04B8`）：2026-11-05 用户已在此登录真实 X 账号；与 `Tidemeld iPhone` 一样保护，只能覆盖安装，不得卸载、清数据或跑自动化测试。下方此前在该设备运行测试的记录均为登录之前的历史记录。
+- **`Tidemeld regression`**（`4041A259-B0C0-40B3-81DA-B9258F6474F6`，iPhone 18 Pro / iOS 27.0）：2026-11-05 新建，无真实账号，后续单元测试、UI 测试及未登录界面检查用此设备。不要登录真实账号。本机其他模拟器属于 voytty，不要用。
+- 本机模拟器由 Device Hub（`com.apple.dt.Devices`）承载。交互可经 CUA 执行，列表的辅助功能 `Scroll Down` / `Scroll Up` 动作可用于滚动；真实登录设备只做用户授权的界面检查。自动化回归仍只在 `Tidemeld regression` 上运行（§4）。
 - 调试版的启动参数 `-tidemeld-open <路径>` 直接打开页面：`login`、`compose`、`settings`、`about`、`licenses`、`tab/<search|notifications|me>`、`reselect/<home|search|notifications>`（打开页签约 4 秒后再点一次）、`status/<id>`、`u/<uid>`、`n/<昵称>`、`results/<词>`（中文和 `#` 要 URL 编码）、`web/<网址>`（应用内浏览器），时间线加载后的 `first/<status|user|pic|live|video|thread>`，以及诊断页的 `diag/<reads|renewal>`。
 - **2026-10-30 在 `Tidemeld iPhone` 的真实会话上看过**：登录（官方页面，登录后自动关闭）、首页时间线（表情、链接图标、转发框、九宫格、认证、来源和地区；浅色和深色）、详情页（转发/评论切换、排序、评论、底部工具栏）、楼中楼、看图（翻页、页码）、视频播放、用户主页（封面、关注关系、置顶、展开）、通知（评论列表、带图评论、原微博引用）、热搜（置顶、前三名配色、标签、热度）、话题搜索结果（话题头和计数）、发微博弹层、诊断页「核对接口」全部正常、「模拟登录过期」3.4 秒续期成功（网页里的会话仍有效的那条路径）。
 - **2026-10-30 在 `Tidemeld test` 上用 UI 测试滑过**：开源许可（`ScrollView`）和关于（`List`）两页的页签栏往下滚隐藏、往回滚一点就出现、再往下又隐藏，关于页拉到末尾不闪，录屏逐帧看过出现和隐藏都是玻璃和按钮一起淡入淡出；隐藏后打开新页面、返回都有页签栏；给关于页临时加上详情页那样的底部工具栏，收起和出现也对，拉过末尾不再闪。
 - **2026-10-30 在 `Tidemeld iPhone` 上用 `reselect/home` 录屏逐帧看过**：首页在顶部时再点一次，内容平滑下移、圈在空出来的地方转，刷新完弹回，圈不压在内容上。
 - **2026-10-30 在 `Tidemeld iPhone` 上用 `reselect/notifications` 看过**：真实的通知列表在顶部时再点一次，内容下移、圈在页签和第一条之间转、刷新完弹回；不在顶部时点 tab 回到顶部（`Tidemeld test` 上的合成列表，第四页「赞」也对，只有正在显示的列表响应）。真实点 tab 时系统自己不会滚动列表。
 - **2026-11-03 在 `Tidemeld test` 上用 UI 测试录屏逐帧看过**：通知页和首页（临时换成合成的行）慢慢往下拖两次、往回拖一点，点页签回到顶部，再连点两次刷新：每次都有圈，刷新完内容弹回；改之前两页都是内容停在下移的位置、第二次没有圈。刚启动时在顶部点、手动下拉都照旧（UIKit 自己移回，不用补）。
-- **要登录才有内容的列表怎么在 `Tidemeld test` 上测**：临时改页面，未登录也显示列表，`List` 换成 40 行合成的行（`ForEach((0..<40).map { "r\($0)" }, id: \.self)`，回顶部的 id 用 `"r0"`），去掉开始加载的 `.task`，刷新里的请求换成 `Task.sleep(for: .seconds(1.5))`；再临时加一个 UI 测试：启动 `tab/<页签>`，拖动后点 `app.tabBars.buttons["通知"]`（或「首页」），配合录屏看。XCUITest 的 `tap()` 会等应用空闲，紧跟在点按后面的截图时间不准，动画要看录屏。要看 UIKit 的内部状态，可以临时用 `class_copyIvarList` 读刷新控件的 `_refreshControlState`（0 闲置、3 刷新中、4 收回中）和滚动视图 `_scrollViewFlags` 的各个位（类型编码里带字段名）。这些临时改动都不要提交。
+- **要登录才有内容的列表怎么在无真实账号的 `Tidemeld regression` 上测**：临时改页面，未登录也显示列表，`List` 换成 40 行合成的行（`ForEach((0..<40).map { "r\($0)" }, id: \.self)`，回顶部的 id 用 `"r0"`），去掉开始加载的 `.task`，刷新里的请求换成 `Task.sleep(for: .seconds(1.5))`；再临时加一个 UI 测试：启动 `tab/<页签>`，拖动后点 `app.tabBars.buttons["通知"]`（或「首页」），配合录屏看。XCUITest 的 `tap()` 会等应用空闲，紧跟在点按后面的截图时间不准，动画要看录屏。要看 UIKit 的内部状态，可以临时用 `class_copyIvarList` 读刷新控件的 `_refreshControlState`（0 闲置、3 刷新中、4 收回中）和滚动视图 `_scrollViewFlags` 的各个位（类型编码里带字段名）。这些临时改动都不要提交。
 - **2026-10-30 通知页**：在 `Tidemeld iPhone` 上看过顶栏和首页一样高、第一条和首页对齐、顶部不淡；在 `Tidemeld test` 上临时把列表换成合成的行（不发请求、不看登录态）跑 UI 测试，点页签切换、左右滑动换页、慢慢拖不到一半留在原页、往下滚页签栏隐藏且原来页签栏那一截能拖、滚到顶栏下面有模糊、回到顶部模糊消失，都对。真实列表的滑动没看过（要登录）。
 - **还没验证**：详情页和楼中楼真实页面上的底部工具栏随滚动收起和出现（要登录，只在关于页上模拟过）、要登录的列表页（首页、通知、热搜、用户主页、搜索结果）和网页里页签栏的隐藏和出现、换页签和返回时页签栏重新出现、真实列表上真的点页签时的再点一次和不在顶部时回到顶部（启动参数只模拟了 `Router.selection` 的设置；首页和通知页的合成列表上 UI 测试真的点过，见上）、从缩略图放大进入看图和下滑关闭（启动参数打开的看图没有缩略图）、写操作（点赞、评论、回复、删除、转发、发微博，按约定要用户同意并用指定的测试微博）、滚动翻页（要登录才有内容可滑，只看了代码路径）、实况照片（那一页时间线里没有）、视频地址过期后换新、真正的 `SUB` 自然过期（要用 `ALC` 换新的那条续期路径）、验证码、iPad 和横屏、字体大小调到最大时的排版。2026-11-04 按审查（[IOS_REVIEW.md](IOS_REVIEW.md)）修的，只编译过或只在 `Tidemeld test` 上看过的：静音键打开时视频有声音、画中画（A7，要真机）；打开带红点的通知页签后列表刷新（A1）；换账号后通知和各页签重新开始（A9、A10，有单元测试）；登录失败时登录页上的提示（A8）；选图后读入时「发送」等着（A5）、上传进度、发微博时「去验证」盖在弹层上（D3）、转发时光标在最前（D2）；视频加载时的封面（D8）；看图里长图能左右翻（A4，有单元测试）、GIF 标（D9）；真实列表上滚到末尾才翻页（B1，合成列表上 UI 测试滑过）；宽屏中等宽度的时间线（D19）。
 
@@ -90,6 +91,8 @@ TEST_RUNNER_TIDEMELD_SHOTS=<截图目录> TEST_RUNNER_TIDEMELD_PAGE=<-tidemeld-o
 
 `AccountManager` 在独立的 Keychain 项目保存平台、账号和 Cookie，迁移旧微博登录。`SocialFeedController` 为每个账号维护游标与错误，按时间合并去重。首页菜单选择聚合、微博或 X；账号管理可分别添加、重新登录、移除同平台多个账号。微博的卡片、导航和弹层携带来源账号上下文；搜索、通知和发微博使用当前微博账号。
 
-X 使用官方网页登录和原生 `XWebAPI`，协议配置与 Android 共用 `protocol/x-web.json`。正文、图片、引用和转发使用原生卡片，视频和互动进入对应账号网页。X 真实账号登录与读取尚未验证；403/429 会显示错误，不绕过安全验证，不自动重试。
+X 使用官方网页登录和原生 `XWebAPI`，协议配置与 Android 共用 `protocol/x-web.json`。正文、图片、引用和转发使用原生卡片，视频和互动进入对应账号网页。iOS 单个真实 X 账号的登录、原生读取和平台筛选已于 2026-11-05 验证；403/429 会显示错误，不绕过安全验证，不自动重试。
 
 本次验证：`Tidemeld test` 上 87 项测试通过，包含多个账号合并、独立游标、失败恢复、网页账号切换、过期状态和切换账号后的迟到响应隔离。已在界面核对聚合/微博/X 菜单、账号管理和平台选择；未操作 `Tidemeld iPhone` 的真实登录态。
+
+用户随后在 `Tidemeld test` 登录 X；已确认账号保存、原生信息流、平台筛选和向下连续浏览正常，未执行写操作。多账号真实混合和请求级分页边界仍待验证。从这次登录起，`Tidemeld test` 的真实凭据必须保留，之后自动化回归使用上文的 `Tidemeld regression`。
