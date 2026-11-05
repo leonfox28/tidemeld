@@ -45,6 +45,8 @@ class FakeWeibo : Closeable {
     private val loopback = InetAddress.getByName("127.0.0.1")
     private val certificate =
         HeldCertificate.Builder()
+            .addSubjectAlternativeName("x.com")
+            .addSubjectAlternativeName("api.x.com")
             .addSubjectAlternativeName("weibo.com")
             .addSubjectAlternativeName("*.weibo.com")
             .addSubjectAlternativeName("*.api.weibo.com")

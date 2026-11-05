@@ -9,16 +9,29 @@ struct TimelinePage: View {
     var body: some View {
         let uid = graph.session.state.uid
         let user = currentUser?.id == uid ? currentUser : nil
-        Timeline(uid: uid)
+        Group {
+            if graph.accounts.accounts.isEmpty && graph.settings.settings.feedSelection != .x { Timeline(uid: nil) }
+            else { SocialTimeline() }
+        }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .appBackground()
-            .navigationTitle("首页")
+            .navigationTitle("")
             .toolbarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .principal) {
+                    Menu {
+                        Picker("信息流", selection: Binding(get: { graph.settings.settings.feedSelection }, set: { choice in graph.settings.update { $0.feedSelection = choice } })) {
+                            ForEach(FeedSelection.allCases) { Text($0.label).tag($0) }
+                        }
+                    } label: {
+                        HStack(spacing: 4) { Text(graph.settings.settings.feedSelection.label).font(.headline); Image(systemName: "chevron.down").font(.caption) }
+                    }
+                    .accessibilityLabel("选择信息流")
+                }
                 ToolbarItem(placement: .topBarLeading) {
-                    if let uid {
+                    if uid != nil {
                         Button {
-                            graph.router.push(.profile(uid: uid, initial: user))
+                            graph.router.push(.accounts)
                         } label: {
                             Group {
                                 if let url = user?.avatarURL {
@@ -31,9 +44,9 @@ struct TimelinePage: View {
                             .clipShape(Circle())
                         }
                         .accessibilityElement(children: .ignore)
-                        .accessibilityLabel("我的主页")
+                        .accessibilityLabel("账号管理")
                     } else {
-                        Button("登录微博", systemImage: "person") { graph.router.showingLogin = true }
+                        Button("账号管理", systemImage: "person") { graph.router.push(.accounts) }
                             .labelStyle(.iconOnly)
                     }
                 }

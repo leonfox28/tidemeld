@@ -17,6 +17,28 @@ import okhttp3.HttpUrl
 class WeiboCookieJar(cookies: Map<String, Map<String, String>> = emptyMap()) : CookieJar {
     private val sites = mutableMapOf<String, LinkedHashMap<String, String>>()
     private val listeners = mutableListOf<() -> Unit>()
+    private var generation = 0L
+    private var credentialRevision = 0L
+    val identity: Long
+        get() = synchronized(this) { generation }
+
+    private var responseSink: ((HttpUrl, List<Cookie>) -> Unit)? = null
+
+    /**
+     * A request keeps its identity across queuing and redirects. Late cookies cannot change a newer
+     * login.
+     */
+    fun forRequest(): Pair<Long, WeiboCookieJar> =
+        synchronized(this) {
+            val ticket = generation
+            val credentials = credentialRevision
+            ticket to
+                WeiboCookieJar(toMap()).also { copy ->
+                    copy.responseSink = { url, cookies -> apply(url, cookies, credentials) }
+                }
+        }
+
+    fun isCurrent(ticket: Long): Boolean = synchronized(this) { generation == ticket }
 
     init {
         replace(cookies)
@@ -43,13 +65,22 @@ class WeiboCookieJar(cookies: Map<String, Map<String, String>> = emptyMap()) : C
         apply(url, headers.mapNotNull { Cookie.parse(url, it) })
     }
 
-    fun replaceAll(cookies: Map<String, Map<String, String>>) {
-        synchronized(this) { replace(cookies) }
+    fun replaceAll(cookies: Map<String, Map<String, String>>, newIdentity: Boolean = false) {
+        synchronized(this) {
+            if (newIdentity) generation++
+            credentialRevision++
+            replace(cookies)
+        }
         notifyListeners()
     }
 
     fun clear() {
-        val changed = synchronized(this) { sites.isNotEmpty().also { sites.clear() } }
+        val changed =
+            synchronized(this) {
+                generation++
+                credentialRevision++
+                sites.isNotEmpty().also { sites.clear() }
+            }
         if (changed) notifyListeners()
     }
 
@@ -78,15 +109,18 @@ class WeiboCookieJar(cookies: Map<String, Map<String, String>> = emptyMap()) : C
 
     override fun saveFromResponse(url: HttpUrl, cookies: List<Cookie>) {
         apply(url, cookies)
+        responseSink?.invoke(url, cookies)
     }
 
     // OkHttp already drops cookies whose domain the response's host can't set,
     // as a browser does.
-    private fun apply(url: HttpUrl, cookies: List<Cookie>) {
+    private fun apply(url: HttpUrl, cookies: List<Cookie>, expectedGeneration: Long? = null) {
         val site = siteOf(url.host) ?: return
         val now = System.currentTimeMillis()
         val changed =
             synchronized(this) {
+                if (expectedGeneration != null && credentialRevision != expectedGeneration)
+                    return@synchronized false
                 val jar = sites.getOrPut(site) { LinkedHashMap() }
                 var changed = false
                 for (cookie in cookies) {

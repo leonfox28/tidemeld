@@ -45,6 +45,7 @@ final class WeiboHTTP: Sendable {
     func send(_ request: URLRequest, upload: Bool = false, plainCrossOrigin: Bool = false)
         async throws(WeiboError) -> HTTPReply
     {
+        let identity = jar.identity
         var request = request
         request.timeoutInterval = upload ? 120 : 20
         request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
@@ -56,10 +57,9 @@ final class WeiboHTTP: Sendable {
         }
         await throttle.acquire()
         defer { Task { await throttle.release() } }
-        // The cookies as they are now, not as they were when the request
-        // joined the queue: the user may have signed out, or the session been
-        // renewed, meanwhile (as OkHttp reads its jar as it sends).
-        let delegate = HopHeaders(jar: jar, plainCrossOrigin: plainCrossOrigin)
+        let (currentIdentity, boundCookies) = jar.forRequest()
+        guard currentIdentity == identity, !Task.isCancelled else { throw .cancelled }
+        let delegate = HopHeaders(jar: boundCookies, plainCrossOrigin: plainCrossOrigin)
         request = delegate.prepare(request, explicitReferer: request.value(forHTTPHeaderField: "Referer"))
         let data: Data
         let response: URLResponse
@@ -69,7 +69,8 @@ final class WeiboHTTP: Sendable {
             throw WeiboError.isCancellation(error) ? .cancelled : .network
         }
         guard let http = response as? HTTPURLResponse else { throw .network }
-        jar.apply(http)
+        boundCookies.apply(http)
+        guard jar.isCurrent(identity) else { throw .cancelled }
         if isRateLimitStatus(http.statusCode) {
             await throttle.backOffMore()
         } else {

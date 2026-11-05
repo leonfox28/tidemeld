@@ -1,6 +1,6 @@
 # 叠澜 · Tidemeld 支持
 
-叠澜（Tidemeld）是免费、开源、非官方的微博客户端，iOS 版使用 SwiftUI，界面为简体中文。项目与微博运营方没有关联。
+叠澜（Tidemeld）是免费、开源、非官方的社交媒体聚合客户端，iOS 版使用 SwiftUI，界面为简体中文。项目与微博、X 及其运营方没有关联。
 
 ## 联系维护者
 
@@ -12,9 +12,13 @@
 
 未登录时，“首页”直接以原生微博卡片显示游客可见的公开信息流，可以下拉刷新、查看图片和视频。微博目前只向游客提供首屏；查看更多、展开完整内容、查看用户资料及互动时会引导登录。也可打开“搜索”页看热搜，点热搜条目后浏览微博公开网页。登录后首页切换为关注动态，“搜索”顶栏右侧会显示搜索按钮，点击可输入关键词并查看原生搜索结果。
 
-在应用内的微博官方页面登录。验证码由你本人完成；叠澜不会自动处理验证码。出现频率限制时，请稍后再试。接口或登录流程可能随微博调整而变化。
+从首页左上角或“设置 → 账号管理”进入账号管理，添加时选择微博或 X，并在对应平台官方页面登录。同一平台可添加多个账号，也可同时登录不同平台。首页顶栏的下拉菜单选择“聚合 / 微博 / X”：聚合合并所有已登录账号，平台选项合并该平台的全部账号。
 
-图片占用较大时，可直接打开底部“设置”调整图片质量和缓存上限，或清除图片缓存。登录后的个人主页从首页左上角头像进入；退出登录在“设置 → 账号”中。
+X 为接入原型，真实登录和读取尚未验收。X 卡片的图片可原生查看，视频及互动打开对应账号的官方网页。遇到 X 拒绝访问或格式变化，先检查官方网页的账号状态，不反复自动重试。
+
+验证码由你本人完成；叠澜不会自动处理验证码。出现频率限制时，请稍后再试。接口或登录流程可能随微博调整而变化。
+
+图片占用较大时，可直接打开底部“设置”调整图片质量和缓存上限，或清除图片缓存。首页左上角现在进入账号管理。搜索、通知和发微博使用账号管理中选定的微博账号；信息流内微博互动使用该条目的来源账号。移除账号在账号管理中进行，其他账号不受影响。
 
 ## 内容与账号问题
 
@@ -30,7 +34,7 @@
 
 # Support in English
 
-Tidemeld is a free, open-source, unofficial Weibo client. Its app interface is in Simplified Chinese. It is not affiliated with or endorsed by Weibo.
+Tidemeld is a free, open-source, unofficial social media aggregator with Weibo support and an experimental X web integration. Its app interface is in Simplified Chinese. It is not affiliated with or endorsed by Weibo or X. Multiple accounts per platform are supported. The Home menu selects all accounts, Weibo, or X; each platform view combines all signed-in accounts on that platform. Live X authentication and feed access have not yet been validated.
 
 Without signing in, 首页 (Home) displays public posts using native cards, with pull-to-refresh and media viewing. Weibo currently limits guests to the first page; further reading, profiles and interactions prompt sign-in. 搜索 (Search) also offers trending topics that open public web results. After sign-in, Home switches to the following feed, and the button at the top right of Search opens a field for keyword searches with native results.
 

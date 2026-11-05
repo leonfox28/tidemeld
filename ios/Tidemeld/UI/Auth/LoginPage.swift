@@ -15,6 +15,7 @@ let loginURL = URL(
 ///
 /// Closes once signed in, saying so.
 struct LoginPage: View {
+    var platform: SocialPlatform = .weibo
     @Environment(AppGraph.self) private var graph
     @Environment(\.dismiss) private var dismiss
     @State private var page = WebPage(navigationDecider: WebOnlyNavigation())
@@ -27,7 +28,7 @@ struct LoginPage: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                Text("下方是微博官方登录页面。登录信息直接提交给微博，叠澜在本机保存登录状态以访问微博服务。")
+                Text("下方是\(platform.label)官方登录页面。登录信息直接提交给\(platform.label)，登录状态仅保存在本机。")
                     .font(.footnote)
                     .foregroundStyle(AppTheme.secondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -50,14 +51,17 @@ struct LoginPage: View {
                         }
                     }
             }
-            .navigationTitle("登录微博")
+            .navigationTitle("登录\(platform.label)")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(role: .close) { dismiss() }
                 }
                 ToolbarItem(placement: .primaryAction) {
-                    Button("刷新", systemImage: "arrow.clockwise") { page.reload() }
+                    HStack {
+                        Button("完成登录") { check() }
+                        Button("刷新", systemImage: "arrow.clockwise") { page.reload() }
+                    }
                 }
             }
         }
@@ -73,10 +77,11 @@ struct LoginPage: View {
                 }
             }
         }
-        .onAppear {
+        .task {
             guard page.url == nil else { return }
+            await graph.webCookies.clearDomains(platform.domains)
             page.customUserAgent = browserUserAgent
-            page.load(loginURL)
+            page.load(platform == .weibo ? loginURL : URL(string: "https://x.com/i/flow/login")!)
         }
         .onChange(of: page.isLoading) { _, loading in
             if !loading { check() }
@@ -88,6 +93,18 @@ struct LoginPage: View {
     private func check() {
         guard !verifying else { return }
         Task {
+            if platform == .x {
+                verifying = true
+                defer { verifying = false }
+                do {
+                    let cookies = await graph.webCookies.cookies(for: URL(string: "https://x.com/")!)
+                    guard cookies["auth_token"] != nil, cookies["ct0"] != nil, let api = graph.xAPI else { return }
+                    let session = try await api.verify(cookies)
+                    try graph.accounts.add(.x, session: session)
+                    dismiss(); graph.toasts.show("X 登录成功")
+                } catch { graph.toasts.show(loadErrorMessage(error)) }
+                return
+            }
             let cookies = await graph.webCookies.readWeiboCookies()
             let sub = cookies[WeiboCookieJar.web]?["SUB"]
             devLog(
@@ -97,7 +114,8 @@ struct LoginPage: View {
             verifying = true
             defer { verifying = false }
             do {
-                try await graph.session.completeLogin(cookies)
+                let session = try await graph.session.verifyLogin(cookies)
+                try graph.accounts.add(.weibo, session: session)
                 dismiss()
                 graph.toasts.show("登录成功")
             } catch WeiboError.sessionExpired {

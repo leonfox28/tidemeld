@@ -18,6 +18,8 @@ enum SessionState: Sendable, Equatable {
 @MainActor @Observable
 final class SessionController {
     private(set) var state: SessionState
+    @ObservationIgnored var onLogout: ((String) async -> Void)?
+    @ObservationIgnored var onExpired: ((String) -> Void)?
 
     @ObservationIgnored let jar: WeiboCookieJar
     @ObservationIgnored private let storage: SessionStorage
@@ -69,17 +71,40 @@ final class SessionController {
     /// failed.
     func completeLogin(_ cookies: Cookies) async throws {
         let (account, verified) = try await verify(cookies)
-        jar.replaceAll(verified)
+        jar.replaceAll(verified, newIdentity: true)
         setState(.signedIn(account))
         save()
     }
 
     func logout() async {
+        let uid = state.uid
         setState(.signedOut(expired: false))
         jar.clear()
         storage.clear()
         // Sign the embedded browser out too, so the next login starts fresh.
-        await webCookies.clearAll()
+        await webCookies.clearDomains(SocialPlatform.weibo.domains)
+        if let uid { await onLogout?(uid) }
+    }
+
+    func activate(_ session: StoredSession?) {
+        renewal?.cancel(); renewal = nil; renewedAt = nil
+        jar.replaceAll(session?.cookies ?? [:], newIdentity: true)
+        setState(session.map { .signedIn($0.account) } ?? .signedOut(expired: false))
+        if session == nil { storage.clear() } else { save() }
+    }
+
+    func verifyLogin(_ cookies: Cookies) async throws -> StoredSession {
+        let (account, verified) = try await verify(cookies)
+        return StoredSession(account: account, cookies: verified)
+    }
+
+    func isolated(_ session: StoredSession, storage: SessionStorage) -> SessionController {
+        SessionController(restored: session, storage: storage, webCookies: webCookies,
+            renewer: ExplicitSessionRenewer(), httpFor: httpFor)
+    }
+
+    func apiForSession() -> WeiboAPI {
+        WeiboAPI(http: httpFor(jar)) { [weak self] sentAt in await self?.renewOrExpire(sentAt: sentAt) ?? false }
     }
 
     /// Called when Weibo rejects the session of a request sent at [sentAt].
@@ -107,7 +132,7 @@ final class SessionController {
             do {
                 let (account, verified) = try await self.verify(cookies)
                 // The user may have signed out meanwhile.
-                guard account.uid == uid, case .signedIn = self.state else { return false }
+                guard !Task.isCancelled, account.uid == uid, self.state.uid == uid else { return false }
                 self.jar.replaceAll(verified)
                 self.renewedAt = .now
                 return true
@@ -116,7 +141,7 @@ final class SessionController {
             }
         }
         devLog("session renewal: \(renewed ? "renewed" : "failed")")
-        if !renewed { expire() }
+        if !renewed, !Task.isCancelled, state.uid == uid { expire() }
         return renewed
     }
 
@@ -126,9 +151,11 @@ final class SessionController {
     /// opening the login page signs the user straight back in.
     func expire() {
         guard case .signedIn = state else { return }
+        let uid = state.uid
         setState(.signedOut(expired: true))
         jar.clear()
         storage.clear()
+        if let uid { onExpired?(uid) }
     }
 
     /// Checks [cookies] against the API, returning the account they sign in as

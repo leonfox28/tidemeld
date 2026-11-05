@@ -21,10 +21,16 @@ final class FakeWebCookies: WebCookies {
     var cookies: Cookies = [:]
 
     func cookies(for url: URL) async -> [String: String] {
-        WeiboCookieJar.siteOf(url.host).flatMap { cookies[$0] } ?? [:]
+        if url.host == "x.com" { return cookies["x.com"] ?? [:] }
+        return WeiboCookieJar.siteOf(url.host).flatMap { cookies[$0] } ?? [:]
     }
 
+    func setCookies(host: String, cookies: [String: String]) async { self.cookies[host] = cookies }
+
     func clearAll() async { cookies = [:] }
+    func clearDomains(_ domains: [String]) async {
+        cookies = cookies.filter { host, _ in !domains.contains { host == $0 || host.hasSuffix("." + $0) } }
+    }
 }
 
 /// Renews with [cookies], or fails when there are none.
@@ -99,6 +105,7 @@ final class FakeWeibo: URLProtocol {
         var status = 200
         var contentType = "application/json"
         var body = "{}"
+        var headers: [String: String] = [:]
         /// How long Weibo takes to answer.
         var delay: Duration = .zero
     }
@@ -148,7 +155,7 @@ final class FakeWeibo: URLProtocol {
         guard state.withLock({ answered ? false : { answered = true; return true }() }) else { return }
         let response = HTTPURLResponse(
             url: request.url!, statusCode: reply.status, httpVersion: "HTTP/1.1",
-            headerFields: ["Content-Type": reply.contentType])!
+            headerFields: ["Content-Type": reply.contentType].merging(reply.headers) { $1 })!
         client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
         client?.urlProtocol(self, didLoad: Data(reply.body.utf8))
         client?.urlProtocolDidFinishLoading(self)

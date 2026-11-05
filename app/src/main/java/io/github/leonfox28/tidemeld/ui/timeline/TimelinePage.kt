@@ -18,8 +18,12 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.HorizontalDivider
@@ -43,6 +47,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.leonfox28.tidemeld.LocalAppGraph
+import io.github.leonfox28.tidemeld.core.accounts.*
 import io.github.leonfox28.tidemeld.core.net.WeiboException
 import io.github.leonfox28.tidemeld.core.paging.ListLoad
 import io.github.leonfox28.tidemeld.core.paging.PagedState
@@ -55,6 +60,7 @@ import io.github.leonfox28.tidemeld.ui.notifications.UNREAD_RECHECK_MS
 import io.github.leonfox28.tidemeld.ui.shell.LocalTabReselect
 import io.github.leonfox28.tidemeld.ui.status.rememberGuestStatusCardActions
 import io.github.leonfox28.tidemeld.ui.status.rememberStatusCardActions
+import io.github.leonfox28.tidemeld.ui.theme.KeepTextSize
 import io.github.leonfox28.tidemeld.ui.widget.ErrorRetry
 import io.github.leonfox28.tidemeld.ui.widget.KeepAtTop
 import io.github.leonfox28.tidemeld.ui.widget.LoadMoreFooter
@@ -72,6 +78,10 @@ fun TimelinePage(padding: PaddingValues) {
     val session by graph.session.state.collectAsStateWithLifecycle()
     val uid = (session as? SessionState.SignedIn)?.account?.uid
     val navigator = LocalNavigator.current
+    val settings by graph.settings.settings.collectAsStateWithLifecycle()
+    val accounts by graph.accounts.accounts.collectAsStateWithLifecycle()
+    val selection = settings.feedSelection
+    var menu by remember { mutableStateOf(false) }
     var currentUser by remember(uid) { mutableStateOf<WeiboUser?>(null) }
     LaunchedEffect(uid) {
         if (uid != null) {
@@ -91,31 +101,55 @@ fun TimelinePage(padding: PaddingValues) {
             )
     Column(area) {
         Box(Modifier.fillMaxWidth().height(56.dp).padding(horizontal = 8.dp)) {
-            Text(
-                "首页",
-                Modifier.align(Alignment.Center),
-                style = MaterialTheme.typography.titleMedium,
-            )
+            Box(Modifier.align(Alignment.Center)) {
+                TextButton(
+                    onClick = { menu = true },
+                    modifier = Modifier.semantics { contentDescription = "选择信息流" },
+                ) {
+                    Text(selection.label, style = MaterialTheme.typography.titleMedium)
+                    Icon(Icons.Default.ExpandMore, null)
+                }
+                DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                    KeepTextSize {
+                        Column {
+                            FeedSelection.entries.forEach { choice ->
+                                DropdownMenuItem(
+                                    text = { Text(choice.label) },
+                                    trailingIcon = {
+                                        if (selection == choice) Icon(Icons.Default.Check, null)
+                                    },
+                                    onClick = {
+                                        menu = false
+                                        graph.settings.update { it.copy(feedSelection = choice) }
+                                    },
+                                )
+                            }
+                        }
+                    }
+                }
+            }
             if (uid == null) {
                 FilledTonalIconButton(
-                    onClick = { navigator.push(Route.Login) },
+                    onClick = { navigator.push(Route.Accounts) },
                     modifier = Modifier.align(Alignment.CenterStart).size(48.dp),
                 ) {
-                    Icon(Icons.Outlined.Person, contentDescription = "登录微博")
+                    Icon(Icons.Outlined.Person, contentDescription = "账号管理")
                 }
             } else {
                 IconButton(
-                    onClick = { navigator.push(Route.Profile(uid, currentUser)) },
+                    onClick = { navigator.push(Route.Accounts) },
                     modifier =
                         Modifier.align(Alignment.CenterStart).size(48.dp).semantics {
-                            contentDescription = "我的主页"
+                            contentDescription = "账号管理"
                         },
                 ) {
                     UserAvatar(currentUser, size = 36.dp)
                 }
             }
         }
-        Timeline(uid, padding, Modifier.weight(1f))
+        if (accounts.isEmpty() && selection != FeedSelection.X)
+            Timeline(null, padding, Modifier.weight(1f))
+        else SocialTimeline(selection, padding, Modifier.weight(1f))
     }
 }
 

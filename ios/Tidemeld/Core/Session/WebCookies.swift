@@ -11,6 +11,8 @@ protocol WebCookies: AnyObject {
 
     /// Deletes every web view cookie, signing the embedded browser out.
     func clearAll() async
+    func clearDomains(_ domains: [String]) async
+    func setCookies(host: String, cookies: [String: String]) async
 }
 
 extension WebCookies {
@@ -27,6 +29,17 @@ extension WebCookies {
 final class WebKitCookies: WebCookies {
     private var store: WKHTTPCookieStore { WKWebsiteDataStore.default().httpCookieStore }
 
+    func setCookies(host: String, cookies: [String: String]) async {
+        guard ["x.com", "weibo.com", "weibo.cn"].contains(host) else { return }
+        for (name, value) in cookies {
+            guard name.range(of: "^[A-Za-z0-9_-]+$", options: .regularExpression) != nil,
+                  !value.contains(where: { $0 == ";" || $0 == "\r" || $0 == "\n" }) else { continue }
+            var properties: [HTTPCookiePropertyKey: Any] = [.name: name, .value: value, .domain: "." + host, .path: "/", .secure: "TRUE"]
+            if ["auth_token", "SUB", "SUBP"].contains(name) { properties[HTTPCookiePropertyKey("HttpOnly")] = "TRUE" }
+            if let cookie = HTTPCookie(properties: properties) { await store.setCookie(cookie) }
+        }
+    }
+
     func cookies(for url: URL) async -> [String: String] {
         cookiesSent(to: url, from: await store.allCookies())
     }
@@ -34,6 +47,15 @@ final class WebKitCookies: WebCookies {
     func clearAll() async {
         await WKWebsiteDataStore.default().removeData(
             ofTypes: [WKWebsiteDataTypeCookies], modifiedSince: .distantPast)
+    }
+
+    func clearDomains(_ domains: [String]) async {
+        for cookie in await store.allCookies() {
+            let host = cookie.domain.trimmingCharacters(in: CharacterSet(charactersIn: "."))
+            if domains.contains(where: { host == $0 || host.hasSuffix("." + $0) }) {
+                await store.deleteCookie(cookie)
+            }
+        }
     }
 }
 

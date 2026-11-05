@@ -51,6 +51,7 @@ fun testGraph(
     pictureCache: PictureCache = FakePictureCache(),
     clock: () -> Long = { System.nanoTime() / 1_000_000 },
     guestApi: GuestWeiboApi? = null,
+    xApi: io.github.leonfox28.tidemeld.data.x.XWebApi? = null,
 ): AppGraph {
     val base = web?.client ?: offlineClient
     val throttle = RequestThrottle(minIntervalMs = 0)
@@ -69,6 +70,7 @@ fun testGraph(
         pictureCache = pictureCache,
         imageLoader = { fakeImageLoader() },
         guestApi = guestApi,
+        xApi = xApi,
     )
 }
 

@@ -69,22 +69,23 @@ private struct Presentations: ViewModifier {
 
     func body(content: Content) -> some View {
         @Bindable var router = graph.router
+        let context = router.presentationAccount.flatMap { graph.forAccount($0) } ?? graph
         content
-            .sheet(isPresented: $router.showingLogin) { LoginPage() }
-            .sheet(isPresented: $router.showingCompose) { ComposePage() }
-            .sheet(item: $router.repost) { RepostSheet(request: $0) }
-            .sheet(item: $router.commentComposer) { CommentComposer(request: $0) }
-            .sheet(item: $router.web, onDismiss: {}) { WebSheet(request: $0) }
+            .sheet(isPresented: $router.showingLogin) { LoginFlowPage() }
+            .sheet(isPresented: $router.showingCompose) { ComposePage().environment(context) }
+            .sheet(item: $router.repost) { RepostSheet(request: $0).environment(context) }
+            .sheet(item: $router.commentComposer) { CommentComposer(request: $0).environment(context) }
+            .sheet(item: $router.web, onDismiss: {}) { WebSheet(request: $0).environment(context) }
             .fullScreenCover(item: $router.viewer) { request in
-                ImageViewer(request: request)
+                ImageViewer(request: request).environment(context)
                     .modifier(ZoomTransition(sourceID: request.sourceID, namespace: media))
             }
-            .fullScreenCover(item: $router.video) { VideoPlayerPage(request: $0) }
+            .fullScreenCover(item: $router.video) { VideoPlayerPage(request: $0).environment(context) }
             .confirmationDialog(
                 "确定删除这条微博吗？", isPresented: deleting, titleVisibility: .visible,
                 presenting: router.deletion
             ) { request in
-                Button("删除", role: .destructive) { graph.confirmDelete(request) }
+                Button("删除", role: .destructive) { context.confirmDelete(request) }
             }
     }
 
@@ -111,15 +112,23 @@ private struct TabStack<Root: View>: View {
 /// The page of [route].
 struct RouteView: View {
     let route: Route
+    @Environment(AppGraph.self) private var graph
 
     var body: some View {
         switch route {
+        case .accounts: AccountsPage()
+        case .account(let key, let route):
+            if let context = graph.forAccount(key) { AnyView(RouteView(route: route).environment(context)) }
+            else { AnyView(AccountsPage()) }
         case .status(let id, let initial): StatusDetailPage(id: id, initial: initial)
         case .comments(let thread): CommentRepliesPage(thread: thread)
         case .profile(let uid, let initial): ProfilePage(uid: uid, initial: initial)
         case .profileByName(let name): ProfilePage(screenName: name)
         case .searchResults(let query): SearchResultsPage(query: query)
-        case .web(let url): InAppBrowser(url: url)
+        case .web(let url):
+            if let owner = graph.router.accountKey { AccountWebPage(owner: owner, url: url) }
+            else { InAppBrowser(url: url) }
+        case .accountWeb(let owner, let url): AccountWebPage(owner: owner, url: url)
         case .textSize: TextSizePage()
         case .about: AboutPage()
         case .privacy: PrivacyPage()

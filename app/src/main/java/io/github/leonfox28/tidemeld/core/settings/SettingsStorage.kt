@@ -20,6 +20,10 @@ class DataStoreSettingsStorage(private val store: DataStore<Preferences>) : Sett
         val defaults = AppSettings()
         val limit = prefs[cacheLimit]
         return AppSettings(
+            feedSelection =
+                io.github.leonfox28.tidemeld.core.accounts.FeedSelection.entries.firstOrNull {
+                    it.key == prefs[feed]
+                } ?: defaults.feedSelection,
             themeMode = ThemeMode.entries.byKey(prefs[theme], ThemeMode::key, defaults.themeMode),
             textSize = TextSize.entries.byKey(prefs[textSize], TextSize::key, defaults.textSize),
             imageQuality =
@@ -37,6 +41,7 @@ class DataStoreSettingsStorage(private val store: DataStore<Preferences>) : Sett
 
     override suspend fun save(settings: AppSettings) {
         store.edit {
+            it[feed] = settings.feedSelection.key
             it[theme] = settings.themeMode.key
             it[textSize] = settings.textSize.key
             it[quality] = settings.imageQuality.key
@@ -49,6 +54,7 @@ class DataStoreSettingsStorage(private val store: DataStore<Preferences>) : Sett
         firstOrNull { keyOf(it) == key } ?: fallback
 
     private companion object {
+        val feed = stringPreferencesKey("settings.feedSelection")
         val theme = stringPreferencesKey("settings.theme")
         val textSize = stringPreferencesKey("settings.textSize")
         val quality = stringPreferencesKey("settings.imageQuality")

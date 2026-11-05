@@ -121,3 +121,8 @@ final class WebPageSessionRenewer: SessionRenewer {
         return renewed
     }
 }
+
+@MainActor
+final class ExplicitSessionRenewer: SessionRenewer {
+    func renew(lapsedSub: String?, adopt: @escaping @MainActor (Cookies) async -> Bool) async -> Bool { false }
+}

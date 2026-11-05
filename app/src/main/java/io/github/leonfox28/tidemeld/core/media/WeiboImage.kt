@@ -73,7 +73,12 @@ fun weiboImageLoader(context: Context, base: OkHttpClient, diskCache: DiskCache)
                         request
                             .newBuilder()
                             .url(url)
-                            .header("Referer", "https://weibo.com/")
+                            .header(
+                                "Referer",
+                                if (url.host == "twimg.com" || url.host.endsWith(".twimg.com"))
+                                    "https://x.com/"
+                                else "https://weibo.com/",
+                            )
                             .build()
                     )
                 }

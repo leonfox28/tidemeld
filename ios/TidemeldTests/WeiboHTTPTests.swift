@@ -12,22 +12,30 @@ extension FakeWeiboTests {
 struct WeiboHTTPTests {
     private let url = URL(string: "https://weibo.com/ajax/x")!
 
-    @Test func aQueuedRequestGoesWithTheCookiesAsTheyAreWhenItIsSent() async throws {
+    @Test func aQueuedRequestIsCancelledWhenTheAccountChanges() async throws {
         FakeWeibo.reset()
         let jar = WeiboCookieJar([WeiboCookieJar.web: ["SUB": "old", "XSRF-TOKEN": "t1"]])
         let throttle = RequestThrottle(maxConcurrent: 1, minInterval: .milliseconds(300))
         let http = WeiboHTTP(jar: jar, throttle: throttle, configuration: FakeWeibo.configuration)
-
-        async let first = http.send(URLRequest(url: url))
-        async let second = http.send(URLRequest(url: url))
-        // The second waits its turn meanwhile.
+        _ = try await http.send(URLRequest(url: url))
+        let second = Task { try await http.send(URLRequest(url: url)) }
         try await Task.sleep(for: .milliseconds(100))
-        jar.replaceAll([WeiboCookieJar.web: ["SUB": "new", "XSRF-TOKEN": "t2"]])
-        _ = try await (first, second)
+        jar.replaceAll([WeiboCookieJar.web: ["SUB": "other", "XSRF-TOKEN": "t2"]], newIdentity: true)
+        await #expect(throws: WeiboError.cancelled) { try await second.value }
+        #expect(FakeWeibo.requests.count == 1)
+        #expect(FakeWeibo.requests.first?.value(forHTTPHeaderField: "Cookie") == "SUB=old; XSRF-TOKEN=t1")
+    }
 
-        let sent = FakeWeibo.requests
-        #expect(sent.map { $0.value(forHTTPHeaderField: "Cookie") } == ["SUB=old; XSRF-TOKEN=t1", "SUB=new; XSRF-TOKEN=t2"])
-        #expect(sent.map { $0.value(forHTTPHeaderField: "X-XSRF-TOKEN") } == ["t1", "t2"])
+    @Test func lateResponseCookiesCannotOverwriteANewlySelectedAccount() async throws {
+        FakeWeibo.reset { _ in .init(headers: ["Set-Cookie": "SUB=stale; Path=/"], delay: .milliseconds(300)) }
+        let jar = WeiboCookieJar([WeiboCookieJar.web: ["SUB": "old"]])
+        let http = WeiboHTTP(jar: jar, throttle: RequestThrottle(minInterval: .zero), configuration: FakeWeibo.configuration)
+        let pending = Task { try await http.send(URLRequest(url: url)) }
+        try await Task.sleep(for: .milliseconds(100))
+        jar.replaceAll([WeiboCookieJar.web: ["SUB": "other"]], newIdentity: true)
+        await #expect(throws: WeiboError.cancelled) { try await pending.value }
+        #expect(jar.value("weibo.com", "SUB") == "other")
+        #expect(FakeWeibo.requests.first?.value(forHTTPHeaderField: "Cookie") == "SUB=old")
     }
 
     @Test func aRequestGivenUpOnSaysSoRatherThanBlamingTheNetwork() async throws {

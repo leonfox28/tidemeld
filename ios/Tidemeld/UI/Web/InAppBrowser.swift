@@ -62,10 +62,14 @@ struct InAppBrowser: View {
 struct WebSheet: View {
     let request: WebRequest
     @Environment(\.dismiss) private var dismiss
+    @Environment(AppGraph.self) private var graph
 
     var body: some View {
         NavigationStack {
-            InAppBrowser(url: request.url, closable: false)
+            Group {
+                if let owner = graph.router.accountKey { AccountWebPage(owner: owner, url: request.url) }
+                else { InAppBrowser(url: request.url, closable: false) }
+            }
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) {
                         Button(role: .close) { dismiss() }

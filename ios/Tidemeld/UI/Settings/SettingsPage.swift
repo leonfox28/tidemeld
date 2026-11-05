@@ -5,7 +5,6 @@ struct SettingsPage: View {
     @Environment(AppGraph.self) private var graph
     @State private var cacheSize: String = "计算中…"
     @State private var confirmingClear = false
-    @State private var confirmingLogout = false
 
     var body: some View {
         let controller = graph.settings
@@ -50,20 +49,8 @@ struct SettingsPage: View {
                 #endif
             }
             .listRowBackground(AppTheme.surface)
-            Section {
-                if graph.session.state.uid != nil {
-                    Button("退出登录", systemImage: "rectangle.portrait.and.arrow.right", role: .destructive) {
-                        confirmingLogout = true
-                    }
-                } else {
-                    Button("登录微博", systemImage: "person.crop.circle") { graph.router.showingLogin = true }
-                }
-            } header: {
-                Text("账号")
-            } footer: {
-                if graph.session.state == .signedOut(expired: true) {
-                    Text("登录已过期，请重新登录")
-                }
+            Section("账号") {
+                NavigationLink("账号管理", value: Route.accounts)
             }
             .listRowBackground(AppTheme.surface)
         }
@@ -90,12 +77,7 @@ struct SettingsPage: View {
         } message: {
             Text("已下载的图片会被删除，之后浏览时重新下载。")
         }
-        .alert("退出登录", isPresented: $confirmingLogout) {
-            Button("退出", role: .destructive) { Task { await graph.session.logout() } }
-            Button("取消", role: .cancel) {}
-        } message: {
-            Text("将清除本机保存的微博登录状态。")
-        }
+
     }
 
     private func binding<V>(_ key: WritableKeyPath<AppSettings, V>) -> Binding<V> {

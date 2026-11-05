@@ -1,6 +1,6 @@
 # 叠澜 · Tidemeld
 
-开源、非商业的社交媒体聚合客户端（原名 maxbo）：当前支持微博，X 接入待实现。Android 版（Kotlin + Jetpack Compose，仓库根目录），以及 2026-10-30 起的 iOS 版（SwiftUI，`ios/`，见 [docs/IOS.md](docs/IOS.md)）。方案、合规边界、接口实测结论和当前进度都在 [docs/PLAN.md](docs/PLAN.md)；**开工前先读第 2 节（合规边界）、第 8 节（实测结论）和第 11 节（进度与交接）**。
+开源、非商业的社交媒体聚合客户端（原名 maxbo）：支持微博，已加入 X 网页接入原型、多账号和本地聚合信息流。Android 版（Kotlin + Jetpack Compose，仓库根目录），以及 2026-10-30 起的 iOS 版（SwiftUI，`ios/`，见 [docs/IOS.md](docs/IOS.md)）。方案、合规边界、接口实测结论和当前进度都在 [docs/PLAN.md](docs/PLAN.md)；**开工前先读第 2 节（合规边界）、第 8 节（实测结论）和第 11 节（进度与交接）**。
 
 v0.11.0 及以前是 Flutter 版，2026-10-23 起换成 Kotlin 重写的版本（v0.12.0）。迁移的经过和各处设计的理由记在 [docs/KOTLIN_MIGRATION.md](docs/KOTLIN_MIGRATION.md) 的 §11；Flutter 代码只在 git 历史里（`53b24b0` 及以前）。
 
@@ -9,7 +9,7 @@ v0.11.0 及以前是 Flutter 版，2026-10-23 起换成 Kotlin 重写的版本�
 - 中文名「叠澜」，英文名 `Tidemeld`，仓库与目录名 `tidemeld`。
 - Android 源码 namespace 为 `io.github.leonfox28.tidemeld`；安装用的 applicationId 保留 `io.github.leonfox28.maxbo`（Debug 带 `.debug`），Android Keystore 的 `maxbo.session` 也保留，以延续已发布版本的更新和登录态。
 - 2026-11-05 用户要求重建不能更名的 App Store 记录：iOS 正式 Bundle ID 改为 `io.github.leonfox28.tidemeld`，新 SKU 为 `tidemeld-ios`。iOS Debug 暂保留 `io.github.leonfox28.maxbo.debug`，用于已有开发安装和真实登录态；这不属于商店记录。正式新标识不继承旧正式安装的数据容器。
-- 当前版本只实现微博，不应在应用或商店文案中声称已支持 X。无需注册域名，支持和隐私政策继续使用 GitHub。
+- v0.14.0 开发版加入多账号管理、聚合/平台信息流和 X 网页读取原型；X 真实账号登录与读取尚未验收，不能在商店文案中声称稳定支持 X。无需注册域名，支持和隐私政策继续使用 GitHub。
 
 ## 常用命令
 
@@ -59,6 +59,8 @@ xcrun simctl launch <模拟器> io.github.leonfox28.maxbo.debug -tidemeld-open f
 - `core/net/`：网络层
   - `WeiboHttp`：OkHttp，浏览器 UA、Cookie（`WeiboCookieJar`，按站点 weibo.com / weibo.cn 保存）、Referer/XSRF 等请求头、`RequestThrottle` 限流。读请求和写请求各用一个 client，写请求关掉 `retryOnConnectionFailure`；picupload 跨域上传用 `PlainCrossOrigin` 去掉 XHR/XSRF 头。
   - `WeiboException.kt`：集中处理微博的各种失败响应（登录过期、验证码、频率限制、网络、接口错误），界面上用 `loadErrorMessage()` 取文案。
+- `core/accounts/`：按 `platform:uid` 管理独立凭据，旧微博会话自动迁入；`AccountManager` 负责增删、重新登录和当前微博功能账号。账号列表用 Keystore 加密保存到 `noBackupFilesDir/accounts`。
+- `ui/timeline/SocialFeedController`：每账号独立分页、错误和缓存，本地按时间合并并以平台+帖子 ID 去重；`AppGraph.forAccount()` 为微博卡片及后续页面提供对应账号的 API/互动上下文。X 用 `data/x/XWebApi` 与共享 `protocol/x-web.json`，不依赖参考项目代码或远端签名服务。
 - `core/session/`：会话
   - `WebCookies` 直接读 `CookieManager`（包括 HttpOnly 的 `SUB`）；`SessionController` 的状态是 `SignedOut(expired)` / `SignedIn(account)`。主动退出时连同 WebView 的 Cookie 一起清掉；登录过期时保留它们。
   - `SUB` 在服务端约 7 天失效。接口报过期时，`SessionRenewer` 在不挂到界面上的 WebView 里打开 weibo.com，让微博用 30 天的 `ALC` 换新 `SUB`（PLAN §8「会话续期」）。读请求续期后重发一次，写请求不重发。续期失败才退出登录。

@@ -10,6 +10,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -51,6 +53,8 @@ class SessionController(
             restored?.let { SessionState.SignedIn(it.account) } ?: SessionState.SignedOut()
         )
     val state: StateFlow<SessionState> = _state.asStateFlow()
+    var onLogout: suspend (String) -> Unit = {}
+    var onExpired: (String) -> Unit = {}
 
     /** The signed-in account's uid, or null when signed out, each time it changes. */
     val uid: Flow<String?>
@@ -82,17 +86,55 @@ class SessionController(
     suspend fun completeLogin(cookies: Cookies) {
         val (account, verified) = verify(cookies)
         _state.value = SessionState.SignedIn(account)
-        jar.replaceAll(verified)
+        jar.replaceAll(verified, newIdentity = true)
         lastSave?.join()
     }
 
     suspend fun logout() {
+        val uid = (_state.value as? SessionState.SignedIn)?.account?.uid
         _state.value = SessionState.SignedOut()
         jar.clear()
         storing.withLock { storage.clear() }
         // Sign the embedded browser out too, so the next login starts fresh.
-        webCookies.clearAll()
+        webCookies.clearDomains(listOf("weibo.com", "weibo.cn", "sina.com.cn"))
+        if (uid != null) onLogout(uid)
     }
+
+    /** Adopts a previously verified local account, cancelling work for the old identity. */
+    fun activate(session: StoredSession?) {
+        synchronized(renewalLock) {
+            renewal?.cancel()
+            renewal = null
+            renewedAt = null
+        }
+        _state.value =
+            session?.let { SessionState.SignedIn(it.account) } ?: SessionState.SignedOut()
+        jar.replaceAll(session?.cookies.orEmpty(), newIdentity = true)
+        if (session == null) scope.launch { storing.withLock { storage.clear() } }
+    }
+
+    suspend fun verifyLogin(cookies: Cookies): StoredSession {
+        val (account, verified) = verify(cookies)
+        return StoredSession(account, verified)
+    }
+
+    fun isolated(stored: StoredSession, storage: SessionStorage): SessionController =
+        SessionController(
+            stored,
+            storage,
+            webCookies,
+            // A shared browser may belong to another account: renew only through explicit login.
+            object : SessionRenewer {
+                override suspend fun renew(
+                    lapsedSub: String?,
+                    accept: suspend (Cookies) -> Boolean,
+                ) = false
+            },
+            httpFor,
+            scope,
+        )
+
+    fun apiForSession() = WeiboApi(httpFor(jar), onSessionExpired = ::renewOrExpire)
 
     /**
      * Called when Weibo rejects the session of a request sent at [sentAt].
@@ -129,8 +171,12 @@ class SessionController(
                 renewer.renew(lapsedSub = jar.value(WeiboCookieJar.WEB, "SUB")) { cookies ->
                     try {
                         val (account, verified) = verify(cookies)
+                        currentCoroutineContext().ensureActive()
                         // The user may have signed out meanwhile.
-                        if (account.uid != uid || _state.value !is SessionState.SignedIn) {
+                        if (
+                            account.uid != uid ||
+                                (_state.value as? SessionState.SignedIn)?.account?.uid != uid
+                        ) {
                             false
                         } else {
                             jar.replaceAll(verified)
@@ -141,11 +187,14 @@ class SessionController(
                         false
                     }
                 }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
         } catch (e: Exception) {
             devLog("session renewal: ${e.javaClass.simpleName}")
         }
+        currentCoroutineContext().ensureActive()
         devLog("session renewal: ${if (renewed) "renewed" else "failed"}")
-        if (!renewed) expire()
+        if (!renewed && (_state.value as? SessionState.SignedIn)?.account?.uid == uid) expire()
         return renewed
     }
 
@@ -157,9 +206,11 @@ class SessionController(
      */
     fun expire() {
         if (_state.value !is SessionState.SignedIn) return
+        val uid = (_state.value as SessionState.SignedIn).account.uid
         _state.value = SessionState.SignedOut(expired = true)
         jar.clear()
         scope.launch { storing.withLock { storage.clear() } }
+        onExpired(uid)
     }
 
     /**

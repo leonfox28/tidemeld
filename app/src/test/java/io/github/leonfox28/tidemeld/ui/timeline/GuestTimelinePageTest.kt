@@ -75,20 +75,19 @@ class GuestTimelinePageTest {
                     .isNotEmpty()
             }
         awaitText("游客公开示例")
-        compose.onNodeWithContentDescription("登录微博").assertExists()
+        compose.onNodeWithContentDescription("账号管理").assertExists()
         compose.onNodeWithContentDescription("通知").assertDoesNotExist()
         runBlocking { graph.session.completeLogin(signedIn.cookies) }
         awaitText("关注动态示例")
         compose.onNodeWithText("游客浏览 · 公开微博").assertDoesNotExist()
-        compose.onNodeWithContentDescription("登录微博").assertDoesNotExist()
-        compose.onNodeWithContentDescription("我的主页").performClick()
-        assertEquals("7", (navigator.backStack.last() as Route.Profile).uid)
+        compose.onNodeWithContentDescription("账号管理").performClick()
+        assertEquals(Route.Accounts, navigator.backStack.last())
         compose.runOnIdle { navigator.pop() }
         compose.onNodeWithContentDescription("通知").performClick()
         runBlocking { graph.session.logout() }
         awaitText("游客公开示例")
         compose.onNodeWithText("游客浏览 · 公开微博").assertDoesNotExist()
-        compose.onNodeWithContentDescription("登录微博").assertExists()
+        compose.onNodeWithContentDescription("账号管理").assertExists()
         compose.onNodeWithContentDescription("我的主页").assertDoesNotExist()
         compose.onNodeWithContentDescription("通知").assertDoesNotExist()
         compose.onNodeWithContentDescription("首页").assertIsSelected()
@@ -124,8 +123,8 @@ class GuestTimelinePageTest {
         compose.onNode(hasScrollToIndexAction()).assertExists()
         compose.onNodeWithText("游客浏览 · 公开微博").assertDoesNotExist()
         compose.onNodeWithText("登录查看更多").assertExists()
-        compose.onNodeWithContentDescription("登录微博").performClick()
-        assertEquals(Route.Login, navigator.backStack.last())
+        compose.onNodeWithContentDescription("账号管理").performClick()
+        assertEquals(Route.Accounts, navigator.backStack.last())
         compose.runOnIdle { navigator.pop() }
         compose.onNodeWithText("赞").performClick()
         assertEquals(Route.Login, navigator.backStack.last())

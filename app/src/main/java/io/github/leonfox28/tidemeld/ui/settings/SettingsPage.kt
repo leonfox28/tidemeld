@@ -21,7 +21,6 @@ import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Login
-import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.outlined.BugReport
 import androidx.compose.material.icons.outlined.CleaningServices
@@ -59,7 +58,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.leonfox28.tidemeld.BuildConfig
 import io.github.leonfox28.tidemeld.LocalAppGraph
 import io.github.leonfox28.tidemeld.MB
-import io.github.leonfox28.tidemeld.core.session.SessionState
 import io.github.leonfox28.tidemeld.core.settings.AppSettings
 import io.github.leonfox28.tidemeld.core.settings.ImageQuality
 import io.github.leonfox28.tidemeld.core.settings.ThemeMode
@@ -104,7 +102,6 @@ fun SettingsPage(padding: PaddingValues = PaddingValues()) {
     val session by graph.session.state.collectAsStateWithLifecycle()
     var choosing by remember { mutableStateOf<Choosing<*>?>(null) }
     var confirmingClear by remember { mutableStateOf(false) }
-    var confirmingLogout by remember { mutableStateOf(false) }
     // The cache size, read again after clearing or trimming.
     var sizeReads by remember { mutableIntStateOf(0) }
     var cacheSize by remember { mutableStateOf("计算中…") }
@@ -220,19 +217,13 @@ fun SettingsPage(padding: PaddingValues = PaddingValues()) {
                 }
                 item { SectionHeader("账号") }
                 item {
-                    if (session is SessionState.SignedIn) {
-                        Setting(Icons.AutoMirrored.Filled.Logout, "退出登录") {
-                            confirmingLogout = true
-                        }
-                    } else {
-                        Setting(
-                            Icons.AutoMirrored.Filled.Login,
-                            "登录微博",
-                            if ((session as? SessionState.SignedOut)?.expired == true) "登录已过期，请重新登录"
-                            else null,
-                        ) {
-                            navigator.push(Route.Login)
-                        }
+                    Setting(
+                        Icons.AutoMirrored.Filled.Login,
+                        "账号管理",
+                        "添加、切换或移除微博与 X 账号",
+                        opensPage = true,
+                    ) {
+                        navigator.push(Route.Accounts)
                     }
                 }
             }
@@ -260,24 +251,6 @@ fun SettingsPage(padding: PaddingValues = PaddingValues()) {
                 }
             },
             dismissButton = { TextButton(onClick = { confirmingClear = false }) { Text("取消") } },
-        )
-    }
-    if (confirmingLogout) {
-        AppAlertDialog(
-            onDismissRequest = { confirmingLogout = false },
-            title = { Text("退出登录") },
-            text = { Text("将清除本机保存的微博登录状态。") },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        confirmingLogout = false
-                        scope.launch { graph.session.logout() }
-                    }
-                ) {
-                    Text("退出")
-                }
-            },
-            dismissButton = { TextButton(onClick = { confirmingLogout = false }) { Text("取消") } },
         )
     }
 }

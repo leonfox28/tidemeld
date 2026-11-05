@@ -24,9 +24,38 @@ interface WebCookies {
 
     /** Deletes every WebView cookie, signing the embedded browser out. */
     suspend fun clearAll()
+
+    /** Signs out only these domains; unrelated platforms remain signed in. */
+    suspend fun clearDomains(domains: List<String>)
+
+    /** Installs a verified account's cookies before opening its platform's web page. */
+    suspend fun setCookies(host: String, cookies: Map<String, String>)
 }
 
 class WebViewCookies : WebCookies {
+    override suspend fun setCookies(host: String, cookies: Map<String, String>) =
+        withContext(Dispatchers.Main) {
+            require(host in setOf("x.com", "weibo.com", "weibo.cn"))
+            val manager = CookieManager.getInstance()
+            for ((name, value) in cookies) {
+                if (
+                    !name.matches(Regex("[A-Za-z0-9_-]+")) ||
+                        value.any { it == ';' || it == '\r' || it == '\n' }
+                )
+                    continue
+                val httpOnly = if (name in setOf("auth_token", "SUB", "SUBP")) "; HttpOnly" else ""
+                suspendCancellableCoroutine { continuation ->
+                    manager.setCookie(
+                        "https://$host/",
+                        "$name=$value; Domain=.$host; Path=/; Secure; SameSite=None$httpOnly",
+                    ) {
+                        continuation.resume(Unit)
+                    }
+                }
+            }
+            manager.flush()
+        }
+
     override suspend fun cookies(url: String): Map<String, String> =
         withContext(Dispatchers.Main) {
             parseCookieHeader(CookieManager.getInstance().getCookie(url))
@@ -37,6 +66,31 @@ class WebViewCookies : WebCookies {
             val manager = CookieManager.getInstance()
             suspendCancellableCoroutine { continuation ->
                 manager.removeAllCookies { continuation.resume(Unit) }
+            }
+            manager.flush()
+        }
+
+    override suspend fun clearDomains(domains: List<String>) =
+        withContext(Dispatchers.Main) {
+            val manager = CookieManager.getInstance()
+            for (domain in domains) {
+                val hosts =
+                    listOf(domain, "www.$domain", "m.$domain", "passport.$domain", "login.$domain")
+                for (host in hosts) {
+                    for (path in listOf("/", "/i/", "/sso/")) {
+                        val url = "https://$host$path"
+                        for (name in parseCookieHeader(manager.getCookie(url)).keys) {
+                            for (cookieDomain in
+                                listOf("", "; Domain=$host", "; Domain=.$domain")) {
+                                val expired =
+                                    "$name=; Max-Age=0; Path=$path$cookieDomain; Secure; HttpOnly"
+                                suspendCancellableCoroutine { continuation ->
+                                    manager.setCookie(url, expired) { continuation.resume(Unit) }
+                                }
+                            }
+                        }
+                    }
+                }
             }
             manager.flush()
         }

@@ -115,7 +115,32 @@ private val FullScreenDialog =
 /** What each page shows. */
 private val pages: (Route) -> NavEntry<Route> = entryProvider {
     entry<Route.Home> { HomeShell() }
-    entry<Route.Login> { LoginPage() }
+    entry<Route.Login> { io.github.leonfox28.tidemeld.ui.auth.PlatformPickerPage() }
+    entry<Route.Accounts> { io.github.leonfox28.tidemeld.ui.auth.AccountsPage() }
+    entry<Route.PlatformLogin> { LoginPage(it.platform) }
+    entry<Route.ForAccount> { route ->
+        val root = LocalAppGraph.current
+        val accounts by root.accounts.accounts.collectAsStateWithLifecycle()
+        val scoped =
+            accounts
+                .firstOrNull { it.key == route.key && !it.expired }
+                ?.let { root.forAccount(it.key) }
+        if (scoped != null) {
+            val navigator = LocalNavigator.current
+            CompositionLocalProvider(
+                LocalAppGraph provides scoped,
+                LocalNavigator provides
+                    remember(navigator, route.key) { navigator.forAccount(route.key) },
+            ) {
+                if (route.page is Route.Web)
+                    io.github.leonfox28.tidemeld.ui.webview.AccountWebPage(
+                        route.key,
+                        route.page.url,
+                    )
+                else pages(route.page).Content()
+            }
+        } else io.github.leonfox28.tidemeld.ui.auth.PlatformPickerPage()
+    }
     entry<Route.StatusDetail> { StatusDetailPage(it.id, it.initial) }
     entry<Route.Comments> { CommentRepliesPage(it.thread) }
     entry<Route.Viewer>(metadata = DialogSceneStrategy.dialog(FullScreenDialog)) {
@@ -126,6 +151,9 @@ private val pages: (Route) -> NavEntry<Route> = entryProvider {
     entry<Route.ProfileByName> { ProfilePage(screenName = it.name) }
     entry<Route.SearchResults> { SearchResultsPage(it.query) }
     entry<Route.Web> { WebPage(it.url) }
+    entry<Route.AccountWeb> {
+        io.github.leonfox28.tidemeld.ui.webview.AccountWebPage(it.account, it.url)
+    }
     entry<Route.TextSize> { TextSizePage() }
     entry<Route.About> { AboutPage() }
     entry<Route.Licenses> { LicensesPage() }

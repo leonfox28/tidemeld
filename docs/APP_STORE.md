@@ -114,3 +114,5 @@ xcodebuild -exportArchive -archivePath build/app-store/Tidemeld.xcarchive \
 - 新身份已重新归档、导出，核对 IPA 的 Bundle ID 为 `io.github.leonfox28.tidemeld`、版本 `0.13.1 (1)`；归档签名校验通过。未上传或提交审核。Debug 仍保留旧标识，以保护开发设备已有真实登录态。
 - 重建后的验证：iOS 79 项测试通过；Android `spotlessCheck lint testDebugUnitTest assembleDebug` 通过，385 项测试无失败（未变的检查使用 Gradle 增量结果）。已停止 Gradle daemon。
 - 新记录已恢复简体中文名称、副标题、宣传文本、描述、关键词、支持/营销/隐私政策链接及社交类别；版本设为 `0.13.1`、手动发布。价格已保存为 USD 0，供应情况已确认仅美国（App 发布时供应）；Mac 和 Apple Vision Pro 供应保持关闭。新记录仍未上传构建或提交审核。
+
+- 后续开发状态：源码版本已推进至 `0.14.0 (1)`，加入多账号、聚合信息流及 X 网页接入原型。App Store Connect 仍保留 `0.13.1` 和原先文案，旧归档未重建、未上传。X 真实账号验证尚未完成；更新商店文案与构建前应按最终验收结果描述能力。

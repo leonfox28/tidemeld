@@ -11,6 +11,8 @@ enum AppTab: Hashable, CaseIterable {
 /// carry what the previous page already has, such as the status that was
 /// tapped; routes compare by what they show, not by that.
 enum Route: Hashable {
+    case accounts
+    indirect case account(String, Route)
     /// A status and its comments; [initial] shows until the full status loads.
     case status(id: String, initial: Status?)
     /// A comment and its replies ("楼中楼").
@@ -21,6 +23,7 @@ enum Route: Hashable {
     case searchResults(String)
     /// A web page in the in-app browser.
     case web(URL)
+    case accountWeb(String, URL)
     case textSize
     case about
     case privacy
@@ -30,11 +33,14 @@ enum Route: Hashable {
 
     private var key: String {
         switch self {
+        case .accounts: "accounts"
+        case .account(let owner, let route): "account:\(owner):\(route.key)"
         case .status(let id, _): "status:\(id)"
         case .comments(let thread): "comments:\(thread.root.id)"
         case .profile(let uid, _): "profile:\(uid)"
         case .profileByName(let name): "name:\(name)"
         case .searchResults(let query): "search:\(query)"
+        case .accountWeb(let owner, let url): "accountWeb:\(owner):\(url.absoluteString)"
         case .web(let url): "web:\(url.absoluteString)"
         case .textSize: "textSize"
         case .about: "about"
@@ -87,19 +93,40 @@ struct WebRequest: Identifiable {
 /// Where the user is: the selected tab, each tab's stack of pages, and what is
 /// presented over them.
 @MainActor @Observable
-final class Router {
+private final class RouterState {
     var tab: AppTab = .home
     var paths: [AppTab: [Route]] = [:]
+    var showingLogin: Bool = false
+    var loginPlatform: SocialPlatform? = nil
+    var showingCompose: Bool = false
+    var viewer: ViewerRequest? = nil
+    var video: VideoRequest? = nil
+    var web: WebRequest? = nil
+    var repost: RepostRequest? = nil
+    var deletion: DeleteRequest? = nil
+    var commentComposer: CommentComposerRequest? = nil
+    var presentationAccount: String?
+}
 
-    var showingLogin = false
-    var showingCompose = false
-    var viewer: ViewerRequest?
-    var video: VideoRequest?
-    var web: WebRequest?
-    var repost: RepostRequest?
-    var deletion: DeleteRequest?
-    var commentComposer: CommentComposerRequest?
-
+@MainActor @Observable
+final class Router {
+    @ObservationIgnored private let shared: RouterState
+    let accountKey: String?
+    var presentationAccount: String? { shared.presentationAccount }
+    init() { shared = RouterState(); accountKey = nil }
+    private init(shared: RouterState, account: String) { self.shared = shared; accountKey = account }
+    func scoped(_ account: String) -> Router { Router(shared: shared, account: account) }
+    var tab: AppTab { get { shared.tab } set { shared.tab = newValue } }
+    var paths: [AppTab: [Route]] { get { shared.paths } set { shared.paths = newValue } }
+    var showingLogin: Bool { get { shared.showingLogin } set { shared.showingLogin = newValue } }
+    var loginPlatform: SocialPlatform? { get { shared.loginPlatform } set { shared.loginPlatform = newValue } }
+    var showingCompose: Bool { get { shared.showingCompose } set { shared.presentationAccount = accountKey; shared.showingCompose = newValue } }
+    var viewer: ViewerRequest? { get { shared.viewer } set { shared.presentationAccount = accountKey; shared.viewer = newValue } }
+    var video: VideoRequest? { get { shared.video } set { shared.presentationAccount = accountKey; shared.video = newValue } }
+    var web: WebRequest? { get { shared.web } set { shared.presentationAccount = accountKey; shared.web = newValue } }
+    var repost: RepostRequest? { get { shared.repost } set { shared.presentationAccount = accountKey; shared.repost = newValue } }
+    var deletion: DeleteRequest? { get { shared.deletion } set { shared.presentationAccount = accountKey; shared.deletion = newValue } }
+    var commentComposer: CommentComposerRequest? { get { shared.commentComposer } set { shared.presentationAccount = accountKey; shared.commentComposer = newValue } }
     /// Bumped each time the selected tab is tapped again.
     private(set) var reselects: [AppTab: Int] = [:]
 
@@ -120,7 +147,9 @@ final class Router {
     }
 
     func push(_ route: Route) {
-        paths[tab, default: []].append(route)
+        let target: Route
+        if let accountKey, route != .accounts { target = .account(accountKey, route) } else { target = route }
+        paths[tab, default: []].append(target)
     }
 
     func pop() {

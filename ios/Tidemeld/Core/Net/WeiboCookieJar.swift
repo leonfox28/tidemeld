@@ -19,6 +19,9 @@ final class WeiboCookieJar: Sendable {
     private struct State {
         var sites: [String: [(name: String, value: String)]] = [:]
         var listeners: [UUID: @Sendable () -> Void] = [:]
+        var generation = 0
+        var credentialRevision = 0
+        var responseSink: (@Sendable (URL, [HTTPCookie]) -> Void)?
     }
 
     init(_ cookies: Cookies = [:]) {
@@ -26,6 +29,20 @@ final class WeiboCookieJar: Sendable {
         Self.replace(&state, with: cookies)
         self.state = Mutex(state)
     }
+
+    /// Freeze the request identity; only the matching generation can adopt response cookies.
+    func forRequest() -> (Int, WeiboCookieJar) {
+        let (ticket, credentials, cookies) = state.withLock { state in
+            (state.generation, state.credentialRevision, state.sites.mapValues { Dictionary($0.map { ($0.name, $0.value) }, uniquingKeysWith: { $1 }) })
+        }
+        let copy = WeiboCookieJar(cookies)
+        copy.state.withLock { state in state.responseSink = { [self] url, cookies in apply(url, cookies, expectedGeneration: credentials) } }
+        return (ticket, copy)
+    }
+
+    var identity: Int { state.withLock { $0.generation } }
+
+    func isCurrent(_ ticket: Int) -> Bool { state.withLock { $0.generation == ticket } }
 
     /// The site [host] belongs to, or nil if it isn't a Weibo host.
     static func siteOf(_ host: String?) -> String? {
@@ -62,10 +79,11 @@ final class WeiboCookieJar: Sendable {
     /// Applies [cookies] set by a response from [url]. Cookies for another
     /// site, which the response's host can't set, are dropped, as a browser
     /// drops them.
-    func apply(_ url: URL, _ cookies: [HTTPCookie]) {
+    func apply(_ url: URL, _ cookies: [HTTPCookie], expectedGeneration: Int? = nil) {
         guard let site = Self.siteOf(url.host), !cookies.isEmpty else { return }
         let now = Date()
         let changed = state.withLock { state in
+            if let expectedGeneration, state.credentialRevision != expectedGeneration { return false }
             var jar = state.sites[site] ?? []
             var changed = false
             for cookie in cookies {
@@ -91,15 +109,18 @@ final class WeiboCookieJar: Sendable {
             return changed
         }
         if changed { notifyListeners() }
+        state.withLock { $0.responseSink }?(url, cookies)
     }
 
-    func replaceAll(_ cookies: Cookies) {
-        state.withLock { Self.replace(&$0, with: cookies) }
+    func replaceAll(_ cookies: Cookies, newIdentity: Bool = false) {
+        state.withLock { if newIdentity { $0.generation += 1 }; $0.credentialRevision += 1; Self.replace(&$0, with: cookies) }
         notifyListeners()
     }
 
     func clear() {
         let changed = state.withLock { state in
+            state.generation += 1
+            state.credentialRevision += 1
             defer { state.sites.removeAll() }
             return !state.sites.isEmpty
         }

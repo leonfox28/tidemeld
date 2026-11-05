@@ -5,6 +5,8 @@ import io.github.leonfox28.tidemeld.support.host
 import io.github.leonfox28.tidemeld.support.html
 import io.github.leonfox28.tidemeld.support.json
 import io.github.leonfox28.tidemeld.support.redirect
+import kotlinx.coroutines.*
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import okhttp3.FormBody
 import okhttp3.Request
@@ -32,6 +34,40 @@ class WeiboHttpTest {
     @After fun tearDown() = web.close()
 
     private suspend fun get(url: String) = http.send(Request.Builder().url(url).build())
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Test
+    fun `queued requests are cancelled when the account changes`() = runTest {
+        val throttle = RequestThrottle(maxConcurrent = 1, minIntervalMs = 0)
+        val scoped = WeiboHttp.create(web.client, jar, throttle)
+        throttle.acquire()
+        val pending = async {
+            runCatching { scoped.send(Request.Builder().url("https://weibo.com/ajax/x").build()) }
+        }
+        runCurrent()
+        jar.replaceAll(mapOf("weibo.com" to mapOf("SUB" to "other")), newIdentity = true)
+        throttle.release()
+        assertTrue(pending.await().exceptionOrNull() is CancellationException)
+        assertTrue(web.requests.isEmpty())
+    }
+
+    @Test
+    fun `late response cookies cannot overwrite a newly selected account`() = runTest {
+        val started = CompletableDeferred<Unit>()
+        val release = java.util.concurrent.CountDownLatch(1)
+        web.respond = {
+            started.complete(Unit)
+            check(release.await(5, java.util.concurrent.TimeUnit.SECONDS))
+            json("{}", headers = arrayOf("Set-Cookie" to "SUB=stale; path=/"))
+        }
+        val pending = async { runCatching { get("https://weibo.com/ajax/x") } }
+        started.await()
+        jar.replaceAll(mapOf("weibo.com" to mapOf("SUB" to "other")), newIdentity = true)
+        release.countDown()
+        assertTrue(pending.await().exceptionOrNull() is CancellationException)
+        assertEquals("other", jar.value("weibo.com", "SUB"))
+        assertTrue(web.requests.single().headers["Cookie"]!!.contains("SUB=sub"))
+    }
 
     @Test
     fun `sends browser headers, cookies and the XSRF token`() = runTest {

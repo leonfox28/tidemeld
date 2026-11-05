@@ -4,6 +4,7 @@ import androidx.compose.ui.test.hasScrollToIndexAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.performTouchInput
@@ -37,6 +38,62 @@ class TimelinePageTest {
         compose.onAllNodes(hasText(text), useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()
 
     private fun feeds() = web.requests.count { it.url.encodedPath == "/ajax/feed/friendstimeline" }
+
+    @Test
+    fun `feed menu filters platforms and X links retain the originating account`() {
+        val xJSON =
+            """{"data":{"home":{"home_timeline_urt":{"instructions":[{"entries":[{"content":{"itemContent":{"tweet_results":{"result":{"rest_id":"91","core":{"user_results":{"result":{"core":{"name":"X 作者","screen_name":"fixture"}}}},"legacy":{"full_text":"来自X的信息"}}}}}}]}]}}}}"""
+        web.respond = {
+            if (it.url.host == "api.x.com") json(xJSON)
+            else json(feedJson(listOf(statusJson(text = "来自微博的信息"))).toString())
+        }
+        val spec =
+            kotlinx.serialization.json.Json.parseToJsonElement(
+                """{"operations":{"HomeLatestTimeline":{"queryId":"fixture","features":{}}}}"""
+            ) as kotlinx.serialization.json.JsonObject
+        val graph =
+            testGraph(
+                restored = signedIn,
+                web = web,
+                xApi =
+                    io.github.leonfox28.tidemeld.data.x.XWebApi(
+                        web.client,
+                        spec,
+                        io.github.leonfox28.tidemeld.core.net.RequestThrottle(minIntervalMs = 0),
+                    ),
+            )
+        kotlinx.coroutines.runBlocking {
+            graph.accounts.add(
+                io.github.leonfox28.tidemeld.core.accounts.SocialPlatform.X,
+                io.github.leonfox28.tidemeld.core.session.StoredSession(
+                    io.github.leonfox28.tidemeld.data.model.Account("9", "X账号"),
+                    mapOf("x.com" to mapOf("auth_token" to "synthetic", "ct0" to "csrf")),
+                ),
+            )
+        }
+        val navigator = io.github.leonfox28.tidemeld.ui.navigation.Navigator()
+        // A page host records destinations without opening a real WebView.
+        compose.setContent {
+            io.github.leonfox28.tidemeld.support.TestHost(graph, navigator) {
+                TimelinePage(androidx.compose.foundation.layout.PaddingValues())
+            }
+        }
+        compose.waitUntil(5_000) { shown(0, "来自微博的信息") && shown(0, "来自X的信息") }
+        compose.onNodeWithContentDescription("选择信息流").performClick()
+        compose.onNodeWithText("X", useUnmergedTree = true).performClick()
+        compose.waitUntil(5_000) { !shown(0, "来自微博的信息") && shown(0, "来自X的信息") }
+        compose.onNodeWithText("在 X 中查看与互动").performClick()
+        assertEquals(
+            io.github.leonfox28.tidemeld.ui.navigation.Route.AccountWeb(
+                "x:9",
+                "https://x.com/fixture/status/91",
+            ),
+            navigator.backStack.last(),
+        )
+        compose.onNodeWithContentDescription("选择信息流").performClick()
+        compose.onNodeWithText("微博", useUnmergedTree = true).performClick()
+        compose.waitUntil(5_000) { shown(0, "来自微博的信息") && !shown(0, "来自X的信息") }
+    }
 
     @Test
     fun `a tap on the open tab scrolls back to the top, the next one refreshes`() {

@@ -96,6 +96,7 @@ enum TextSize: String, Sendable, CaseIterable, Identifiable {
 
 /// User preferences, kept on the device only.
 struct AppSettings: Sendable, Equatable {
+    var feedSelection: FeedSelection = .all
     var themeMode: ThemeMode = .system
     var textSize: TextSize = .standard
     var imageQuality: ImageQuality = .standard
@@ -123,6 +124,7 @@ final class DefaultsSettingsStorage: SettingsStorage {
     func load() -> AppSettings {
         var settings = AppSettings()
         let d = defaults
+        if let v = d.string(forKey: "feedSelection").flatMap(FeedSelection.init) { settings.feedSelection = v }
         if let v = d.string(forKey: "themeMode").flatMap(ThemeMode.init) { settings.themeMode = v }
         if let v = d.string(forKey: "textSize").flatMap(TextSize.init) { settings.textSize = v }
         if let v = d.string(forKey: "imageQuality").flatMap(ImageQuality.init) { settings.imageQuality = v }
@@ -134,6 +136,7 @@ final class DefaultsSettingsStorage: SettingsStorage {
 
     func save(_ settings: AppSettings) {
         let d = defaults
+        d.set(settings.feedSelection.rawValue, forKey: "feedSelection")
         d.set(settings.themeMode.rawValue, forKey: "themeMode")
         d.set(settings.textSize.rawValue, forKey: "textSize")
         d.set(settings.imageQuality.rawValue, forKey: "imageQuality")

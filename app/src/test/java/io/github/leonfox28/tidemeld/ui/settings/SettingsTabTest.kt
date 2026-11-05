@@ -42,8 +42,8 @@ class SettingsTabTest {
         compose.onNodeWithText("主题").assertExists()
         compose.onNodeWithContentDescription("返回").assertDoesNotExist()
         compose.onNodeWithContentDescription("我的主页").assertDoesNotExist()
-        scrollTo("登录微博")
-        compose.onNodeWithText("登录微博").assertExists()
+        scrollTo("账号管理")
+        compose.onNodeWithText("账号管理").assertExists()
         compose.onNodeWithText("退出登录").assertDoesNotExist()
     }
 
@@ -52,46 +52,49 @@ class SettingsTabTest {
         val graph = testGraph(restored = signedIn)
         graph.session.expire()
         open(graph)
-        scrollTo("登录微博")
+        scrollTo("账号管理")
 
-        compose.onNodeWithText("登录已过期，请重新登录").assertExists()
+        compose.onNodeWithText("账号管理").performClick()
+        compose.onNodeWithText("登录已过期").assertExists()
     }
 
     @Test
     fun `signs out once confirmed without showing a profile card`() {
         val storage = InMemorySessionStorage(signedIn)
-        val webCookies = FakeWebCookies()
+        val webCookies = FakeWebCookies(signedIn.cookies)
         val graph =
             testGraph(restored = signedIn, sessionStorage = storage, webCookies = webCookies)
         open(graph)
         compose.onNodeWithText("UID 7").assertDoesNotExist()
-        scrollTo("退出登录")
+        scrollTo("账号管理")
+        compose.onNodeWithText("账号管理").performClick()
 
-        compose.onNodeWithText("退出登录").performClick()
-        compose.onNodeWithText("将清除本机保存的微博登录状态。").assertExists()
+        compose.onNodeWithText("移除").performClick()
+        compose.onNodeWithText("其他账号保持登录。", substring = true).assertExists()
         compose.onNodeWithText("取消").performClick()
         assertTrue(graph.session.state.value is SessionState.SignedIn)
 
-        compose.onNodeWithText("退出登录").performClick()
-        compose.onNodeWithText("退出").performClick()
+        compose.onNodeWithText("移除").performClick()
+        compose.onAllNodes(hasText("移除"))[1].performClick()
         compose.waitForIdle()
 
         assertEquals(SessionState.SignedOut(), graph.session.state.value)
         assertNull(storage.stored)
         assertTrue(webCookies.cleared)
-        scrollTo("登录微博")
-        compose.onNodeWithText("登录微博").assertExists()
+        compose.onNodeWithText("添加微博账号").assertExists()
     }
 
     @Test
     fun `the login button opens Weibo's login page and returns to settings`() {
         open()
-        scrollTo("登录微博")
-        compose.onNodeWithText("登录微博").performClick()
+        scrollTo("账号管理")
+        compose.onNodeWithText("账号管理").performClick()
+        compose.onNodeWithContentDescription("添加账号").performClick()
+        compose.onNodeWithText("微博").performClick()
 
         compose.onNodeWithText("下方是微博官方登录页面。", substring = true).assertExists()
         compose.onNodeWithText("隐私政策").assertExists()
         compose.onNodeWithContentDescription("关闭").performClick()
-        compose.onNodeWithText("登录微博").assertExists()
+        compose.onNodeWithText("选择登录平台").assertExists()
     }
 }

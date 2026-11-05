@@ -28,6 +28,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -42,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import io.github.leonfox28.tidemeld.AppGraph
 import io.github.leonfox28.tidemeld.LocalAppGraph
+import io.github.leonfox28.tidemeld.core.accounts.SocialPlatform
 import io.github.leonfox28.tidemeld.core.net.BROWSER_USER_AGENT
 import io.github.leonfox28.tidemeld.core.net.SessionExpiredException
 import io.github.leonfox28.tidemeld.core.net.WeiboCookieJar
@@ -49,6 +51,7 @@ import io.github.leonfox28.tidemeld.core.net.WeiboException
 import io.github.leonfox28.tidemeld.core.util.devLog
 import io.github.leonfox28.tidemeld.ui.navigation.LocalNavigator
 import io.github.leonfox28.tidemeld.ui.navigation.Navigator
+import io.github.leonfox28.tidemeld.ui.navigation.Route
 import io.github.leonfox28.tidemeld.ui.settings.REPO_URL
 import io.github.leonfox28.tidemeld.ui.widget.AppSnackbarHost
 import io.github.leonfox28.tidemeld.ui.widget.CloseButton
@@ -74,21 +77,27 @@ const val LOGIN_URL =
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun LoginPage() {
+fun LoginPage(platform: SocialPlatform = SocialPlatform.Weibo) {
     val graph = LocalAppGraph.current
     val context = LocalContext.current
     val navigator = LocalNavigator.current
     val snackbars = LocalSnackbars.current
     val scope = rememberCoroutineScope()
-    val login = remember { LoginCheck(graph, navigator, snackbars, scope) }
+    val login = remember(platform) { LoginCheck(graph, navigator, snackbars, scope, platform) }
     var webView by remember { mutableStateOf<WebView?>(null) }
+    var prepared by remember(platform) { mutableStateOf(false) }
+    LaunchedEffect(platform) {
+        graph.webCookies.clearDomains(platform.domains)
+        prepared = true
+    }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("登录微博") },
+                title = { Text("登录${platform.label}") },
                 navigationIcon = { CloseButton() },
                 actions = {
+                    TextButton(onClick = login::check) { Text("完成登录") }
                     IconButton(onClick = { webView?.reload() }) {
                         Icon(Icons.Filled.Refresh, contentDescription = "刷新")
                     }
@@ -99,7 +108,7 @@ fun LoginPage() {
     ) { padding ->
         Column(Modifier.padding(padding).consumeWindowInsets(padding).imePadding()) {
             Text(
-                "下方是微博官方登录页面。登录信息直接提交给微博，叠澜在本机保存登录状态以访问微博服务。",
+                "下方是${platform.label}官方登录页面。登录信息直接提交给${platform.label}，登录状态仅保存在本机。",
                 modifier =
                     Modifier.fillMaxWidth()
                         .background(MaterialTheme.colorScheme.surfaceContainerHighest)
@@ -121,16 +130,20 @@ fun LoginPage() {
                 )
             }
             Box(Modifier.weight(1f)) {
-                AndroidView(
-                    factory = { context ->
-                        loginWebView(context, login).also {
-                            webView = it
-                            it.loadUrl(LOGIN_URL)
-                        }
-                    },
-                    modifier = Modifier.fillMaxSize(),
-                    onRelease = WebView::destroy,
-                )
+                if (prepared)
+                    AndroidView(
+                        factory = { context ->
+                            loginWebView(context, login).also {
+                                webView = it
+                                it.loadUrl(
+                                    if (platform == SocialPlatform.Weibo) LOGIN_URL
+                                    else "https://x.com/i/flow/login"
+                                )
+                            }
+                        },
+                        modifier = Modifier.fillMaxSize(),
+                        onRelease = WebView::destroy,
+                    )
                 if (login.verifying) {
                     Box(
                         Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.26f)),
@@ -184,6 +197,7 @@ private class LoginCheck(
     private val navigator: Navigator,
     private val snackbars: SnackbarHostState,
     private val scope: CoroutineScope,
+    private val platform: SocialPlatform,
 ) {
     var progress by mutableIntStateOf(0)
     var verifying by mutableStateOf(false)
@@ -195,6 +209,29 @@ private class LoginCheck(
     fun check() {
         if (verifying) return
         scope.launch {
+            if (platform == SocialPlatform.X) {
+                verifying = true
+                try {
+                    val cookies = graph.webCookies.cookies("https://x.com/")
+                    if (cookies["auth_token"].isNullOrBlank() || cookies["ct0"].isNullOrBlank())
+                        return@launch
+                    val api = graph.xApi ?: return@launch
+                    val verified = api.verify(cookies)
+                    graph.accounts.add(platform, verified)
+                    navigator.pop()
+                    if (navigator.backStack.lastOrNull() == Route.Login) navigator.pop()
+                    graph.appScope.launch { snackbars.showSnackbar("X 登录成功") }
+                } catch (e: WeiboException) {
+                    launch { snackbars.showSnackbar(e.message) }
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
+                } catch (_: Exception) {
+                    launch { snackbars.showSnackbar("账号保存失败，请重试") }
+                } finally {
+                    verifying = false
+                }
+                return@launch
+            }
             val cookies = graph.webCookies.readWeiboCookies()
             val sub = cookies[WeiboCookieJar.WEB]?.get("SUB")
             devLog(
@@ -204,8 +241,9 @@ private class LoginCheck(
             if (sub == null || sub == visitorSub || verifying) return@launch
             verifying = true
             try {
-                graph.session.completeLogin(cookies)
+                graph.accounts.add(platform, graph.session.verifyLogin(cookies))
                 navigator.pop()
+                if (navigator.backStack.lastOrNull() == Route.Login) navigator.pop()
                 // The page is gone by the time this shows.
                 graph.appScope.launch { snackbars.showSnackbar("登录成功") }
             } catch (_: SessionExpiredException) {
@@ -214,6 +252,10 @@ private class LoginCheck(
                 visitorSub = sub
             } catch (e: WeiboException) {
                 launch { snackbars.showSnackbar(e.message) }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                launch { snackbars.showSnackbar("账号保存失败，请重试") }
             } finally {
                 verifying = false
             }

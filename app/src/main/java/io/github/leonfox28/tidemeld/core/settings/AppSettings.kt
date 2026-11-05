@@ -69,6 +69,8 @@ private data class ScaledTextDensity(val base: Density, val factor: Float) : Den
 
 /** User preferences, kept on the device only. */
 data class AppSettings(
+    val feedSelection: io.github.leonfox28.tidemeld.core.accounts.FeedSelection =
+        io.github.leonfox28.tidemeld.core.accounts.FeedSelection.All,
     val themeMode: ThemeMode = ThemeMode.System,
     val textSize: TextSize = TextSize.Standard,
     val imageQuality: ImageQuality = ImageQuality.Standard,

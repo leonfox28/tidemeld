@@ -64,6 +64,7 @@ private constructor(
     private val writes: OkHttpClient,
     private val uploads: OkHttpClient,
     private val throttle: RequestThrottle,
+    private val jar: WeiboCookieJar,
 ) {
     /**
      * Sends [request] once the throttle lets it, and reads the whole reply.
@@ -73,21 +74,32 @@ private constructor(
      * @throws NetworkException if the request couldn't be sent or the reply not read.
      */
     suspend fun send(request: Request, upload: Boolean = false): HttpReply {
-        val client =
-            when {
-                upload -> uploads
-                request.method == "GET" -> reads
-                else -> writes
-            }
+        val identity = jar.identity
         throttle.acquire()
         try {
+            val (currentIdentity, boundCookies) = jar.forRequest()
+            if (currentIdentity != identity)
+                throw kotlinx.coroutines.CancellationException("Account changed")
+            val client =
+                when {
+                        upload -> uploads
+                        request.method == "GET" -> reads
+                        else -> writes
+                    }
+                    .newBuilder()
+                    .cookieJar(boundCookies)
+                    .build()
+            val boundRequest =
+                request.newBuilder().tag(WeiboCookieJar::class.java, boundCookies).build()
             val response =
                 try {
-                    client.newCall(request).await()
+                    client.newCall(boundRequest).await()
                 } catch (e: IOException) {
                     throw NetworkException(e)
                 }
             response.use {
+                if (!jar.isCurrent(identity))
+                    throw kotlinx.coroutines.CancellationException("Account changed")
                 if (isRateLimitStatus(it.code)) throttle.backOff() else throttle.resetBackOff()
                 val body =
                     try {
@@ -130,7 +142,7 @@ private constructor(
                     .writeTimeout(2, TimeUnit.MINUTES)
                     .readTimeout(2, TimeUnit.MINUTES)
                     .build()
-            return WeiboHttp(reads, writes, uploads, throttle)
+            return WeiboHttp(reads, writes, uploads, throttle, jar)
         }
     }
 }
@@ -157,6 +169,7 @@ private class BrowserHeaders(private val userAgent: String) : Interceptor {
 private class WeiboHeaders(private val jar: WeiboCookieJar) : Interceptor {
     override fun intercept(chain: Interceptor.Chain): Response {
         val request = chain.request()
+        val jar = request.tag(WeiboCookieJar::class.java) ?: jar
         val site = WeiboCookieJar.siteOf(request.url.host) ?: return chain.proceed(request)
         val origin =
             if (site == WeiboCookieJar.MOBILE) "https://m.weibo.cn" else "https://weibo.com"

@@ -6,6 +6,7 @@ import Foundation
 @MainActor
 final class OpenLists {
     private let timeline: PagedList<Status>
+    var onOwnChange: ((Status, Bool) -> Void)?
 
     /// The posts of a user, by uid.
     let userStatuses = Registry<String, PagedList<Status>>()
@@ -22,6 +23,7 @@ final class OpenLists {
     /// own posts.
     func prependOwn(_ status: Status) {
         timeline.prepend(status)
+        onOwnChange?(status, true)
         if let uid = status.user?.id { userStatuses.forEach(uid) { $0.prepend(status) } }
     }
 
@@ -29,6 +31,7 @@ final class OpenLists {
     /// their own posts.
     func removeOwn(_ status: Status) {
         timeline.remove(status.id)
+        onOwnChange?(status, false)
         if let uid = status.user?.id { userStatuses.forEach(uid) { $0.remove(status.id) } }
     }
 

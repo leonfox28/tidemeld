@@ -16,6 +16,14 @@ sealed interface Route {
 
     data object Login : Route
 
+    data object Accounts : Route
+
+    data class PlatformLogin(
+        val platform: io.github.leonfox28.tidemeld.core.accounts.SocialPlatform
+    ) : Route
+
+    data class ForAccount(val key: String, val page: Route) : Route
+
     /** A status and its comments; [initial] shows until the full status loads. */
     data class StatusDetail(val id: String, val initial: Status? = null) : Route
 
@@ -36,6 +44,8 @@ sealed interface Route {
     data class SearchResults(val query: String) : Route
 
     /** A web page in the in-app browser; [onClose] runs once the user leaves it. */
+    data class AccountWeb(val account: String, val url: String) : Route
+
     data class Web(val url: String, val onClose: (() -> Unit)? = null) : Route
 
     /** Writing a new post. */

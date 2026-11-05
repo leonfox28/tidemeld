@@ -39,14 +39,27 @@ class InMemorySessionStorage(var stored: StoredSession? = null) : SessionStorage
 }
 
 class FakeWebCookies(var cookies: Map<String, Map<String, String>> = emptyMap()) : WebCookies {
+    override suspend fun setCookies(host: String, cookies: Map<String, String>) {
+        this.cookies = this.cookies + (host to cookies)
+    }
+
     var cleared = false
         private set
 
     override suspend fun cookies(url: String): Map<String, String> =
-        cookies[if (url.contains("weibo.cn")) WeiboCookieJar.MOBILE else WeiboCookieJar.WEB]
+        cookies[
+                if (url.contains("x.com")) "x.com"
+                else if (url.contains("weibo.cn")) WeiboCookieJar.MOBILE else WeiboCookieJar.WEB]
             .orEmpty()
 
     override suspend fun readWeiboCookies() = cookies
+
+    override suspend fun clearDomains(domains: List<String>) {
+        cleared = true
+        cookies = cookies.filterKeys { host ->
+            domains.none { host == it || host.endsWith(".$it") }
+        }
+    }
 
     override suspend fun clearAll() {
         cleared = true

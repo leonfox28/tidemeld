@@ -14,13 +14,15 @@ settings:
     IPHONEOS_DEPLOYMENT_TARGET: "26.0"
     ENABLE_USER_SCRIPT_SANDBOXING: YES
     # The version, as in app/build.gradle.kts.
-    MARKETING_VERSION: "0.13.1"
+    MARKETING_VERSION: "0.14.0"
     CURRENT_PROJECT_VERSION: "1"
 targets:
   Tidemeld:
     type: application
     platform: iOS
     sources:
+      - path: ../protocol/x-web.json
+        buildPhase: resources
       - Tidemeld
       # Shown on the licences page.
       - path: ../LICENSE

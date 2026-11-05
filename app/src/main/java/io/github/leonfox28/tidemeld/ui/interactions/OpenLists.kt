@@ -13,7 +13,10 @@ import io.github.leonfox28.tidemeld.ui.timeline.TimelineController
  *
  * Used on the main thread only.
  */
-class OpenLists(private val timeline: TimelineController) {
+class OpenLists(
+    private val timeline: TimelineController,
+    private val onOwnChange: (Status, Boolean) -> Unit = { _, _ -> },
+) {
     /** The posts of a user, by uid. */
     val userStatuses = Registry<String, UserStatusesController>()
 
@@ -26,12 +29,14 @@ class OpenLists(private val timeline: TimelineController) {
     /** Puts [status], which the user just posted, atop the timeline and their own posts. */
     fun prependOwn(status: Status) {
         timeline.prepend(status)
+        onOwnChange(status, true)
         status.user?.id?.let { uid -> userStatuses.forEach(uid) { it.prepend(status) } }
     }
 
     /** Takes [status], which the user just deleted, out of the timeline and their own posts. */
     fun removeOwn(status: Status) {
         timeline.remove(status.id)
+        onOwnChange(status, false)
         status.user?.id?.let { uid -> userStatuses.forEach(uid) { it.remove(status.id) } }
     }
 

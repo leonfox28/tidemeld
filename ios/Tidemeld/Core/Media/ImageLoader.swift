@@ -79,7 +79,8 @@ final class ImageLoader: @unchecked Sendable {
         return try await inflight.run(key) { [session, disk] in
             guard let url = URL(string: https(url)) else { throw WeiboError.api("无效的图片地址") }
             var request = URLRequest(url: url, timeoutInterval: 30)
-            request.setValue("https://weibo.com/", forHTTPHeaderField: "Referer")
+            let xMedia = url.host == "twimg.com" || (url.host?.hasSuffix(".twimg.com") ?? false)
+            request.setValue(xMedia ? "https://x.com/" : "https://weibo.com/", forHTTPHeaderField: "Referer")
             request.setValue(browserUserAgent, forHTTPHeaderField: "User-Agent")
             let (data, response): (Data, URLResponse)
             do {
