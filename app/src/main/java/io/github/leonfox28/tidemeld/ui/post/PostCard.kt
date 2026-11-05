@@ -120,7 +120,7 @@ fun PostHeader(
             Icon(
                 painterResource(sourceIcon),
                 contentDescription = "来源：$sourceLabel",
-                modifier = Modifier.size(20.dp),
+                modifier = Modifier.size(16.dp),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }

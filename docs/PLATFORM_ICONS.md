@@ -10,4 +10,4 @@ These marks identify the source of a post, not the app's identity or an endorsem
 
 The canonical SVG files live in `ios/Tidemeld/Resources/Assets.xcassets/Platform*.imageset/`. iOS preserves vector data and renders them as template images; Android uses vector drawables generated from the same paths with `python3 tools/sync-platform-icons.py`. No bitmap assets or network requests are used.
 
-Platform adapters supply the icon and its accessible name to the shared `PostHeader`, which owns its size, tint and placement. The source mark is not a separate button.
+Platform adapters supply the icon and its accessible name to the shared `PostHeader`, which owns its size, tint and placement. The vector fits within 16pt on iOS or 16dp on Android, centered in a 32pt/dp layout slot; it preserves its aspect ratio and does not scale with the avatar or text. The source mark is not a separate button.
