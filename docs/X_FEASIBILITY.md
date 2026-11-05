@@ -56,7 +56,21 @@ X 可以做有限接入，但目前没有同时满足“免费、纯客户端、
 
 X 当前服务条款明确限制未经书面许可的抓取和绕过技术限制。网页登录成功、请求量小或仅在本机操作，都不能自动消除该限制。项目既定的“不绕过验证码、不伪造风控、不伪装官方 App”边界继续适用；出现必须绕过限制才能运行的情况，应停止该路线。[X 服务条款](https://x.com/en/tos)
 
-建议只把它列为待验证的研究选项，不作为第一版公开分发的既定依赖。第三方库的开源许可也不等于获得 X 平台使用许可。
+第三方库的开源许可也不等于获得 X 平台使用许可。结合下面 Flare 的实际实现，网页会话路线值得优先做原生读取验证；它仍未在本项目实测，不应把参考项目的实现直接等同于稳定性或分发保证。
+
+### Flare 源码核查（2026-11-05 补充）
+
+核查的是 [DimensionDev/Flare](https://github.com/DimensionDev/Flare)，固定版本为 `9cba58812449463bfa83e48f094bc5cdf854e399`。这次只阅读源码，没有运行 Flare、登录 X 或复制其实现。
+
+**Flare 确实采用与本项目微博相近的“网页登录 + Cookie + 网页内部接口 + 原生展示”方案。** 它不是只包一个 X 网页，也不是通过购买官方开发者 API 额度实现时间线。前文官方 API 的价格、推荐流缺口及回复限制，不能直接套用到这条网页接口路线。
+
+1. 登录提供器只声明 `WebCookie`，打开 `https://x.com/i/flow/login`。拿到 Cookie 后检查 `auth_token` 和 `ct0`，再请求 `/home` 获取用户 ID、读取用户资料并建立本地账号，避免仅凭 Cookie 存在就判定登录成功。[登录提供器](https://github.com/DimensionDev/Flare/blob/9cba58812449463bfa83e48f094bc5cdf854e399/social/xqt/src/commonMain/kotlin/dev/dimension/flare/ui/presenter/login/XQTLoginProvider.kt)
+2. Android 通过 `CookieManager`、iOS 通过 WebKit 的 `httpCookieStore` 读取网页登录态。这与我们的现有技术栈兼容；Flare 的 Kotlin Multiplatform 不是实现该方案的必要条件。[Android 登录页](https://github.com/DimensionDev/Flare/blob/9cba58812449463bfa83e48f094bc5cdf854e399/app/src/main/java/dev/dimension/flare/ui/screen/serviceselect/WebCookieLoginScreen.kt)、[iOS 登录页](https://github.com/DimensionDev/Flare/blob/9cba58812449463bfa83e48f094bc5cdf854e399/appleApp/ios/UI/Screen/WebLoginScreen.swift)
+3. 网络层携带 Cookie，将 `ct0` 用于 CSRF 请求头，使用网页客户端 Bearer 与浏览器请求头，调用 X 的内部 GraphQL 等接口。主时间线来自 JSON 响应，而非从页面 DOM 提取每条帖子；这里的 Bearer 不是用户申请的开发者 API 凭据。[XQTService](https://github.com/DimensionDev/Flare/blob/9cba58812449463bfa83e48f094bc5cdf854e399/social/xqt/src/commonMain/kotlin/dev/dimension/flare/data/network/xqt/XQTService.kt)
+4. `HomeLatestTimeline` 与 `HomeTimeline` 分别有读取实现，解析帖子与 cursor，再映射为共同的 `UiTimelineV2` 展示模型。按时间的关注流允许加入混合流，排序流则不直接加入，值得参考其分页与排序边界。[时间线加载器](https://github.com/DimensionDev/Flare/blob/9cba58812449463bfa83e48f094bc5cdf854e399/social/xqt/src/commonMain/kotlin/dev/dimension/flare/data/datasource/xqt/HomeTimelineRemoteMediator.kt)
+5. 额外复杂度包括 GraphQL query ID、features、嵌套响应以及 `x-client-transaction-id`。该版本尝试从另一 GitHub 项目读取公开参数并在本地生成该请求头；生成失败时会省略此头继续发请求。这既说明存在额外网络依赖，也意味着仅阅读代码无法断言哪些请求今天必须带它。应在真实会话验证中区分必要的协议参数与绕过限制的行为，不能直接照搬整个模块。[请求参数实现](https://github.com/DimensionDev/Flare/blob/9cba58812449463bfa83e48f094bc5cdf854e399/social/xqt/src/commonMain/kotlin/dev/dimension/flare/data/network/xqt/elonmusk114514/ElonMusk1145141919810.kt)
+
+**对本项目的建议调整**：优先验证 `XWebProvider`，范围仅为用户手动网页登录、身份校验、关注流首屏及下一页、图片/视频、重启恢复、过期/限流提示。先隔离微博与 X 的 Cookie、账号和游标，验证通过后再接统一原生信息流；推荐流和写操作另做验证。这条路线无需购买官方 API 读取额度，也无需自建聚合服务器，但需要承担网页接口适配工作。Flare 使用 AGPL-3.0；当前项目使用 GPL-3.0，借鉴设计不等于已决定直接移植其代码。
 
 ## 对当前代码的影响
 
@@ -73,8 +87,8 @@ Android 与 iOS 都是微博专用的单会话结构：`AppGraph` 直接持有 `
 
 ## 建议的验证顺序
 
-1. 先定义平台入口与会话隔离，保留微博现有体验；X 入口用官方网页验证登录、重启恢复、图片/视频和外链，失败时可用系统浏览器。此阶段仅证明网页访问能力。
-2. 若目标坚持原生混合流，先确认官方用途许可与预算，再用有限额度验证 PKCE、首页首屏/下一页、资料/媒体、令牌刷新、撤销授权、429、余额耗尽及删除帖。记录实际账单，不用推算代替实测。
+1. 先定义平台入口与会话隔离，保留微博现有体验；结合 Flare 源码核查，优先做上述网页会话的原生读取验证。官方网页作为登录、验证和失败回退入口；网页能打开与原生流能读取分别验收。
+2. 若选择官方 API 路线，则先确认官方用途许可与预算，再用有限额度验证 PKCE、首页首屏/下一页、资料/媒体、令牌刷新、撤销授权、429、余额耗尽及删除帖。记录实际账单，不用推算代替实测。这是另一条数据源路线，不是网页会话方案的前置条件。
 3. 最小原生范围是关注时间线、资料、帖子详情、媒体和原帖跳转。推荐流、完整通知、私信、任意回复不列入首版保证。
 4. 验证通过后再接入共同展示模型和本地合并，避免先大改 UI 再发现数据源不可用。
 
