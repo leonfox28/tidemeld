@@ -38,7 +38,7 @@ class XPostLayoutTest {
         )
 
     @Test
-    fun `reply context opens the parent with its source account from cards and details`() {
+    fun `feed reply context keeps its source account and detail hides it immediately`() {
         val navigator = Navigator()
         val reply = post.copy(replyTo = "7", replyToHandles = listOf("parent"))
         var detail by mutableStateOf(false)
@@ -53,12 +53,9 @@ class XPostLayoutTest {
         )
         navigator.pop()
         detail = true
-        compose.onNodeWithText("回复 @parent").performTouchInput { click() }
-        compose.waitForIdle()
-        assertEquals(
-            listOf(Route.Home, Route.XDetail("x:other", "7", null)),
-            navigator.backStack.toList(),
-        )
+        compose.onNodeWithText("回复 @parent").assertDoesNotExist()
+        compose.onNodeWithText("合成正文", useUnmergedTree = true).assertIsDisplayed()
+        assertEquals(listOf(Route.Home), navigator.backStack.toList())
     }
 
     @Test

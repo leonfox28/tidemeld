@@ -74,7 +74,7 @@ struct XDetailPage: View {
             },
             post: {
                 if let post = model.post {
-                    XPostCard(post: post, owner: owner, detail: true, showReplyContext: model.ancestors.isEmpty)
+                    XPostCard(post: post, owner: owner, detail: true)
                         .readingWidth()
                 }
             },

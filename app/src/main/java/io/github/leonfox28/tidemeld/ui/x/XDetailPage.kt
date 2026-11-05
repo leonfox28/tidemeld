@@ -87,7 +87,7 @@ fun XDetailPage(owner: String, id: String, initial: XPost?) {
             }
             post?.let { value ->
                 item(key = "focal") {
-                    XPostCard(value, owner, detail = true, showReplyContext = ancestors.isEmpty())
+                    XPostCard(value, owner, detail = true)
                 }
             }
         },

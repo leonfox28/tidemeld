@@ -25,7 +25,6 @@ fun XPostCard(
     post: XPost,
     owner: String,
     detail: Boolean = false,
-    showReplyContext: Boolean = true,
 ) {
     val navigator = LocalNavigator.current
     val actions = rememberXPostActions(owner, post)
@@ -35,7 +34,7 @@ fun XPostCard(
         activity = post.repostedBy?.let { "$it 转发" },
         showActivityInDetail = true,
         onOpen = { navigator.push(Route.XDetail(owner, post.originalId, post)) },
-        replyContext = if (showReplyContext) xReplyReference(post, owner, navigator) else null,
+        replyContext = if (detail) null else xReplyReference(post, owner, navigator),
         header = {
             PostHeader(
                 name = post.author,
