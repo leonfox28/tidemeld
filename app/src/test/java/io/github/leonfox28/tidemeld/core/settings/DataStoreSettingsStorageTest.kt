@@ -33,6 +33,7 @@ class DataStoreSettingsStorageTest {
                 imageQuality = ImageQuality.Original,
                 autoplayLivePhotos = true,
                 imageCacheLimitMb = 1024,
+                filterKeywords = "合成词\nExample",
             )
         storage.save(settings)
         assertEquals(settings, storage.load())

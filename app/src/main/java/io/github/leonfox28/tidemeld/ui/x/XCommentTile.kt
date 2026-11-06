@@ -25,6 +25,14 @@ fun XCommentTile(
     preview: List<XPost> = emptyList(),
     onSent: () -> Unit = {},
 ) {
+    if (
+        hideFilteredPost(
+            (listOf(post.contentFilterText) + preview.map { it.contentFilterText }).joinToString(
+                "\n"
+            )
+        )
+    )
+        return
     val navigator = LocalNavigator.current
     val scope = rememberCoroutineScope()
     val overlays = LocalOverlays.current

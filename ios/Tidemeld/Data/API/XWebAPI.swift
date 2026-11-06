@@ -24,6 +24,7 @@ struct XPost: Sendable, Identifiable {
     var replyTo: String? = nil
     var attachments: [MixedMedia] = []
     var replyToHandles: [String] = []
+    var sensitive = false
     var media: [MixedMedia] {
         if !attachments.isEmpty { return attachments }
         return pictures.map(MixedMedia.pic)
@@ -120,7 +121,13 @@ func parseXPost(_ value: JSON?, promoted: Bool = false, depth: Int = 0) -> XPost
             replies: Int(clamping: max(0, legacy["reply_count"]?.int ?? 0)),
             liked: legacy["favorited"]?.bool == true, reposted: legacy["retweeted"]?.bool == true),
         replyTo: legacy["in_reply_to_status_id_str"]?.string, attachments: media,
-        replyToHandles: content.replyToHandles)
+        replyToHandles: content.replyToHandles,
+        sensitive: legacy["possibly_sensitive"]?.bool == true
+            || entries.contains { media in
+                ["adult_content", "graphic_violence", "other"].contains {
+                    media["sensitive_media_warning"]?[$0]?.bool == true
+                }
+            })
 }
 
 /// Hide only reply addressing and attachments that have another native presentation.

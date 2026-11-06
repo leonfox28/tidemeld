@@ -106,6 +106,7 @@ struct AppSettings: Sendable, Equatable {
     /// How large the picture disk cache may grow before the oldest pictures
     /// are deleted.
     var imageCacheLimitMB = 300
+    var filterKeywords = ""
 
     static let imageCacheLimitChoices = [100, 300, 500, 1024]
 }
@@ -129,6 +130,7 @@ final class DefaultsSettingsStorage: SettingsStorage {
         if let v = d.string(forKey: "textSize").flatMap(TextSize.init) { settings.textSize = v }
         if let v = d.string(forKey: "imageQuality").flatMap(ImageQuality.init) { settings.imageQuality = v }
         settings.autoplayLivePhotos = d.bool(forKey: "autoplayLivePhotos")
+        settings.filterKeywords = d.string(forKey: "filterKeywords") ?? ""
         let limit = d.integer(forKey: "imageCacheLimitMB")
         if AppSettings.imageCacheLimitChoices.contains(limit) { settings.imageCacheLimitMB = limit }
         return settings
@@ -142,6 +144,7 @@ final class DefaultsSettingsStorage: SettingsStorage {
         d.set(settings.imageQuality.rawValue, forKey: "imageQuality")
         d.set(settings.autoplayLivePhotos, forKey: "autoplayLivePhotos")
         d.set(settings.imageCacheLimitMB, forKey: "imageCacheLimitMB")
+        d.set(settings.filterKeywords, forKey: "filterKeywords")
     }
 }
 

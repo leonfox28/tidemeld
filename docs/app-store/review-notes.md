@@ -1,13 +1,13 @@
-# Review notes — version 1.0.0 (3)
+# Review notes — version 1.0.0 (4)
 
-The text below describes the current build for the App Store Connect draft. On 2026-11-06 the maintainer chose to submit without test-account credentials and supplied review contact details directly for App Store Connect. Do not put those contact details or any credentials in this repository. Apple has not approved guest-only review access; guest browsing is not a substitute for authenticated review access. The release gaps in [APP_STORE.md](../APP_STORE.md) remain open.
+The text below is prepared for build 4; it has not yet been saved to App Store Connect. On 2026-11-06 the maintainer chose to submit without test-account credentials and supplied review contact details directly for App Store Connect. Do not put those contact details or any credentials in this repository. Apple has not approved guest-only review access; guest browsing is not a substitute for authenticated review access. The release gaps in [APP_STORE.md](../APP_STORE.md) remain open.
 
 ---
 
 Tidemeld is an independent, free, open-source social feed aggregator for iPhone and iPad. It combines Weibo and X following feeds locally on the user's device. It is not affiliated with or endorsed by either platform. The interface is in Simplified Chinese.
 
 Review access for this submission:
-- No test-account credentials are provided. Please begin with the public guest browsing described below. We acknowledge that guest access does not cover personal aggregation or account actions and can respond if further access is required.
+- No test credentials are provided. Please begin with guest browsing below. It does not cover personal feeds or account actions; we can respond if further access is required.
 
 Authentication and access:
 - Tap the person icon at the top left of 首页 (Home) to open 账号管理 (Accounts), then 添加账号 (Add Account), and select Weibo or X.
@@ -24,7 +24,11 @@ Navigation and aggregation:
 - 设置 (Settings): appearance, text size, image preferences and app information. 设置 → 关于叠澜 → 隐私政策 opens the bundled policy offline. Accounts can be removed individually in 账号管理; removing a local session does not delete the platform account.
 
 Store screenshots:
-- Screenshots show the real interface with original, clearly labeled sample accounts and posts. Sample data is injected only by an offline screenshot test and is not a built-in demo mode.
+- Screenshots show real views with labeled, original samples injected by an offline test, not a built-in demo mode.
+
+Content controls:
+- X media marked sensitive by the platform is hidden and not loaded by default in feeds, quoted posts and comments. A user can reveal an individual item and hide it again.
+- 设置 → 内容过滤 (Settings → Content Filtering) manages literal local keywords. Matching native posts/comments, including quoted text and reply previews, are collapsed. Rules stay on-device, do not affect webpages or platform settings, and do not classify every unmarked item.
 
 Other functionality:
 - Weibo includes likes, comments, replies, reposts, text/photo publishing and deletion of the user's own posts/comments.

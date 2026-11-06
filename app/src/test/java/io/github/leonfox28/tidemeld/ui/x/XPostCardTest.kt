@@ -1,6 +1,8 @@
 package io.github.leonfox28.tidemeld.ui.x
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
 import io.github.leonfox28.tidemeld.core.accounts.SocialPlatform
@@ -43,6 +45,56 @@ class XPostCardTest {
                 ),
             )
         }
+    }
+
+    @Test
+    fun `sensitive media needs an explicit reveal and resets for another post`() {
+        var current by
+            androidx.compose.runtime.mutableStateOf(
+                post.copy(
+                    sensitive = true,
+                    videoCover = "https://media.test/synthetic.jpg",
+                    videoUrl = "https://media.test/synthetic.mp4",
+                )
+            )
+        compose.setContent { TestHost(graph) { XPostCard(current, "x:7") } }
+        compose.onNodeWithText("媒体已隐藏").assertExists()
+        compose.onNodeWithContentDescription("播放视频").assertDoesNotExist()
+        compose.onNodeWithText("显示此条媒体").performClick()
+        compose.onNodeWithText("媒体已隐藏").assertDoesNotExist()
+        compose.onNodeWithText("重新隐藏媒体").performClick()
+        compose.onNodeWithText("媒体已隐藏").assertExists()
+        compose.onNodeWithText("显示此条媒体").performClick()
+        compose.runOnIdle {
+            current =
+                current.copy(
+                    id = "99",
+                    originalId = "99",
+                )
+        }
+        compose.onNodeWithText("媒体已隐藏").assertExists()
+        assertTrue(web.requests.isEmpty())
+    }
+
+    @Test
+    fun `local filtering hides nested posts and comment previews and reacts to rule removal`() {
+        graph.settings.update { it.copy(filterKeywords = "屏蔽词") }
+        val nested = post.copy(id = "50", text = "带有屏蔽词的引用")
+        compose.setContent {
+            TestHost(graph) {
+                Column {
+                    XPostCard(post.copy(quote = nested), "x:7")
+                    XCommentTile(post, "x:7", preview = listOf(nested))
+                }
+            }
+        }
+        compose.onAllNodesWithText("已按本地关键词过滤").assertCountEquals(2)
+        compose.onNodeWithText("合成正文").assertDoesNotExist()
+        compose.onNodeWithText("带有屏蔽词的引用").assertDoesNotExist()
+        compose.runOnIdle { graph.settings.update { it.copy(filterKeywords = "") } }
+        compose.onAllNodesWithText("已按本地关键词过滤").assertCountEquals(0)
+        compose.onAllNodesWithText("合成正文", useUnmergedTree = true).assertCountEquals(2)
+        assertTrue(web.requests.isEmpty())
     }
 
     @After fun close() = web.close()

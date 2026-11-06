@@ -26,6 +26,7 @@ fun XPostCard(
     owner: String,
     detail: Boolean = false,
 ) {
+    if (hideFilteredPost(post.contentFilterText)) return
     val navigator = LocalNavigator.current
     val actions = rememberXPostActions(owner, post)
     val hasMedia = post.media.isNotEmpty()
@@ -130,7 +131,13 @@ internal fun XMedia(post: XPost, owner: String, compact: Boolean = false) {
                 )
         }
     }
-    PostMedia(items, compact = compact, onOpen = ::open)
+    PostMedia(
+        items,
+        compact = compact,
+        sensitive = post.sensitive,
+        identity = "$owner:${post.originalId}",
+        onOpen = ::open,
+    )
 }
 
 @Composable

@@ -30,6 +30,7 @@ fun CommentTile(
     onLongClick: (() -> Unit)? = null,
     below: (@Composable () -> Unit)? = null,
 ) {
+    if (hideFilteredPost(comment.contentFilterText)) return
     val user = comment.user
     val shown =
         rememberLike(

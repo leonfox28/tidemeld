@@ -22,6 +22,8 @@ X 接入仍在完善，iOS 已实测真实账号登录、原生信息流和评�
 
 ## 内容与账号问题
 
+从“设置 → 内容过滤”可以添加本地关键词，每行一个，不区分大小写。命中原生帖子或评论的正文、作者、引用或回复预览时折叠整条内容；规则只保存在本机，不改变平台设置或网页内容。X 标记为敏感的媒体默认不加载，可逐条选择显示或重新隐藏。未标记的内容不代表已经过叠澜审核。
+
 微博内容由微博服务提供。遇到侵权、骚扰或其他不当内容，请使用微博官方的举报和黑名单功能；[微博社区管理中心](https://service.account.weibo.com/)提供相关规则和投诉信息。叠澜维护者不能替代微博删除服务器上的内容或恢复微博账号。
 
 如果问题涉及 叠澜对内容的展示或应用自身行为，请通过上述 GitHub Issues 告知维护者。公开反馈时只提供必要的公开链接和问题描述，避免再次传播不当内容或私人信息。
@@ -39,5 +41,7 @@ Tidemeld is a free, open-source, unofficial social media aggregator with Weibo s
 Without signing in, 首页 (Home) displays public posts using native cards, with pull-to-refresh and media viewing. Weibo currently limits guests to the first page; further reading, profiles and interactions prompt sign-in. 搜索 (Search) also offers trending topics that open public web results. After sign-in, Home switches to the following feed, and the button at the top right of Search opens a field for keyword searches with native results.
 
 For support or privacy questions, [open a GitHub issue](https://github.com/leonfox28/tidemeld/issues). Include your app version, OS version, device model and steps to reproduce. GitHub issues are public and require a GitHub account. Never post passwords, verification codes, session cookies, private posts or unredacted screenshots.
+
+Settings → 内容过滤 (Content Filtering) manages device-local keywords for native posts and comments, including quotes and reply previews. These rules do not change platform settings or web content. X media marked sensitive is hidden and not loaded by default; each item can be revealed or hidden separately. Unmarked content has not necessarily been reviewed by Tidemeld.
 
 Weibo handles account access and reports about content hosted on its service. Contact [Weibo's community support](https://service.account.weibo.com/) for those matters. Contact the Tidemeld maintainer for problems with the app itself. See the [privacy policy](PRIVACY.md) for how local storage and requests to Weibo work.

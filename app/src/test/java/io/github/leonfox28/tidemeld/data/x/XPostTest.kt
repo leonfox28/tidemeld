@@ -7,6 +7,54 @@ import org.junit.Test
 
 class XPostTest {
     @Test
+    fun `sensitivity survives reposts quotes wrappers and media warnings`() {
+        val marked = contentTweet(buildJsonObject { put("possibly_sensitive", true) })
+        assertTrue(parseXPost(marked)!!.sensitive)
+        assertTrue(parseXPost(buildJsonObject { put("tweet", marked) })!!.sensitive)
+        val repost =
+            contentTweet(
+                buildJsonObject {
+                    put("retweeted_status_result", buildJsonObject { put("result", marked) })
+                }
+            )
+        assertTrue(parseXPost(repost)!!.sensitive)
+        val quote =
+            JsonObject(
+                tweet("44") +
+                    mapOf("quoted_status_result" to buildJsonObject { put("result", marked) })
+            )
+        assertFalse(parseXPost(quote)!!.sensitive)
+        assertTrue(parseXPost(quote)!!.quote!!.sensitive)
+        for (key in listOf("adult_content", "graphic_violence", "other")) {
+            val media =
+                contentTweet(
+                    buildJsonObject {
+                        put(
+                            "extended_entities",
+                            buildJsonObject {
+                                put(
+                                    "media",
+                                    buildJsonArray {
+                                        add(
+                                            buildJsonObject {
+                                                put(
+                                                    "sensitive_media_warning",
+                                                    buildJsonObject { put(key, true) },
+                                                )
+                                            }
+                                        )
+                                    },
+                                )
+                            },
+                        )
+                    }
+                )
+            assertTrue(parseXPost(media)!!.sensitive)
+        }
+        assertFalse(parseXPost(tweet("45"))!!.sensitive)
+    }
+
+    @Test
     fun `media adapter keeps order dimensions multiple videos and MP4 variants`() {
         val media =
             parseXMedia(

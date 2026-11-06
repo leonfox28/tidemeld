@@ -7,6 +7,10 @@ struct XPostCard: View {
     var detail = false
     @Environment(AppGraph.self) private var graph
     var body: some View {
+        PostContentFilter(text: post.contentFilterText) { unfilteredContent }
+    }
+
+    @ViewBuilder private var unfilteredContent: some View {
         XPostActionHost(post: post, owner: owner) { actions in
             PostCard(
                 detail: detail, activity: post.repostedBy.map { "\($0) 转发" }, showActivityInDetail: true, onOpen: open,
@@ -34,7 +38,7 @@ struct XPostCard: View {
                                 maxWidth: .infinity, alignment: .leading)
                         }
                         if detail || post.quote != nil {
-                            XPostMedia(items: post.media, postID: post.originalID, owner: owner)
+                            XPostMedia(items: post.media, postID: post.originalID, owner: owner, sensitive: post.sensitive)
                         }
                     }
                 },
@@ -53,11 +57,11 @@ struct XPostCard: View {
                                     PostReplyContext(reference: reference)
                                 }
                                 XPostText(text: quote.text, owner: owner, author: quote.author)
-                                XPostMedia(items: quote.media, postID: quote.originalID, owner: owner)
+                                XPostMedia(items: quote.media, postID: quote.originalID, owner: owner, sensitive: quote.sensitive)
                             }
                         }
                     } else if !detail {
-                        XPostMedia(items: post.media, postID: post.originalID, owner: owner)
+                        XPostMedia(items: post.media, postID: post.originalID, owner: owner, sensitive: post.sensitive)
                     }
                 }, footer: { PostInteractionBar(actions: actions) })
         }
@@ -81,6 +85,7 @@ struct XPostMedia: View {
     let items: [MixedMedia]
     let postID: String
     let owner: String
+    var sensitive = false
     var compact = false
     @Environment(AppGraph.self) private var graph
     @State private var source = UUID().uuidString
@@ -89,7 +94,7 @@ struct XPostMedia: View {
     }
     var body: some View {
         PostMedia(
-            items: items, compact: compact, onOpen: open,
+            items: items, compact: compact, sensitive: sensitive, onOpen: open,
             sourceID: { index in
                 if case .pic(let pic) = items[index] {
                     picSourceID(source, pic)
@@ -97,6 +102,7 @@ struct XPostMedia: View {
                     "\(source):\(index)"
                 }
             })
+            .id("\(owner):\(postID):\(sensitive)")
     }
 
     private func open(_ index: Int) {

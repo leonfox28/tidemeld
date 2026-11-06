@@ -11,6 +11,10 @@ struct XCommentTile: View {
     @State private var showingReply = false
 
     var body: some View {
+        PostContentFilter(text: ([post.contentFilterText] + preview.map(\.contentFilterText)).joined(separator: "\n")) { unfilteredContent }
+    }
+
+    @ViewBuilder private var unfilteredContent: some View {
         XPostActionHost(post: post, owner: owner, onReply: { showingReply = true }) { actions in
             PostComment(
                 author: post.author,
@@ -24,7 +28,7 @@ struct XCommentTile: View {
                         XPostText(text: post.text, owner: owner)
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
-                    XPostMedia(items: post.media, postID: post.originalID, owner: owner, compact: true)
+                    XPostMedia(items: post.media, postID: post.originalID, owner: owner, sensitive: post.sensitive, compact: true)
                     if let quote = post.quote?.post {
                         QuotedPost(onOpen: {
                             graph.router.push(
@@ -40,7 +44,7 @@ struct XCommentTile: View {
                                 XPostText(
                                     text: quote.text, owner: owner, author: quote.author, textStyle: .subheadline)
                                 XPostMedia(
-                                    items: quote.media, postID: quote.originalID, owner: owner,
+                                    items: quote.media, postID: quote.originalID, owner: owner, sensitive: quote.sensitive,
                                     compact: true)
                             }
                         }

@@ -29,6 +29,7 @@ data class XPost(
     val replyTo: String? = null,
     val attachments: List<MixedMedia> = emptyList(),
     val replyToHandles: List<String> = emptyList(),
+    val sensitive: Boolean = false,
 ) {
     val media: List<MixedMedia>
         get() = attachments.ifEmpty {
@@ -187,6 +188,14 @@ fun parseXPost(value: JsonElement?, promoted: Boolean = false, depth: Int = 0): 
         replyTo = legacy["in_reply_to_status_id_str"].string(),
         attachments = media,
         replyToHandles = content.replyToHandles,
+        sensitive =
+            (legacy["possibly_sensitive"] as? JsonPrimitive)?.booleanOrNull == true ||
+                entries.any { media ->
+                    listOf("adult_content", "graphic_violence", "other").any {
+                        (media.at("sensitive_media_warning", it) as? JsonPrimitive)
+                            ?.booleanOrNull == true
+                    }
+                },
     )
 }
 

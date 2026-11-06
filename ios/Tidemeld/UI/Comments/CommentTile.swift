@@ -12,6 +12,10 @@ struct CommentTile<Below: View>: View {
     @State private var source = UUID().uuidString
 
     var body: some View {
+        PostContentFilter(text: comment.contentFilterText) { unfilteredContent }
+    }
+
+    @ViewBuilder private var unfilteredContent: some View {
         let user = comment.user
         let meta = [comment.createdAt.map { formatPostTime($0) }, comment.source].compactMap { $0 }.joined(separator: "  ")
         PostComment(

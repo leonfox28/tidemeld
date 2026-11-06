@@ -81,6 +81,7 @@ data class AppSettings(
     val autoplayLivePhotos: Boolean = false,
     /** How large the picture disk cache may grow before the oldest pictures are deleted. */
     val imageCacheLimitMb: Int = 300,
+    val filterKeywords: String = "",
 ) {
     companion object {
         val imageCacheLimitChoices = listOf(100, 300, 500, 1024)

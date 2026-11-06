@@ -36,6 +36,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
@@ -59,6 +60,7 @@ import io.github.leonfox28.tidemeld.BuildConfig
 import io.github.leonfox28.tidemeld.LocalAppGraph
 import io.github.leonfox28.tidemeld.MB
 import io.github.leonfox28.tidemeld.core.settings.AppSettings
+import io.github.leonfox28.tidemeld.core.settings.ContentFilter
 import io.github.leonfox28.tidemeld.core.settings.ImageQuality
 import io.github.leonfox28.tidemeld.core.settings.ThemeMode
 import io.github.leonfox28.tidemeld.core.util.devLog
@@ -102,6 +104,7 @@ fun SettingsPage(padding: PaddingValues = PaddingValues()) {
     val session by graph.session.state.collectAsStateWithLifecycle()
     var choosing by remember { mutableStateOf<Choosing<*>?>(null) }
     var confirmingClear by remember { mutableStateOf(false) }
+    var filterDraft by remember { mutableStateOf<String?>(null) }
     // The cache size, read again after clearing or trimming.
     var sizeReads by remember { mutableIntStateOf(0) }
     var cacheSize by remember { mutableStateOf("计算中…") }
@@ -202,6 +205,16 @@ fun SettingsPage(padding: PaddingValues = PaddingValues()) {
                         confirmingClear = true
                     }
                 }
+                item { SectionHeader("内容") }
+                item {
+                    Setting(
+                        Icons.Outlined.Info,
+                        "内容过滤",
+                        "${ContentFilter.keywords(settings.filterKeywords).size} 个关键词",
+                    ) {
+                        filterDraft = settings.filterKeywords
+                    }
+                }
                 item { SectionHeader("其他") }
                 item {
                     Setting(Icons.Outlined.Info, "关于叠澜", opensPage = true) {
@@ -231,6 +244,43 @@ fun SettingsPage(padding: PaddingValues = PaddingValues()) {
     }
 
     choosing?.let { ChoiceDialog(it) { choosing = null } }
+    filterDraft?.let { draft ->
+        AppAlertDialog(
+            onDismissRequest = { filterDraft = null },
+            title = { Text("内容过滤") },
+            text = {
+                Column {
+                    OutlinedTextField(
+                        value = draft,
+                        onValueChange = { filterDraft = it },
+                        label = { Text("关键词，每行一个") },
+                        minLines = 3,
+                        maxLines = 7,
+                    )
+                    Text(
+                        "命中正文、作者、引用或回复预览时折叠整条内容，不区分大小写。最多 100 个，每个最多 200 字。规则仅保存在本机，作用于原生微博与 X 帖子、评论，不影响网页。",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                    Text("X 敏感媒体默认不加载，可在对应内容处单独显示。", style = MaterialTheme.typography.bodySmall)
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        update {
+                            it.copy(
+                                filterKeywords = ContentFilter.keywords(draft).joinToString("\n")
+                            )
+                        }
+                        filterDraft = null
+                    }
+                ) {
+                    Text("保存")
+                }
+            },
+            dismissButton = { TextButton(onClick = { filterDraft = null }) { Text("取消") } },
+        )
+    }
     if (confirmingClear) {
         AppAlertDialog(
             onDismissRequest = { confirmingClear = false },

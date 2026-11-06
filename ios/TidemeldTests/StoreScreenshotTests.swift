@@ -11,6 +11,36 @@ import UIKit
 @MainActor
 @Suite(.serialized, .enabled(if: ProcessInfo.processInfo.environment["TIDEMELD_STORE_SCREENSHOTS"] == "1"))
 struct StoreScreenshotTests {
+    @Test func renderContentSafetyScreenshots() async throws {
+        let output = try #require(ProcessInfo.processInfo.environment["TIDEMELD_SCREENSHOT_DIRECTORY"])
+        let directory = URL(fileURLWithPath: output, isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let scene = try #require(UIApplication.shared.connectedScenes.first as? UIWindowScene)
+        let previousWindow = scene.keyWindow
+        let window = UIWindow(windowScene: scene)
+        defer { window.isHidden = true; previousWindow?.makeKeyAndVisible() }
+        let graph = testGraph()
+        let post = XPost(
+            id: "safety-sample", author: "示例作者", handle: "example", avatar: nil,
+            text: "此处使用合成数据演示敏感媒体的默认遮挡。", createdAt: nil,
+            pictures: [], videoCover: "https://media.test/synthetic.jpg", videoURL: nil,
+            quote: nil, originalID: "safety-sample", sensitive: true)
+        let host = UIHostingController(rootView: NavigationStack {
+            ScrollView {
+                VStack {
+                    XPostCard(post: post, owner: "x:sample")
+                    Divider()
+                    XCommentTile(post: post, owner: "x:sample")
+                }
+            }.navigationTitle("内容过滤 · 示例")
+        }.environment(graph))
+        window.rootViewController = host
+        window.makeKeyAndVisible()
+        try await capture(window, directory: directory, name: "sensitive-media")
+        graph.settings.update { $0.filterKeywords = "合成数据" }
+        try await capture(window, directory: directory, name: "keyword-filter")
+    }
+
     @Test func renderStoreScreenshots() async throws {
         let output = try #require(ProcessInfo.processInfo.environment["TIDEMELD_SCREENSHOT_DIRECTORY"])
         let directory = URL(fileURLWithPath: output, isDirectory: true)

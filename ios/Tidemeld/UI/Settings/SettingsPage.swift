@@ -5,6 +5,7 @@ struct SettingsPage: View {
     @Environment(AppGraph.self) private var graph
     @State private var cacheSize: String = "计算中…"
     @State private var confirmingClear = false
+    @State private var editingFilters = false
 
     var body: some View {
         let controller = graph.settings
@@ -42,6 +43,11 @@ struct SettingsPage: View {
                 Text("图片")
             }
             .listRowBackground(AppTheme.surface)
+            Section("内容") {
+                Button { editingFilters = true } label: {
+                    LabeledContent("内容过滤", value: "\(ContentFilter.keywords(settings.filterKeywords).count) 个关键词")
+                }
+            }.listRowBackground(AppTheme.surface)
             Section("其他") {
                 NavigationLink("关于叠澜", value: Route.about)
                 #if DEBUG
@@ -56,6 +62,7 @@ struct SettingsPage: View {
         }
         .appListStyle()
         .tabBarHidesOnScroll()
+        .sheet(isPresented: $editingFilters) { ContentFilterEditor() }
         .task { measureCache() }
         // A lower limit drops pictures, which the cache does in its own time,
         // so looked at again a moment later; the Kotlin page reads it again
@@ -86,6 +93,39 @@ struct SettingsPage: View {
 
     private func measureCache() {
         cacheSize = "已用 \(formatBytes(Int64(graph.images.diskUsage)))"
+    }
+}
+
+private struct ContentFilterEditor: View {
+    @Environment(AppGraph.self) private var graph
+    @Environment(\.dismiss) private var dismiss
+    @State private var draft = ""
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    TextEditor(text: $draft).frame(minHeight: 180)
+                        .accessibilityLabel("过滤关键词，每行一个")
+                } header: { Text("关键词，每行一个") } footer: {
+                    Text("命中正文、作者、引用或回复预览时折叠整条内容，不区分大小写。最多 100 个，每个最多 200 字。规则仅保存在本机，作用于原生微博与 X 帖子、评论；不改变平台账号设置，也不影响网页内容。")
+                }
+                Section {
+                    Label("敏感媒体默认隐藏", systemImage: "eye.slash")
+                    Text("X 标记为敏感的图片和视频默认不加载。可以在对应内容处单独显示，再次进入时恢复隐藏。")
+                        .font(.footnote).foregroundStyle(AppTheme.secondary)
+                }
+            }.navigationTitle("内容过滤").navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) { Button("取消") { dismiss() } }
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("保存") {
+                            let keywords = ContentFilter.keywords(draft).joined(separator: "\n")
+                            graph.settings.update { $0.filterKeywords = keywords }
+                            dismiss()
+                        }
+                    }
+                }
+        }.onAppear { draft = graph.settings.settings.filterKeywords }
     }
 }
 

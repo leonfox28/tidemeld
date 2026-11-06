@@ -92,6 +92,7 @@ fun StatusCard(
     actions: StatusCardActions = StatusCardActions(),
     detail: Boolean = false,
 ) {
+    if (hideFilteredPost(status.contentFilterText)) return
     PostCard(
         modifier = modifier,
         detail = detail,

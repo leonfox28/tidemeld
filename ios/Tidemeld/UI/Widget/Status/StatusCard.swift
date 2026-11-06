@@ -33,6 +33,10 @@ struct StatusCard: View {
     var detail = false
 
     var body: some View {
+        PostContentFilter(text: status.contentFilterText) { unfilteredContent }
+    }
+
+    @ViewBuilder private var unfilteredContent: some View {
         PostCard(
             detail: detail, activity: status.activity,
             onOpen: actions.onOpen.map { open in { open(status) } },

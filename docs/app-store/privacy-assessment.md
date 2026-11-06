@@ -1,6 +1,18 @@
 # App privacy and age-rating assessment
 
-Checked 2026-11-06 against build 1.0.0 (3). This records the published App Store Connect privacy answers, saved age questionnaire and outstanding issues; it is not a legal opinion or an approval record.
+Checked 2026-11-06. The build-3 questionnaire record below is historical and includes assumptions that were subsequently found insufficiently supported. It must not be treated as a verified endpoint-level assessment or an Apple review decision.
+
+## Flare comparison and build 4 correction
+
+The maintainer asked to follow Flare after reviewing its [US listing](https://apps.apple.com/us/app/flare-social-network-client/id6476077738) and [1.8.0 source](https://github.com/flaresocialapp/Flare/tree/1.8.0). The public listing is rated 16+ and discloses unlinked crash/performance diagnostics. It supports guest Mastodon browsing. Its X implementation uses web-cookie login, preserves `possibly_sensitive`, and defaults to concealing sensitive media. Its private review-account and content-rights answers are not public.
+
+Tidemeld now independently implements platform-marked X media concealment and local literal keyword filters on both native platforms. No Flare code or new analytics SDK has been added. Sensitive media is not mounted or loaded until an individual reveal action; keywords cover author/body, quotes and comment previews, with settings persisted locally. Filters do not alter web content or platform settings, and are not a comprehensive classification of unmarked content.
+
+The earlier reasoning “X permits some explicit material, therefore this app contains graphic sexual content and prolonged sadistic violence” was insufficient to establish the submitted frequency answers. The resulting Unrated value came from those answers, not from an Apple review. Reassessment must distinguish the intended general social client and actual controls from hypothetical content anywhere on a source platform. Similarly, applying four purposes and tracking to all eleven platform data types from broad platform policies was not an established data-flow audit. Flare's narrower label alone is not proof of the correct Tidemeld label; Tidemeld does not even have Flare's diagnostic collection.
+
+Native audit: no maintainer backend, analytics/crash/advertising SDK, IDFA access, advertising measurement calls or cross-platform identity linkage was found. Platform account cookies and user actions go directly to their selected service; local keywords remain local. Separate consideration is still required for the official login, visitor-session, renewal and service-specific browser pages. Apple's [web-view guidance](https://developer.apple.com/app-store/app-privacy-details/) and [ATT FAQ](https://developer.apple.com/app-store/user-privacy-and-data-use/) explicitly include tracking inside functional web views, with an exception for open-web navigation. Absence of a native SDK alone does not resolve those pages' behavior. No “collects diagnostics” or blanket “collects nothing” answer should be copied from a competitor.
+
+At the time of this correction, the App Store Connect browser session had expired with “Unable to verify your identity.” The maintainer was asked to restore sign-in while build preparation continued. The historical published label and saved age answers had not yet been changed in App Store Connect.
 
 ## Sources and scope
 

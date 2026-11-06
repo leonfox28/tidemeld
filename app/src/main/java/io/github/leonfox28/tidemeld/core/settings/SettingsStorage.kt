@@ -33,6 +33,7 @@ class DataStoreSettingsStorage(private val store: DataStore<Preferences>) : Sett
                     defaults.imageQuality,
                 ),
             autoplayLivePhotos = prefs[autoplayLive] ?: defaults.autoplayLivePhotos,
+            filterKeywords = prefs[filterKeywords].orEmpty(),
             imageCacheLimitMb =
                 if (limit in AppSettings.imageCacheLimitChoices) limit!!
                 else defaults.imageCacheLimitMb,
@@ -47,6 +48,7 @@ class DataStoreSettingsStorage(private val store: DataStore<Preferences>) : Sett
             it[quality] = settings.imageQuality.key
             it[autoplayLive] = settings.autoplayLivePhotos
             it[cacheLimit] = settings.imageCacheLimitMb
+            it[filterKeywords] = settings.filterKeywords
         }
     }
 
@@ -55,6 +57,7 @@ class DataStoreSettingsStorage(private val store: DataStore<Preferences>) : Sett
 
     private companion object {
         val feed = stringPreferencesKey("settings.feedSelection")
+        val filterKeywords = stringPreferencesKey("settings.filterKeywords")
         val theme = stringPreferencesKey("settings.theme")
         val textSize = stringPreferencesKey("settings.textSize")
         val quality = stringPreferencesKey("settings.imageQuality")
