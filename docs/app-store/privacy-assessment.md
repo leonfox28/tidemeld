@@ -4,6 +4,8 @@ Checked 2026-11-06. The build-3 questionnaire record below is historical and inc
 
 ## Flare comparison and build 4 correction
 
+The follow-up [public review research](flare-review-research.md) found Flare PR #1661 specifically named “Feature/appstore review,” including login agreement links, guest action visibility and moderation UI changes. It did not reveal Flare's private content-rights declaration or authorization materials. Some X/VVO reporting callbacks in tag 1.8.0 are empty; menu presence must not be mistaken for completed functionality.
+
 The maintainer asked to follow Flare after reviewing its [US listing](https://apps.apple.com/us/app/flare-social-network-client/id6476077738) and [1.8.0 source](https://github.com/flaresocialapp/Flare/tree/1.8.0). The public listing is rated 16+ and discloses unlinked crash/performance diagnostics. It supports guest Mastodon browsing. Its X implementation uses web-cookie login, preserves `possibly_sensitive`, and defaults to concealing sensitive media. Its private review-account and content-rights answers are not public.
 
 Tidemeld now independently implements platform-marked X media concealment and local literal keyword filters on both native platforms. No Flare code or new analytics SDK has been added. Sensitive media is not mounted or loaded until an individual reveal action; keywords cover author/body, quotes and comment previews, with settings persisted locally. Filters do not alter web content or platform settings, and are not a comprehensive classification of unmarked content.
