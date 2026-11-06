@@ -12,7 +12,17 @@ The earlier reasoning “X permits some explicit material, therefore this app co
 
 Native audit: no maintainer backend, analytics/crash/advertising SDK, IDFA access, advertising measurement calls or cross-platform identity linkage was found. Platform account cookies and user actions go directly to their selected service; local keywords remain local. Separate consideration is still required for the official login, visitor-session, renewal and service-specific browser pages. Apple's [web-view guidance](https://developer.apple.com/app-store/app-privacy-details/) and [ATT FAQ](https://developer.apple.com/app-store/user-privacy-and-data-use/) explicitly include tracking inside functional web views, with an exception for open-web navigation. Absence of a native SDK alone does not resolve those pages' behavior. No “collects diagnostics” or blanket “collects nothing” answer should be copied from a competitor.
 
-At the time of this correction, the App Store Connect browser session had expired with “Unable to verify your identity.” The maintainer was asked to restore sign-in while build preparation continued. The historical published label and saved age answers had not yet been changed in App Store Connect.
+After the maintainer restored App Store Connect sign-in, processed build 4 was selected and its review notes were saved. The age questionnaire was corrected as described below. The published privacy label was inspected but not changed: the known native data flows do not resolve the remote scripts' actual advertising linkage. No claim of a completed privacy-label correction or a submitted review is warranted.
+
+### Saved build 4 age correction
+
+The questionnaire explicitly instructs developers to consider the experience with in-app controls enabled. For the general social client with default concealment of platform-marked sensitive X media, the two earlier speculative answers—graphic sexual content/nudity and prolonged graphic or sadistic violence—were changed from Infrequent to None. Other answers were retained, including UGC, social media, unrestricted web access, advertising, frequent mature themes and infrequent non-graphic sexual content. Apple calculated **16+** (17+ for older operating systems); the saved App Information page confirmed it. This is not an Apple content-review approval or a guarantee about every unmarked user post.
+
+### Remaining privacy verification
+
+The login page runs platform JavaScript, `prepareGuestCookies` loads the Weibo mobile site in nonpersistent WebKit storage, and `WebPageSessionRenewer` loads the Weibo site until session renewal completes. Temporary storage and stopping the page do not establish that no server-side collection or tracking occurred. Native code does not call Weibo's ad-impression monitor URLs. Local-only aggregation and keyword rules require no disclosure as collected data, but that does not determine the platform pages' purposes. Apple's functional-web-view and SSO guidance must be applied before replacing the existing broad label; neither a blanket tracking answer nor a blanket no-collection answer is verified by the present evidence.
+
+The subsequent Add for Review attempt returned one required-field error: content-rights information. The app remains Preparing for Submission. Required-field validation is not an assessment of privacy correctness, UGC safeguards or reviewer access.
 
 ## Sources and scope
 
@@ -22,7 +32,7 @@ At the time of this correction, the App Store Connect browser session had expire
 - [X adult-content policy](https://help.x.com/en/rules-and-policies/adult-content): permits labeled adult content and applies age-related restrictions. Tidemeld must preserve appropriate restrictions rather than assume the official app's rating applies.
 - [Apple age-rating definitions](https://developer.apple.com/help/app-store-connect/reference/app-information/age-ratings-values-and-definitions/): graphic sexual content and prolonged graphic/sadistic violence can make an app unrated. A higher age override is not a substitute for accurate questionnaire answers.
 
-## Published privacy label
+## Historical published privacy label (still unchanged in App Store Connect)
 
 App Store Connect now has a published label with these 12 data types. All purpose, identity-linkage and tracking questions were completed in the follow-up below; the UI confirmed publication by the account holder on 2026-11-06.
 
@@ -43,7 +53,7 @@ The initial data-type draft was subsequently completed. The maintainer has no an
 
 The published label includes platform data combination for targeted advertising/measurement. Both the privacy label and the app's ATT behavior must agree. Build 3 has no AppTrackingTransparency request or explicit control over platform scripts. Do not publish a blanket “no tracking” answer based only on the absence of native advertising SDKs. Additional diagnostics or data categories must be added if the scoped web behavior establishes them.
 
-## Age questionnaire
+## Historical build 3 age questionnaire (superseded above)
 
 Known answers: UGC and social features, comments/replies, platform web navigation and Weibo advertising are present. The native client has no parental controls, age assurance or Declared Age Range integration. It is not a medical, gambling or contest app.
 
@@ -53,7 +63,7 @@ The questionnaire was subsequently completed using a conservative assessment of 
 
 The app accesses third-party content. Apple's content-rights field cannot truthfully be set to “does not contain/display/access third-party content.” Authorization to operate App Store Connect does not itself establish permission from Weibo/X or a lawful-use basis for US distribution. This factual basis is still requested from the maintainer; no rights declaration has been saved.
 
-## Follow-up completion on 2026-11-06
+## Historical build 3 follow-up on 2026-11-06 (reasoning superseded above)
 
 The maintainer explicitly asked the agent to complete the remaining fields. The privacy purpose assessment now uses the platforms' published practices as the basis for potential collection, including cases that depend on users' platform settings. X Privacy Policy §§1.2–1.3 and 2.1–2.3 explicitly cover account identity, activity/logs, advertising-partner data combination, personalization, advertising measurement, service analytics and security. This is sufficient to disclose these potential uses without assuming native SDKs are required.
 

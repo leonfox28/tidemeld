@@ -1,6 +1,6 @@
 # Review notes — version 1.0.0 (4)
 
-The text below is prepared for build 4; it has not yet been saved to App Store Connect. On 2026-11-06 the maintainer chose to submit without test-account credentials and supplied review contact details directly for App Store Connect. Do not put those contact details or any credentials in this repository. Apple has not approved guest-only review access; guest browsing is not a substitute for authenticated review access. The release gaps in [APP_STORE.md](../APP_STORE.md) remain open.
+The text below was saved to App Store Connect for build 4 on 2026-11-06 after the maintainer restored sign-in. The maintainer chose to submit without test-account credentials and supplied review contact details directly for App Store Connect. Do not put those contact details or any credentials in this repository. Apple has not approved guest-only review access; guest browsing is not a substitute for authenticated review access. The app is still Preparing for Submission; the release gaps in [APP_STORE.md](../APP_STORE.md) remain open.
 
 ---
 
