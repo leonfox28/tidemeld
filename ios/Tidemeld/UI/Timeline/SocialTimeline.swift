@@ -4,6 +4,7 @@ struct SocialTimeline: View {
     @Environment(AppGraph.self) private var graph
     @State private var width: CGFloat = 0
     @State private var atTop = true
+    @State private var pull = PullToRefresh()
     var body: some View {
         let feed = graph.socialFeed
         let selection = graph.settings.settings.feedSelection
@@ -62,10 +63,8 @@ struct SocialTimeline: View {
             } action: {
                 width = $0
             }
-            .refreshable {
-                refresh()
-                await feed.waitForIdle()
-            }
+            .refreshable { await refresh() }
+            .pullToRefresh(pull)
             .tabBarHidesOnScroll()
             .onScrollGeometryChange(for: Bool.self) {
                 $0.contentOffset.y <= -$0.contentInsets.top + 4
@@ -74,7 +73,7 @@ struct SocialTimeline: View {
             }
             .onChange(of: graph.router.reselects[.home]) {
                 if atTop {
-                    refresh()
+                    if !pull.begin() { Task { await refresh() } }
                 } else if let first = feed.items.first {
                     withAnimation { proxy.scrollTo(first.id, anchor: .top) }
                 }
@@ -88,8 +87,9 @@ struct SocialTimeline: View {
         }
         .task(id: fingerprint) { feed.select(selection) }
     }
-    private func refresh() {
+    private func refresh() async {
         graph.unread.requestCheck(minInterval: unreadRecheckInterval)
         graph.socialFeed.refresh()
+        await graph.socialFeed.waitForIdle()
     }
 }
