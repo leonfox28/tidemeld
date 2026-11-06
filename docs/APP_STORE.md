@@ -1,6 +1,6 @@
 # App Store 首发准备
 
-更新：2026-11-06。本文是发布工作记录，不是已经符合所有要求、已经提审或已经获批的声明。
+更新：2026-11-06。版本 `1.0.0 (4)` 已提交，当前状态为“等待审核”；尚未获批或公开发布。
 
 ## 已确认的方案
 
@@ -13,16 +13,25 @@
 | 界面 / 商店主语言 | 简体中文；另备英文商店文案 |
 | Bundle ID | `io.github.leonfox28.tidemeld`（已注册） |
 | SKU | `tidemeld-ios` |
-| App Store Connect | [叠澜 Tidemeld · 6831005339](https://appstoreconnect.apple.com/apps/6831005339/distribution)，按用户要求重建，准备提交 |
+| App Store Connect | [叠澜 Tidemeld · 6831005339](https://appstoreconnect.apple.com/apps/6831005339/distribution)，等待审核 |
 | 开发者团队 | 当前 Mac 账号，`AVHU3J463N`；不是开发证书姓名后的个人标识 |
-| 版本 / 构建 | `1.0.0 (4)` 已处理完成并关联商店草稿 |
+| 版本 / 构建 | `1.0.0 (4)` 已提交审核 |
 | 类别 | 社交 |
 | 发布方式 | 手动发布，审核通过后再确定公开日期 |
 | 支持入口 | [GitHub Issues](https://github.com/leonfox28/tidemeld/issues)，无需公开个人邮箱 |
 
 GitHub 的 `noreply` 地址用于提交身份，不是接收支持请求的邮箱。App Review 联系人需要真实、可接收的邮箱及联系电话，填写在 App Store Connect 的审核联系字段中，不写进仓库。
 
-## 2026-11-06 参考 Flare 的后续修正
+## 2026-11-06 已提交审核
+
+维护者自行选择拥有第三方内容必要权利，并明确要求先提交审核。已保存该选择，随后完成“添加以供审核”和“提交以供审核”两步。Apple 返回“已提交 1 个项目”，审核详情页确认 `1.0.0 (4)` 为 **等待审核**。
+
+- 提交时间：2026-11-06 09:45（Asia/Shanghai）。
+- 提交 ID：`89a7b8ad-e7bc-4e0d-8ad2-53f943a2a37e`；[审核详情](https://appstoreconnect.apple.com/apps/6831005339/distribution/reviewsubmissions/details/89a7b8ad-e7bc-4e0d-8ad2-53f943a2a37e)。
+- 保留不提供测试账号、游客访问说明、审核联系方式、16+ 分级和手动发布设置；既有隐私标签未改动。
+- 内容权利选项记录维护者的声明；本次提交不代表代理核实了许可依据，也不代表 Apple 已认可隐私标签、游客审核访问或内容安全措施。下方遗留事项用于后续改进和回应审核反馈，不再作为尚未提审的状态描述。
+
+## 2026-11-06 参考 Flare 的后续修正（提交前记录）
 
 用户要求按 Flare 的已核实做法修改。两端独立实现 X 敏感媒体默认遮挡及本地关键词过滤，没有复制 Flare 代码。识别帖子 `possibly_sensitive` 和媒体 `sensitive_media_warning`，引用、转发及评论保留标记。隐藏时不挂载媒体、不请求图片或播放视频；用户可逐条显示或重新隐藏，显示状态按帖子及来源账号隔离。设置中的关键词保存在本机，匹配原生帖子/评论的作者、正文、引用及回复预览，不影响平台设置或网页。
 
@@ -81,11 +90,11 @@ App Store Connect 浏览器会话曾失效；用户恢复登录后，已关联�
 
 隐私和支持 URL 已发布到公开仓库的 `main/docs/PRIVACY.md`、`main/docs/SUPPORT.md`。2026-11-05 使用不带登录凭据的 HTTP 请求验证，两页均返回 200；隐私链接已保存到 App Store Connect。之后修改 URL 时仍需重新验证公开访问。
 
-## 提审前必须完成
+## 后续待完善事项（已按维护者决定先提交）
 
 ### 内容举报与屏蔽
 
-目前代码没有完整的举报、不当内容过滤和屏蔽用户功能；支持页链接到微博社区管理中心不能替代这些功能。按 [审核指南 1.2](https://developer.apple.com/app-store/review/guidelines/#user-generated-content) 补齐后再提交。
+目前代码已有平台标记敏感媒体遮挡和本地关键词过滤，但没有完整的举报及屏蔽用户功能；支持页链接到微博社区管理中心不能替代这些功能。后续按 [审核指南 1.2](https://developer.apple.com/app-store/review/guidelines/#user-generated-content) 完善，并结合实际审核反馈处理。
 
 实施顺序：
 

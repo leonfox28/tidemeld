@@ -2,6 +2,8 @@
 
 Checked 2026-11-06. The build-3 questionnaire record below is historical and includes assumptions that were subsequently found insufficiently supported. It must not be treated as a verified endpoint-level assessment or an Apple review decision.
 
+Submission update: the maintainer selected the affirmative third-party content-rights declaration and explicitly requested submission. That choice was saved, and build 1.0.0 (4) entered Waiting for Review on 2026-11-06 at 09:45 Asia/Shanghai (submission `89a7b8ad-e7bc-4e0d-8ad2-53f943a2a37e`). The existing privacy label was unchanged. This records the maintainer's declaration and Apple's receipt of the submission, not independent verification of rights or approval of the privacy disclosures.
+
 ## Flare comparison and build 4 correction
 
 The follow-up [public review research](flare-review-research.md) found Flare PR #1661 specifically named “Feature/appstore review,” including login agreement links, guest action visibility and moderation UI changes. It did not reveal Flare's private content-rights declaration or authorization materials. Some X/VVO reporting callbacks in tag 1.8.0 are empty; menu presence must not be mistaken for completed functionality.
@@ -14,7 +16,7 @@ The earlier reasoning “X permits some explicit material, therefore this app co
 
 Native audit: no maintainer backend, analytics/crash/advertising SDK, IDFA access, advertising measurement calls or cross-platform identity linkage was found. Platform account cookies and user actions go directly to their selected service; local keywords remain local. Separate consideration is still required for the official login, visitor-session, renewal and service-specific browser pages. Apple's [web-view guidance](https://developer.apple.com/app-store/app-privacy-details/) and [ATT FAQ](https://developer.apple.com/app-store/user-privacy-and-data-use/) explicitly include tracking inside functional web views, with an exception for open-web navigation. Absence of a native SDK alone does not resolve those pages' behavior. No “collects diagnostics” or blanket “collects nothing” answer should be copied from a competitor.
 
-After the maintainer restored App Store Connect sign-in, processed build 4 was selected and its review notes were saved. The age questionnaire was corrected as described below. The published privacy label was inspected but not changed: the known native data flows do not resolve the remote scripts' actual advertising linkage. No claim of a completed privacy-label correction or a submitted review is warranted.
+After the maintainer restored App Store Connect sign-in, processed build 4 was selected and its review notes were saved. The age questionnaire was corrected as described below. The published privacy label was inspected but not changed: the known native data flows do not resolve the remote scripts' actual advertising linkage. The later submission did not complete this privacy-label correction.
 
 ### Saved build 4 age correction
 
@@ -24,7 +26,7 @@ The questionnaire explicitly instructs developers to consider the experience wit
 
 The login page runs platform JavaScript, `prepareGuestCookies` loads the Weibo mobile site in nonpersistent WebKit storage, and `WebPageSessionRenewer` loads the Weibo site until session renewal completes. Temporary storage and stopping the page do not establish that no server-side collection or tracking occurred. Native code does not call Weibo's ad-impression monitor URLs. Local-only aggregation and keyword rules require no disclosure as collected data, but that does not determine the platform pages' purposes. Apple's functional-web-view and SSO guidance must be applied before replacing the existing broad label; neither a blanket tracking answer nor a blanket no-collection answer is verified by the present evidence.
 
-The subsequent Add for Review attempt returned one required-field error: content-rights information. The app remains Preparing for Submission. Required-field validation is not an assessment of privacy correctness, UGC safeguards or reviewer access.
+The initial build-4 Add for Review attempt returned one required-field error: content-rights information. That blocker was subsequently resolved by saving the maintainer's selection, and the app was submitted as recorded above. Required-field validation is not an assessment of privacy correctness, UGC safeguards or reviewer access.
 
 ## Sources and scope
 
