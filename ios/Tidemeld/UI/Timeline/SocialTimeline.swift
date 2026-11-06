@@ -12,52 +12,61 @@ struct SocialTimeline: View {
             selection.rawValue
             + graph.accounts.accounts.map { "\($0.id):\($0.revision):\($0.expired)" }.joined(separator: ",")
         ScrollViewReader { proxy in
-            List {
-                if !feed.errors.isEmpty {
-                    VStack(alignment: .leading, spacing: 8) {
-                        ForEach(feed.errors.keys.sorted(), id: \.self) { key in
-                            Text(feed.errors[key] ?? "").font(.footnote).foregroundStyle(.red)
+            ScrollView {
+                LazyVStack(spacing: 0) {
+                    if !feed.errors.isEmpty {
+                        VStack(alignment: .leading, spacing: 8) {
+                            ForEach(feed.errors.keys.sorted(), id: \.self) { key in
+                                Text(feed.errors[key] ?? "").font(.footnote).foregroundStyle(.red)
+                            }
+                            HStack {
+                                Button("重试失败账号") { feed.retry() }
+                                Button("账号管理") { graph.router.push(.accounts) }
+                            }.buttonStyle(.borderless)
+                        }.frame(maxWidth: .infinity, alignment: .leading).padding(16)
+                    }
+                    if feed.items.isEmpty {
+                        if feed.loading {
+                            ProgressView().frame(maxWidth: .infinity).padding(.top, 120)
+                        } else {
+                            VStack(spacing: 12) {
+                                Text(
+                                    graph.accounts.accounts.contains {
+                                        selection.platform == nil || $0.platform == selection.platform
+                                    } ? "暂时没有动态，下拉刷新试试" : "登录后查看\(selection.label)信息流")
+                                Button("添加账号") { graph.router.showingLogin = true }
+                            }.frame(maxWidth: .infinity).padding(.top, 100)
                         }
-                        HStack {
-                            Button("重试失败账号") { feed.retry() }
-                            Button("账号管理") { graph.router.push(.accounts) }
-                        }.buttonStyle(.borderless)
-                    }.padding(16).plainRow()
-                }
-                if feed.items.isEmpty {
-                    if feed.loading {
-                        ProgressView().frame(maxWidth: .infinity).padding(.top, 120).plainRow()
-                    } else {
-                        VStack(spacing: 12) {
-                            Text(
-                                graph.accounts.accounts.contains {
-                                    selection.platform == nil || $0.platform == selection.platform
-                                } ? "暂时没有动态，下拉刷新试试" : "登录后查看\(selection.label)信息流")
-                            Button("添加账号") { graph.router.showingLogin = true }
-                        }.frame(maxWidth: .infinity).padding(.top, 100).plainRow()
+                    }
+                    ForEach(feed.items) { item in
+                        Group {
+                            switch item {
+                            case .weibo(_, let status):
+                                if let context = graph.forAccount(item.owner) {
+                                    StatusCard(status: status, actions: context.statusActions).environment(
+                                        context)
+                                }
+                            case .x(_, let post): XPostCard(post: post, owner: item.owner)
+                            }
+                        }
+                        .feedWidth(in: width)
+                        .background(AppTheme.background)
+                        .overlay(alignment: .bottom) {
+                            Rectangle().fill(AppTheme.outline).frame(height: 0.5).accessibilityHidden(true)
+                        }
+                        .id(item.id)
+                    }
+                    if feed.hasMore {
+                        LoadMoreFooter(
+                            list: PagedState(items: feed.items, nextCursor: "more", loadingMore: feed.loading)
+                        ) {
+                            feed.loadMore()
+                        }
                     }
                 }
-                ForEach(feed.items) { item in
-                    Group {
-                        switch item {
-                        case .weibo(_, let status):
-                            if let context = graph.forAccount(item.owner) {
-                                StatusCard(status: status, actions: context.statusActions).environment(
-                                    context)
-                            }
-                        case .x(_, let post): XPostCard(post: post, owner: item.owner)
-                        }
-                    }.feedWidth(in: width).statusRow()
-                }
-                if feed.hasMore {
-                    LoadMoreFooter(
-                        list: PagedState(items: feed.items, nextCursor: "more", loadingMore: feed.loading)
-                    ) {
-                        feed.loadMore()
-                    }.plainRow()
-                }
             }
-            .listStyle(.plain).appListStyle().loadsMoreAsScrolled()
+            .accessibilityElement(children: .contain)
+            .loadsMoreAsScrolled()
             .onGeometryChange(for: CGFloat.self) {
                 $0.size.width
             } action: {
@@ -77,9 +86,6 @@ struct SocialTimeline: View {
                 } else if let first = feed.items.first {
                     withAnimation { proxy.scrollTo(first.id, anchor: .top) }
                 }
-            }
-            .onChange(of: feed.items.first?.id) {
-                if atTop, let first = feed.items.first { proxy.scrollTo(first.id, anchor: .top) }
             }
             .onChange(of: selection) {
                 if let first = feed.items.first { proxy.scrollTo(first.id, anchor: .top) }
