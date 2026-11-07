@@ -74,8 +74,12 @@ struct PostText: View {
         compose(segments, images: images, height: height)
             .font(.system(textStyle))
             .lineLimit(maxLines)
+            .textRenderer(PostInlineImageRenderer())
             .modifier(PostTextSelection(enabled: selectable))
             .lineSpacing(textStyle == .callout ? 4 : 2)
+            // Wrap to the available width without accepting a height that clips partial lines.
+            // Explicit preview line limits still apply.
+            .fixedSize(horizontal: false, vertical: true)
             .tint(AppTheme.accent)
             .environment(
                 \.openURL,
@@ -112,8 +116,8 @@ struct PostText: View {
         return (font.pointSize * 1.2).rounded()
     }
 
-    /// The segments as one text: runs of words and links as attributed
-    /// strings, with emoticons as images between them.
+    /// Keep inline images in the font's line box. Text(Image) plus a baseline
+    /// offset adds its own ascent and descent, making image-bearing lines taller.
     private func compose(_ segments: [PostTextSegment], images: InlineImages, height: CGFloat) -> Text {
         var text = Text(verbatim: "")
         var run = AttributedString()
@@ -122,10 +126,13 @@ struct PostText: View {
             text = Text("\(text)\(Text(run))")
             run = AttributedString()
         }
-        func image(_ image: UIImage) {
+        func image(_ image: UIImage, id: Int, label: String = "") {
             flush()
-            // Centred on the text rather than sat on its baseline.
-            let glyph = Text(Image(uiImage: image)).baselineOffset(-height * 0.2)
+            // The object replacement character has zero advance. Reserve the image's
+            // width while retaining the surrounding font's ascent and descent.
+            let glyph = Text(verbatim: "\u{FFFC}").kerning(image.size.width)
+                .customAttribute(PostInlineImage(id: id, image: image))
+                .accessibilityLabel(label)
             text = Text("\(text)\(glyph)")
         }
         for (index, segment) in segments.enumerated() {
@@ -133,14 +140,14 @@ struct PostText: View {
             case .plain(let plain):
                 run += AttributedString(plain)
             case .link(let label, _, let icon):
-                if let icon, let loaded = images.image(icon, height: height) { image(loaded) }
+                if let icon, let loaded = images.image(icon, height: height) { image(loaded, id: index) }
                 var link = AttributedString(label)
                 link.link = URL(string: "tidemeld-segment://\(index)")
                 link.foregroundColor = AppTheme.accent
                 run += link
             case .emoticon(let url, let alt):
                 if let loaded = images.image(url, height: height) {
-                    image(loaded)
+                    image(loaded, id: index, label: alt)
                 } else {
                     run += AttributedString(alt)
                 }
@@ -153,6 +160,32 @@ struct PostText: View {
         }
         flush()
         return text
+    }
+}
+
+private struct PostInlineImage: TextAttribute {
+    // Distinct IDs keep consecutive copies of an emoticon in separate runs.
+    let id: Int
+    let image: UIImage
+}
+
+private struct PostInlineImageRenderer: TextRenderer {
+    func draw(layout: Text.Layout, in context: inout GraphicsContext) {
+        for line in layout {
+            for run in line {
+                if let attachment = run[PostInlineImage.self] {
+                    let bounds = run.typographicBounds.rect
+                    let size = attachment.image.size
+                    let height = min(size.height, bounds.height)
+                    let width = size.width * height / size.height
+                    context.draw(Image(uiImage: attachment.image), in: CGRect(
+                        x: bounds.midX - width / 2, y: bounds.midY - height / 2,
+                        width: width, height: height))
+                } else {
+                    context.draw(run)
+                }
+            }
+        }
     }
 }
 
