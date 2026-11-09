@@ -44,6 +44,7 @@ fun PostComment(
     like: @Composable () -> Unit,
     replies: (@Composable () -> Unit)? = null,
     below: (@Composable () -> Unit)? = null,
+    onAuthor: (() -> Unit)? = null,
 ) {
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
     Row(
@@ -62,7 +63,11 @@ fun PostComment(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     author,
-                    Modifier.weight(1f, fill = false),
+                    Modifier.weight(1f, fill = false)
+                        .then(
+                            if (onAuthor != null) Modifier.clickable(onClick = onAuthor)
+                            else Modifier
+                        ),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     style = MaterialTheme.typography.bodyMedium,

@@ -16,7 +16,9 @@ enum XWrite { case like, repost, reply, quote }
     @ObservationIgnored private let api: XWebAPI?
     @ObservationIgnored let drafts = CommentDrafts()
     @ObservationIgnored private(set) var readStamp = 0
-    init(accounts: AccountManager, api: XWebAPI?) {
+    let relationships: ProfileRelationships
+    init(accounts: AccountManager, api: XWebAPI?, relationships: ProfileRelationships? = nil) {
+        self.relationships = relationships ?? ProfileRelationships()
         self.accounts = accounts
         self.api = api
     }
@@ -70,6 +72,91 @@ enum XWrite { case like, repost, reply, quote }
                 account, posts: page.ancestors + (page.post.map { [$0] } ?? []) + page.replies.items,
                 started: started)
             return page
+        } catch {
+            if error as? WeiboError == .sessionExpired,
+                accounts.find(owner)?.revision == account.revision
+            {
+                accounts.expire(owner)
+            }
+            throw error
+        }
+    }
+
+    func profile(_ owner: String, user: XProfileUser) async throws -> XUserProfile {
+        try await read(owner) { account, api in
+            try await api.profile(account.session, user: user, onCookies: self.cookies(account))
+        }
+    }
+
+    func refreshRelationship(_ owner: String, uid: String, revision: Int? = nil) async throws {
+        let account = try account(owner)
+        if let revision, revision != account.revision { throw WeiboError.sessionExpired }
+        guard uid != account.session.account.uid else { return }
+        let started = relationships.readStamp
+        let result = try await read(owner) { account, api in
+            try await api.relationship(account.session, uid: uid, onCookies: self.cookies(account))
+        }
+        relationships.ingest(key(owner, uid), value: result.presentation, started: started)
+    }
+
+    func relationshipActions(_ owner: String, user: XProfileUser, failed: Bool) -> ProfileActions? {
+        guard let uid = user.id, let account = try? account(owner), uid != account.session.account.uid else {
+            return nil
+        }
+        let key = key(owner, uid)
+        let refresh = { try await self.refreshRelationship(owner, uid: uid, revision: account.revision) }
+        guard let state = relationships.loadedState(key) else {
+            return failed
+                ? ProfileActions(primary: ProfileAction(id: "refresh", title: "刷新状态", perform: refresh))
+                : ProfileActions(busy: true)
+        }
+        let change = { (action: XUserAction) in
+            let current = {
+                self.accounts.find(owner).map { $0.revision == account.revision && !$0.expired } == true
+            }
+            let beforeSend: @Sendable () async -> Bool = { [accounts = self.accounts] in
+                await MainActor.run {
+                    accounts.find(owner).map { $0.revision == account.revision && !$0.expired } == true
+                }
+            }
+            try await self.relationships.perform(key, expected: state.value, isCurrent: current) {
+                do {
+                    return try await self.service().changeRelationship(
+                        account.session, uid: uid, action: action,
+                        onCookies: self.cookies(account), isCurrent: beforeSend
+                    ).presentation
+                } catch {
+                    if error as? WeiboError == .sessionExpired, current() { self.accounts.expire(owner) }
+                    throw error
+                }
+            }
+        }
+        return profileActions(
+            name: user.name ?? user.handle ?? "此用户", state: state,
+            follow: { try await change(.follow($0)) }, block: { try await change(.block($0)) },
+            reposts: { try await change(.reposts($0)) }, refresh: refresh)
+    }
+
+    func userPosts(_ owner: String, uid: String, cursor: String?) async throws -> Paged<XPost> {
+        let started = readStamp
+        return try await read(owner) { account, api in
+            let page = try await api.userPosts(
+                account.session, uid: uid, cursor: cursor, onCookies: self.cookies(account))
+            self.ingest(account, posts: page.items, started: started)
+            return page
+        }
+    }
+
+    private func read<T>(_ owner: String, action: (SocialAccount, XWebAPI) async throws -> T) async throws
+        -> T
+    {
+        let account = try account(owner)
+        do {
+            let result = try await action(account, service())
+            guard accounts.find(owner)?.revision == account.revision,
+                accounts.find(owner)?.expired == false
+            else { throw WeiboError.sessionExpired }
+            return result
         } catch {
             if error as? WeiboError == .sessionExpired,
                 accounts.find(owner)?.revision == account.revision
@@ -134,5 +221,13 @@ enum XWrite { case like, repost, reply, quote }
             states[key] = XInteractionState(metrics: before.metrics, version: readStamp)
             throw error
         }
+    }
+}
+
+extension XUserRelationship {
+    fileprivate var presentation: ProfileRelationship {
+        ProfileRelationship(
+            following: following, followsYou: followsYou, requested: requested, blocking: blocking,
+            showsReposts: showsReposts)
     }
 }

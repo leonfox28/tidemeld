@@ -171,6 +171,33 @@ final class WeiboAPI: Sendable {
             total: json["total_number"]?.int.map { Int($0) })
     }
 
+    /// Sends a relationship change once, then reads the profile to confirm its result.
+    func changeUserRelationship(
+        uid: String, following: Bool? = nil, blocking: Bool? = nil,
+        isCurrent: @Sendable @escaping () async -> Bool = { true }
+    ) async throws -> UserProfile {
+        let endpoint: String
+        let fields: [(String, Any?)]
+        if let following {
+            endpoint = following ? "friendships/create" : "friendships/destory"
+            fields = [(following ? "friend_uid" : "uid", uid)]
+        } else if let blocking {
+            endpoint = blocking ? "statuses/filterUser" : "statuses/deleteFilters"
+            fields =
+                blocking ? [("uid", uid), ("status", 1), ("interact", 1), ("follow", 1)] : [("uid", uid)]
+        } else {
+            throw WeiboError.api("无效的用户操作")
+        }
+        let ack = try await postForm("\(Self.web)/ajax/\(endpoint)", fields, isCurrent: isCurrent)
+        guard ack["ok"]?.int == 1 else { throw WeiboError.api("操作未确认，请刷新关系状态") }
+        guard await isCurrent() else { throw WeiboError.api("账号已变更，请刷新后检查操作结果") }
+        let result = try await fetchProfile(uid: uid)
+        guard result.user.id == uid, following.map({ result.following == $0 }) ?? true,
+            blocking.map({ result.blocking == $0 }) ?? true
+        else { throw WeiboError.api("操作未确认，请刷新关系状态") }
+        return result
+    }
+
     /// The profile of the user with [uid], or else named [screenName] (all that
     /// mentions in a status carry).
     func fetchProfile(uid: String? = nil, screenName: String? = nil) async throws -> UserProfile {
@@ -233,7 +260,7 @@ final class WeiboAPI: Sendable {
             query: [
                 ("trim_null", 1), ("with_dm_group", 1), ("with_reminding", 1), ("with_settings", 1),
                 // weibo.com leaves likes out; we want them.
-                ("exclude_attitude", 0), ("with_chat_group_notice", 1), ("source", 339644097),
+                ("exclude_attitude", 0), ("with_chat_group_notice", 1), ("source", 339_644_097),
                 ("with_chat_group", 1), ("with_dm_unread", 1),
             ])
         let reply = try await http.send(URLRequest(url: url))
@@ -416,7 +443,9 @@ final class WeiboAPI: Sendable {
 
     /// Posts [body] as a form, as weibo.com does for everything that changes
     /// something. Fields that are nil aren't sent.
-    func postForm(_ url: String, _ body: [(String, Any?)]) async throws -> JSON {
+    func postForm(
+        _ url: String, _ body: [(String, Any?)], isCurrent: @Sendable @escaping () async -> Bool = { true }
+    ) async throws -> JSON {
         let form = formBody(body)
         return try await guarded {
             var request = URLRequest(url: URL(string: url)!)
@@ -424,7 +453,7 @@ final class WeiboAPI: Sendable {
             request.setValue(
                 "application/x-www-form-urlencoded; charset=UTF-8", forHTTPHeaderField: "Content-Type")
             request.httpBody = form
-            let reply = try await self.http.send(request)
+            let reply = try await self.http.send(request, isCurrent: isCurrent)
             let data = reply.json
             self.log(
                 "POST", request.url!, reply,
@@ -473,6 +502,8 @@ final class WeiboAPI: Sendable {
     }
 
     private func log(_ method: String, _ url: URL, _ reply: HTTPReply, _ detail: String) {
-        devLog("\(method) \(url.path) -> \(reply.status) \(detail) final=\(reply.url.host ?? "")\(reply.url.path)")
+        devLog(
+            "\(method) \(url.path) -> \(reply.status) \(detail) final=\(reply.url.host ?? "")\(reply.url.path)"
+        )
     }
 }

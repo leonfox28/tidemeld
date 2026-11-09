@@ -55,6 +55,36 @@ fun xTextSegments(text: String): List<PostTextSegment> = buildList {
     if (offset < text.length) add(PostTextSegment.Plain(text.substring(offset)))
 }
 
+fun xProfileHandle(value: String): String? {
+    val url = value.toHttpUrlOrNull() ?: return null
+    if (url.host !in listOf("x.com", "www.x.com", "twitter.com", "www.twitter.com")) return null
+    val handle = url.pathSegments.filter { it.isNotEmpty() }.singleOrNull() ?: return null
+    val reserved =
+        setOf(
+            "home",
+            "explore",
+            "search",
+            "settings",
+            "i",
+            "intent",
+            "share",
+            "login",
+            "logout",
+            "signup",
+            "messages",
+            "notifications",
+            "compose",
+            "jobs",
+            "tos",
+            "privacy",
+            "about",
+            "download",
+        )
+    return handle.takeIf {
+        it.lowercase(java.util.Locale.ROOT) !in reserved && Regex("[A-Za-z0-9_]{1,15}").matches(it)
+    }
+}
+
 @Composable
 fun XPostText(
     text: String,
@@ -64,15 +94,21 @@ fun XPostText(
     style: TextStyle = LocalTextStyle.current,
     selectable: Boolean = false,
     maxLines: Int = Int.MAX_VALUE,
+    authorHandle: String? = null,
 ) {
     val navigator = LocalNavigator.current
     val context = LocalContext.current
     val snackbars = LocalSnackbars.current
     val scope = rememberCoroutineScope()
     val segments =
-        remember(text, author) {
-            (author?.let { listOf(PostTextSegment.Plain("@$it：")) } ?: emptyList()) +
-                xTextSegments(text)
+        remember(text, author, authorHandle) {
+            (author?.let {
+                listOf(
+                    authorHandle?.let { handle ->
+                        PostTextSegment.Link("@$it：", "https://x.com/$handle")
+                    } ?: PostTextSegment.Plain("@$it：")
+                )
+            } ?: emptyList()) + xTextSegments(text)
         }
     PostText(
         segments,
@@ -91,6 +127,15 @@ fun XPostText(
                     parts[2].all(Char::isDigit)
             )
                 navigator.push(Route.XDetail(owner, parts[2], null))
+            else if (xProfileHandle(value) != null)
+                navigator.push(
+                    Route.XProfile(
+                        owner,
+                        io.github.leonfox28.tidemeld.data.x.XProfileUser(
+                            handle = xProfileHandle(value)
+                        ),
+                    )
+                )
             else context.openExternally(value, snackbars, scope)
         },
     )

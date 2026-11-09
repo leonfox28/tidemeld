@@ -56,6 +56,7 @@ struct UserProfile: Sendable, Hashable {
     var following = false
     /// Whether this user follows the signed-in user.
     var followsMe = false
+    var blocking = false
 
     /// Reads the `data` object of `profile/info`.
     static func from(_ json: JSON?) -> UserProfile? {
@@ -76,6 +77,7 @@ struct UserProfile: Sendable, Hashable {
             friendsCount: map["friends_count"]?.int,
             statusesCount: map["statuses_count"]?.int,
             following: map["following"]?.bool == true,
-            followsMe: map["follow_me"]?.bool == true)
+            followsMe: map["follow_me"]?.bool == true,
+            blocking: json?["block"]?.bool == true)
     }
 }

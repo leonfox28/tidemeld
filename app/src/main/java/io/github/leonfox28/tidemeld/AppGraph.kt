@@ -69,6 +69,8 @@ class AppGraph(
     restoredAccounts: List<SocialAccount> = emptyList(),
     val xApi: XWebApi? = null,
     sharedAccounts: AccountManager? = null,
+    val profileRelationships: io.github.leonfox28.tidemeld.ui.social.ProfileRelationships =
+        io.github.leonfox28.tidemeld.ui.social.ProfileRelationships(),
     onPostChanged: ((io.github.leonfox28.tidemeld.data.model.Status, Boolean) -> Unit)? = null,
 ) {
     val accounts =
@@ -118,13 +120,16 @@ class AppGraph(
                 { imageLoader },
                 xApi = xApi,
                 sharedAccounts = accounts,
+                profileRelationships = profileRelationships,
                 onPostChanged = { post, added -> socialFeed.ownPostChanged(key, post, added) },
             )
         accountGraphs[key] = account.revision to scoped
         return scoped
     }
 
-    val xInteractions by lazy { io.github.leonfox28.tidemeld.ui.x.XInteractions(accounts, xApi) }
+    val xInteractions by lazy {
+        io.github.leonfox28.tidemeld.ui.x.XInteractions(accounts, xApi, profileRelationships)
+    }
 
     val socialFeed by lazy {
         SocialFeedController(accounts, appScope) { account, cursor ->

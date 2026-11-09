@@ -52,6 +52,7 @@ fun SocialProfileHeader(
     onRetry: () -> Unit,
     badge: @Composable () -> Unit = {},
     details: @Composable () -> Unit = {},
+    actions: ProfileActions? = null,
 ) {
     val colors = MaterialTheme.colorScheme
     val typography = MaterialTheme.typography
@@ -76,15 +77,22 @@ fun SocialProfileHeader(
                             LinePlaceholder(120.dp, typography.titleLarge)
                         }
                         badge()
-                        if (profile.relation != null) {
+                        if (actions == null && profile.relation != null) {
                             Spacer(Modifier.width(8.dp))
                             TagLabel(profile.relation)
                         }
                     }
                     Spacer(Modifier.height(6.dp))
-                    if (!profile.loading) ProfileCounts(profile.counts)
-                    else LinePlaceholder(160.dp, typography.bodyMedium)
+                    if (actions == null) {
+                        if (!profile.loading) ProfileCounts(profile.counts)
+                        else LinePlaceholder(160.dp, typography.bodyMedium)
+                    } else profile.relation?.let { TagLabel(it) }
                 }
+                actions?.let { SocialProfileActions(it) }
+            }
+            if (actions != null) {
+                Spacer(Modifier.height(8.dp))
+                ProfileCounts(profile.counts)
             }
             profile.verification?.let {
                 Spacer(Modifier.height(8.dp))

@@ -21,8 +21,9 @@ struct XCommentTile: View {
                 metadata: [post.createdAt.map { formatPostTime($0) }, "@\(post.handle)"].compactMap { $0 }
                     .joined(separator: "  "),
                 isAuthor: authorHandle != nil && post.handle.lowercased() == authorHandle?.lowercased(),
+                onAuthor: openAuthor,
                 onReply: { showingReply = true },
-                avatar: { PostAvatar(url: post.avatar, label: post.author, size: 32) },
+                avatar: { PostAvatar(url: post.avatar, label: post.author, size: 32, onTap: openAuthor) },
                 content: {
                     if !post.text.isEmpty {
                         XPostText(text: post.text, owner: owner)
@@ -42,7 +43,7 @@ struct XCommentTile: View {
                                     PostReplyContext(reference: reference)
                                 }
                                 XPostText(
-                                    text: quote.text, owner: owner, author: quote.author, textStyle: .subheadline)
+                                    text: quote.text, owner: owner, author: quote.author, authorHandle: quote.handle, textStyle: .subheadline)
                                 XPostMedia(
                                     items: quote.media, postID: quote.originalID, owner: owner, sensitive: quote.sensitive,
                                     compact: true)
@@ -61,7 +62,7 @@ struct XCommentTile: View {
                             ForEach(Array(preview.prefix(2))) { reply in
                                 XPostText(
                                     text: reply.text.isEmpty ? "[媒体]" : reply.text, owner: owner,
-                                    author: reply.author, textStyle: .subheadline, maxLines: 2)
+                                    author: reply.author, authorHandle: reply.handle, textStyle: .subheadline, maxLines: 2)
                             }
                         }
                     }
@@ -77,6 +78,10 @@ struct XCommentTile: View {
             }
         }
         .sheet(isPresented: $showingReply) { XComposer(owner: owner, post: post, onSent: onSent) }
+    }
+
+    private func openAuthor() {
+        graph.router.push(.xProfile(owner: owner, user: post.profileUser))
     }
 
     private func openThread() {

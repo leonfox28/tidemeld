@@ -206,3 +206,44 @@ iOS 空白回归模拟器 107 项测试通过，Android 全量检查及 426 项�
 修复首页刷新完成时内容先回顶、再向下跳一下的问题。原生窗口逐帧检查和录屏复现了约 60 点的往返位移，仅移除首帖变化时的强制回顶仍会发生。`SocialTimeline` 改用 `ScrollView + LazyVStack` 承载原有共享帖子卡片，让原生刷新控件统一收回内容，同时移除首帖变化时的额外定位；用户点击回顶和切换筛选仍保留定位。没有新增延时或逐帧偏移补偿，既有刷新入口保持不变。
 
 扩展 `TimelineReselectTests`：聚合、微博、X 分别覆盖内容不变和插入更高新帖，连续刷新两次，采集数据更新及刷新收回期间的呈现帧，限制反向跳动不超过 4 点，并检查刷新不会误触发翻页。六种场景通过，完整 121 项 iOS 测试以及 Android 格式、lint、单元测试与 Debug 构建检查通过。保留登录覆盖更新 `Tidemeld iPhone`，实际 X 首页刷新录屏确认指示器收回后内容稳定。
+
+### 2026-11-07：共用用户主页并接入 X
+
+从微博主页抽出 `SocialProfilePage` 整页框架，统一标题、资料头部、首次加载与失败、下拉刷新、阅读宽度和分页列表；微博适配器保留认证、性别/地区及 `OpenLists` 更新。X 通过独立的 `XProfileUser` / `XUserProfile`、`XProfileModel` 和 `XWebAPI` 填充同一页面，支持封面、头像、简介、关注关系、计数、认证/受保护标识和帖子列表。已知用户 ID 时资料和帖子独立加载，只有昵称时先解析用户再读取帖子；之后按稳定 ID 刷新。资料重试不会重置帖子，刷新失败保留现有内容。
+
+X 卡片及评论的头像、昵称、正文 @、引用作者与直接用户链接进入绑定来源账号的原生主页；账号管理新增两平台的“主页”入口。主页中该用户自己的头像/昵称不重复开页，转发内容仍可进入原作者主页。X 用户帖子保留置顶顺序、转发及服务端游标，沿用广告过滤与共享媒体/互动组件；账号重新登录或移除后丢弃旧请求结果，不将旧请求的过期状态套到新会话。新增协议操作为 `UserByScreenName`、`UserTweets`，按 ID 查询复用 `UserByRestId`。调试入口增加 `x-me`、`x-user/<handle>`。
+
+本轮沿用微博主页现有功能范围，关注关系和计数只作展示；没有新增关注写操作或关注/粉丝列表。真实会话验收仅做读取，保留 `Tidemeld iPhone` 登录状态覆盖更新。
+
+验证：Android 格式、lint、Debug 构建及 439 项单元测试通过；空白 `Tidemeld regression` 的 128 项 iOS 测试通过。新增合成用例覆盖新旧资料字段、不可用用户、置顶/广告/游标、来源账号、先解析昵称再读帖子、稳定 ID 刷新、资料重试保留帖子、刷新部分失败及重新登录后的旧响应。原生点击测试覆盖昵称、@ 与当前主页作者的点击范围。首次 iOS 全量运行中既有首页刷新帧检查失败一次，单项复测及最终全量复测通过，未修改该检查阈值或首页刷新实现。保留登录覆盖更新 `Tidemeld iPhone`，实测微博资料和置顶、X 本人空主页、公开用户封面/认证/计数/关系/置顶与列表、信息流昵称及引用作者跳转；未执行真实写操作。Android X 真实会话分页仍需实机验收。
+
+
+## 2026-11-07：共享用户主页关系操作
+
+- `SocialProfileHeader` 在资料区右侧放置关注按钮与更多菜单；有操作时计数独立一行，关系标签放在昵称下。`SocialProfileActions` 统一忙碌态、取消关注/拉黑确认和错误提示，自己及无有效来源账号时不提供操作。微博与 X 使用同一套界面；Android 同步实现。
+- `ProfileRelationships` 跨账号上下文共享，key 包含平台、来源账号、登录代次和目标用户；重复点击不重复发请求，写请求排队结束后再次检查账号，迟到读取和旧账号回调不会覆盖已确认关系。写入不自动重试；确认失败显示“刷新状态”，需要读取成功后才能继续写。
+- 微博沿用官方网页公开脚本 `https://h5.sinaimg.cn/m/weibo-pro-next/assets/index-CXp3N9A-.js` 的接口形态：POST `/ajax/friendships/create` 使用 `friend_uid`；取消端点原名为 `/ajax/friendships/destory`，使用 `uid`；拉黑 POST `/ajax/statuses/filterUser`，`uid/status=1/interact=1/follow=1`；解除 POST `/ajax/statuses/deleteFilters`，使用 `uid`。关系回读 `/ajax/profile/info` 的 `user.following`、`user.follow_me` 和 `data.block`。只参考协议，没有复制脚本实现。
+- X 使用网页会话的 `/1.1/friendships/show.json`，校验返回的 source/target ID；读取 following、following_requested、blocking、want_retweets。POST friendships/create、friendships/destroy、blocks/create、blocks/destroy 使用 `user_id`，friendships/update 另传 `retweets=true/false`，均为 form 编码并携带来源账号的 CSRF。收到目标用户 ACK 后回读确认，未知转帖状态不猜测菜单方向。
+- 在保留登录的 `Tidemeld iPhone` 上只读确认 X 返回真实关注、拉黑及转帖设置；人工检查微博和 X 的资料栏与菜单，微博没有 X 转帖项目。没有执行真实关注、取消、拉黑或设置写入，不能把合成测试当作服务器写入已验收。临时协议探测代码已移除，未清除设备数据。
+- 回归：Android `spotlessCheck lint testDebugUnitTest assembleDebug` 全通过（444 项测试），iOS 在空白 `Tidemeld regression` 134 项测试通过。新增测试覆盖六种 X 关系写入的表单、来源账号及回读，微博关注/拉黑协议，未确认响应、排队账号失效、重复点击、旧读取，以及共享菜单的确认与转帖开关；旧主页测试同步计入新增关系读取。Gradle daemon 已停止。
+
+
+## 2026-11-07：TestFlight 1.0.0 (7)
+
+按用户要求将上述主页与关系操作发布到既有内部测试群组。iOS 构建号由 6 递增到 7，营销版本保持 1.0.0；复用刚通过的 134 项 iOS 回归。Release 归档、签名和随包资源校验通过，10:42 上传成功，Apple 处理完成并保存中文测试说明后，群组显示“正在测试”。构建 ID `426119fa-c7b6-4f34-a1c5-68be7b3048e8`；日志、源码哈希和发布截图保存在 `ios/build/testflight-1.0.0-7/`。App Store 构建 4 的等待审核状态保持不变。
+
+### 2026-11-07：回复预览文字高度
+
+针对用户截图中楼中楼回复文字下半部被裁切的问题，共用 `PostText` 保留按当前宽度排版后的完整高度，避免接受父布局过小的高度提议；既有 `maxLines` 仍控制预览行数。修改作用于使用该组件的微博和 X 内容，Android 无此 SwiftUI 尺寸约束改动。
+
+新增合成布局回归覆盖三种字号、两种宽度、完整正文及两行预览；高度不足的用例在修改前失败，修改后通过，空白 `Tidemeld regression` 上完整 135 项 iOS 测试通过。另用合成评论及本地生成的行内图片检查原生详情页，截图保存在 `ios/build/text-layout-fix/reply-preview.png`。普通合成详情页没有重现用户原图的裁切，原微博在用户设备上的效果仍需新构建确认；此次未发布 TestFlight。
+
+### 2026-11-07：TestFlight 1.0.0 (8)
+
+用户随后要求发布，上述文字高度修复已加入 `1.0.0 (8)`。沿用刚通过的 135 项 iOS 回归，Release 归档、签名及随包资源校验通过，14:15 上传成功；处理完成后保存中文测试说明并加入既有内部测试群组，后台确认“正在测试”。构建 ID `640b52f9-3f79-4482-a81f-cd99f2a56a11`；发布凭据保存在 `ios/build/testflight-1.0.0-8/`。本次仅递增 iOS 构建号，原页面的真机效果待更新后复核。
+
+### 2026-11-07：图片表情撑高回复行框
+
+用户更新后确认原评论文字已完整显示，但带图片表情的楼中楼回复行高偏大。用合成位图复现：默认 `subheadline` 的普通文本高 18 点，旧 `Text(Image) + baselineOffset` 组合高约 25.3 点。共用 `PostText` 改用原生 `TextRenderer` 在字体行框内绘制图片，通过文本占位符保留图片宽度；连续相同表情使用独立属性，避免合并成一个绘制单元。保留此前防止文字裁切的完整高度约束、行数限制、链接和选择入口。微博和 X 共用该渲染器，Android 原有行内占位实现不受此 SwiftUI 问题影响。
+
+新增已加载位图回归，覆盖三种动态字号、两种字体样式、单个/连续表情、链接图标和多行文本；旧实现有 24 个高度断言失败，新实现通过，并通过栅格像素检查确认表情完整绘制、连续两个表情都显示。空白 `Tidemeld regression` 的完整 136 项 iOS 测试通过；原生合成回复截图及前后测试日志位于 `ios/build/inline-image-height-fix/`。本轮行高修复尚未发布到 TestFlight，真实原评论效果仍待新构建复核。

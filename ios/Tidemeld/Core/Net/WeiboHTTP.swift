@@ -42,7 +42,8 @@ final class WeiboHTTP: Sendable {
     /// - Parameter plainCrossOrigin: send it as weibo.com's pages send a plain
     ///   cross-origin request, such as a picture upload: with cookies, but
     ///   without the XHR and XSRF headers of its own endpoints.
-    func send(_ request: URLRequest, upload: Bool = false, plainCrossOrigin: Bool = false)
+    func send(_ request: URLRequest, upload: Bool = false, plainCrossOrigin: Bool = false,
+        isCurrent: @Sendable () async -> Bool = { true })
         async throws(WeiboError) -> HTTPReply
     {
         let identity = jar.identity
@@ -57,6 +58,7 @@ final class WeiboHTTP: Sendable {
         }
         await throttle.acquire()
         defer { Task { await throttle.release() } }
+        guard await isCurrent() else { throw .api("账号已变更，操作已取消") }
         let (currentIdentity, boundCookies) = jar.forRequest()
         guard currentIdentity == identity, !Task.isCancelled else { throw .cancelled }
         let delegate = HopHeaders(jar: boundCookies, plainCrossOrigin: plainCrossOrigin)

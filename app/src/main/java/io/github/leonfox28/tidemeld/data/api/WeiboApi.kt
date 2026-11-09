@@ -216,6 +216,38 @@ class WeiboApi(
         )
     }
 
+    /** Sends a relationship change once, then reads the profile to confirm its result. */
+    suspend fun changeUserRelationship(
+        uid: String,
+        following: Boolean? = null,
+        blocking: Boolean? = null,
+        isCurrent: () -> Boolean = { true },
+    ): UserProfile {
+        val (endpoint, fields) =
+            when {
+                following != null ->
+                    (if (following) "friendships/create" else "friendships/destory") to
+                        mapOf((if (following) "friend_uid" else "uid") to uid)
+                blocking != null ->
+                    (if (blocking) "statuses/filterUser" else "statuses/deleteFilters") to
+                        (if (blocking)
+                            mapOf("uid" to uid, "status" to 1, "interact" to 1, "follow" to 1)
+                        else mapOf("uid" to uid))
+                else -> throw WeiboApiException("无效的用户操作")
+            }
+        val ack = postForm("$WEB/ajax/$endpoint", fields, isCurrent)
+        if (readInt(ack["ok"]) != 1L) throw WeiboApiException("操作未确认，请刷新关系状态")
+        if (!isCurrent()) throw WeiboApiException("账号已变更，请刷新后检查操作结果")
+        val result = fetchProfile(uid = uid)
+        if (
+            result.user.id != uid ||
+                following != null && result.following != following ||
+                blocking != null && result.blocking != blocking
+        )
+            throw WeiboApiException("操作未确认，请刷新关系状态")
+        return result
+    }
+
     /**
      * The profile of the user with [uid], or else named [screenName] (all that mentions in a status
      * carry).
@@ -542,11 +574,15 @@ class WeiboApi(
      * Posts [body] as a form, as weibo.com does for everything that changes something. Fields that
      * are null aren't sent.
      */
-    suspend fun postForm(url: String, body: Map<String, Any?>): JsonObject = guard {
+    suspend fun postForm(
+        url: String,
+        body: Map<String, Any?>,
+        isCurrent: () -> Boolean = { true },
+    ): JsonObject = guard {
         val form = FormBody.Builder()
         for ((name, value) in body) if (value != null) form.add(name, value.toString())
         val request = Request.Builder().url(url).post(form.build()).build()
-        val reply = http.send(request)
+        val reply = http.send(request, isCurrent = isCurrent)
         val response = reply.toWeiboResponse()
         val data = response.json
         log(

@@ -73,10 +73,15 @@ private constructor(
      *   be answered.
      * @throws NetworkException if the request couldn't be sent or the reply not read.
      */
-    suspend fun send(request: Request, upload: Boolean = false): HttpReply {
+    suspend fun send(
+        request: Request,
+        upload: Boolean = false,
+        isCurrent: () -> Boolean = { true },
+    ): HttpReply {
         val identity = jar.identity
         throttle.acquire()
         try {
+            if (!isCurrent()) throw WeiboApiException("账号已变更，操作已取消")
             val (currentIdentity, boundCookies) = jar.forRequest()
             if (currentIdentity != identity)
                 throw kotlinx.coroutines.CancellationException("Account changed")

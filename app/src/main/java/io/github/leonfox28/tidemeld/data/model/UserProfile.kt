@@ -24,6 +24,7 @@ data class UserProfile(
     val following: Boolean = false,
     /** Whether this user follows the signed-in user. */
     val followsMe: Boolean = false,
+    val blocking: Boolean = false,
 ) {
     companion object {
         /** Reads the `data` object of `profile/info`. */
@@ -44,6 +45,7 @@ data class UserProfile(
                 statusesCount = readInt(map["statuses_count"]),
                 following = readBool(map["following"]) == true,
                 followsMe = readBool(map["follow_me"]) == true,
+                blocking = readBool(readMap(json)?.get("block")) == true,
             )
         }
 

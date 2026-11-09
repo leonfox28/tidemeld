@@ -63,6 +63,14 @@ struct AccountsPage: View {
                                 } else if platform == .weibo {
                                     Button("使用") { graph.accounts.useWeibo(account.id) }
                                 }
+                                if !account.expired {
+                                    Button("主页") {
+                                        switch platform {
+                                        case .weibo: graph.router.push(.account(account.id, .profile(uid: account.session.account.uid, initial: nil)))
+                                        case .x: graph.router.push(.xProfile(owner: account.id, user: XProfileUser(id: account.session.account.uid, name: account.name)))
+                                        }
+                                    }
+                                }
                                 Spacer()
                                 Button("移除", role: .destructive) { removing = account }
                             }.buttonStyle(.borderless)

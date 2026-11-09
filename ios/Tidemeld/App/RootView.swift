@@ -198,6 +198,7 @@ struct RouteView: View {
             } else {
                 InAppBrowser(url: url)
             }
+        case .xProfile(let owner, let user): XProfilePage(owner: owner, user: user)
         case .xStatus(let owner, let id, let initial): XDetailPage(owner: owner, id: id, initial: initial)
         case .accountWeb(let owner, let url): AccountWebPage(owner: owner, url: url)
         case .textSize: TextSizePage()

@@ -54,9 +54,17 @@ fun XCommentTile(
                 listOfNotNull(post.createdAt?.let { formatPostTime(it) }, "@${post.handle}")
                     .joinToString("  "),
             isAuthor = authorHandle != null && post.handle.equals(authorHandle, ignoreCase = true),
+            onAuthor = { navigator.push(Route.XProfile(owner, post.profileUser)) },
             onReply = ::reply,
             onLongClick = { menu = true },
-            avatar = { PostAvatar(post.avatar, post.author, size = 32.dp) },
+            avatar = {
+                PostAvatar(
+                    post.avatar,
+                    post.author,
+                    size = 32.dp,
+                    onClick = { navigator.push(Route.XProfile(owner, post.profileUser)) },
+                )
+            },
             content = {
                 if (post.text.isNotEmpty())
                     XPostText(
@@ -80,6 +88,7 @@ fun XCommentTile(
                                 quote.text,
                                 owner,
                                 author = quote.author,
+                                authorHandle = quote.handle,
                                 style = MaterialTheme.typography.bodyMedium,
                             )
                             XMedia(quote, owner, compact = true)

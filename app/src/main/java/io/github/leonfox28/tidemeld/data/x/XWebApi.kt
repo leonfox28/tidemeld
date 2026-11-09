@@ -79,6 +79,146 @@ class XWebApi(
         }
     }
 
+    suspend fun profile(
+        session: StoredSession,
+        user: XProfileUser,
+        onCookies: (Map<String, Map<String, String>>) -> Unit = {},
+    ): XUserProfile =
+        withSession(session, onCookies) { cookies ->
+            val byId = !user.id.isNullOrBlank()
+            if (!byId && (user.handle == null || !Regex("[A-Za-z0-9_]{1,15}").matches(user.handle)))
+                throw WeiboApiException("用户地址无效")
+            val variables = buildJsonObject {
+                if (byId) put("userId", user.id) else put("screen_name", user.handle)
+                put("withSafetyModeUserFields", true)
+            }
+            parseXProfile(
+                query(if (byId) "UserByRestId" else "UserByScreenName", variables, cookies)
+            )
+        }
+
+    suspend fun relationship(
+        session: StoredSession,
+        uid: String,
+        onCookies: (Map<String, Map<String, String>>) -> Unit = {},
+    ): XUserRelationship =
+        withSession(session, onCookies) { cookies ->
+            parseXRelationship(
+                rest(
+                    "friendships/show",
+                    mapOf("source_id" to session.account.uid, "target_id" to uid),
+                    cookies,
+                ),
+                session.account.uid,
+                uid,
+            )
+        }
+
+    suspend fun changeRelationship(
+        session: StoredSession,
+        uid: String,
+        action: XUserAction,
+        onCookies: (Map<String, Map<String, String>>) -> Unit = {},
+        isCurrent: () -> Boolean = { true },
+    ): XUserRelationship =
+        withSession(session, onCookies) { cookies ->
+            if (uid == session.account.uid) throw WeiboApiException("不能对自己执行此操作")
+            val fields = mutableMapOf("user_id" to uid)
+            val endpoint =
+                when (action) {
+                    is XUserAction.Follow ->
+                        if (action.enabled) "friendships/create" else "friendships/destroy"
+                    is XUserAction.Block ->
+                        if (action.enabled) "blocks/create" else "blocks/destroy"
+                    is XUserAction.Reposts -> {
+                        fields["retweets"] = action.enabled.toString()
+                        "friendships/update"
+                    }
+                }
+            val ack = rest(endpoint, fields, cookies, write = true, isCurrent = isCurrent)
+            if (
+                ack["id_str"].string() != uid &&
+                    ack.at("relationship", "target", "id_str").string() != uid
+            )
+                throw WeiboApiException(WRITE_UNCERTAIN)
+            val result =
+                parseXRelationship(
+                    rest(
+                        "friendships/show",
+                        mapOf("source_id" to session.account.uid, "target_id" to uid),
+                        cookies,
+                        isCurrent = isCurrent,
+                    ),
+                    session.account.uid,
+                    uid,
+                )
+            val confirmed =
+                when (action) {
+                    is XUserAction.Follow ->
+                        if (action.enabled) result.following || result.requested
+                        else !result.following && !result.requested
+                    is XUserAction.Block -> result.blocking == action.enabled
+                    is XUserAction.Reposts -> result.showsReposts == action.enabled
+                }
+            if (!confirmed) throw WeiboApiException(WRITE_UNCERTAIN)
+            result
+        }
+
+    private suspend fun rest(
+        endpoint: String,
+        fields: Map<String, String>,
+        cookies: MutableMap<String, String>,
+        write: Boolean = false,
+        isCurrent: () -> Boolean = { true },
+    ): JsonObject {
+        val form =
+            okhttp3.FormBody.Builder()
+                .apply { fields.forEach { (key, value) -> add(key, value) } }
+                .build()
+        val encoded = okio.Buffer().also { form.writeTo(it) }.readUtf8()
+        val url =
+            ("https://api.x.com/1.1/$endpoint.json" + if (write) "" else "?$encoded").toHttpUrl()
+        val text =
+            get(
+                url,
+                cookies,
+                true,
+                if (write) encoded else null,
+                isCurrent,
+                "application/x-www-form-urlencoded",
+            )
+        val json =
+            runCatching { Json.parseToJsonElement(text).jsonObject }.getOrNull()
+                ?: throw WeiboApiException(if (write) WRITE_UNCERTAIN else "X 返回了无法识别的内容")
+        val errors = json["errors"] as? JsonArray
+        val code = errors?.firstOrNull().at("code").string()?.toIntOrNull()
+        if (code in listOf(32, 89, 215)) throw SessionExpiredException()
+        if (code == 88) {
+            throttle.backOff()
+            throw RateLimitedException(429)
+        }
+        if (!errors.isNullOrEmpty()) throw WeiboApiException("X 拒绝了关系操作，请在官方网页检查账号状态")
+        return json
+    }
+
+    suspend fun userPosts(
+        session: StoredSession,
+        uid: String,
+        cursor: String?,
+        onCookies: (Map<String, Map<String, String>>) -> Unit = {},
+    ): Paged<XPost> =
+        withSession(session, onCookies) { cookies ->
+            val variables = buildJsonObject {
+                put("userId", uid)
+                put("count", 20)
+                put("includePromotedContent", true)
+                put("withQuickPromoteEligibilityTweetFields", true)
+                put("withVoice", true)
+                cursor?.let { put("cursor", it) }
+            }
+            parseXUserPosts(query("UserTweets", variables, cookies), cursor)
+        }
+
     suspend fun conversation(
         session: StoredSession,
         id: String,
@@ -261,6 +401,7 @@ class XWebApi(
         api: Boolean,
         body: String? = null,
         isCurrent: () -> Boolean = { true },
+        contentType: String = "application/json",
     ): String {
         require(url.scheme == "https" && url.host in setOf("x.com", "api.x.com"))
         throttle.acquire()
@@ -289,7 +430,7 @@ class XWebApi(
                         .header("x-twitter-auth-type", "OAuth2Session")
                         .header("x-twitter-active-user", "yes")
                         .header("x-twitter-client-language", "zh-cn")
-                if (body != null) request.post(body.toRequestBody("application/json".toMediaType()))
+                if (body != null) request.post(body.toRequestBody(contentType.toMediaType()))
                 client.newCall(request.build()).execute().use { response ->
                     when {
                         response.code == 401 -> throw SessionExpiredException()
@@ -327,7 +468,7 @@ class XWebApi(
     }
 
     companion object {
-        const val WRITE_UNCERTAIN = "操作结果未确认，请先刷新帖子检查，避免重复发送"
+        const val WRITE_UNCERTAIN = "操作结果未确认，请先刷新页面检查，避免重复发送"
         // Public identifier shipped by X's web client, not a user's developer credential.
         private const val WEB_BEARER =
             "AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA"

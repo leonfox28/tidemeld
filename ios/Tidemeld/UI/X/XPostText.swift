@@ -44,17 +44,29 @@ func xTextSegments(_ text: String) -> [PostTextSegment] {
     return result
 }
 
+/// Only a profile path is native; X's application routes keep their existing destinations.
+func xProfileHandle(_ url: URL) -> String? {
+    guard ["x.com", "www.x.com", "twitter.com", "www.twitter.com"].contains(url.host?.lowercased() ?? "") else { return nil }
+    let parts = url.path.split(separator: "/")
+    guard parts.count == 1 else { return nil }
+    let handle = String(parts[0])
+    let reserved: Set<String> = ["home", "explore", "search", "settings", "i", "intent", "share", "login", "logout", "signup", "messages", "notifications", "compose", "jobs", "tos", "privacy", "about", "download"]
+    guard !reserved.contains(handle.lowercased()), handle.range(of: #"^[A-Za-z0-9_]{1,15}$"#, options: .regularExpression) != nil else { return nil }
+    return handle
+}
+
 struct XPostText: View {
     let text: String
     let owner: String
     var author: String? = nil
+    var authorHandle: String? = nil
     var textStyle: Font.TextStyle = .callout
     var selectable = false
     var maxLines: Int? = nil
     @Environment(AppGraph.self) private var graph
     var body: some View {
         PostText(
-            segments: (author.map { [.plain("@\($0)：")] } ?? []) + xTextSegments(text),
+            segments: (author.map { name in [authorHandle.map { PostTextSegment.link("@\(name)：", "https://x.com/\($0)") } ?? .plain("@\(name)：")] } ?? []) + xTextSegments(text),
             textStyle: textStyle, selectable: selectable, maxLines: maxLines, onLink: open
         )
         .foregroundStyle(AppTheme.foreground)
@@ -67,6 +79,8 @@ struct XPostText: View {
             parts.count >= 4, parts[2] == "status", parts[3].allSatisfy(\.isNumber), !parts[3].isEmpty
         {
             graph.router.push(.xStatus(owner: owner, id: parts[3], initial: nil))
+        } else if let handle = xProfileHandle(url) {
+            graph.router.push(.xProfile(owner: owner, user: XProfileUser(handle: handle)))
         } else {
             graph.openExternally(url)
         }

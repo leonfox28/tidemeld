@@ -30,7 +30,12 @@ data class XPost(
     val attachments: List<MixedMedia> = emptyList(),
     val replyToHandles: List<String> = emptyList(),
     val sensitive: Boolean = false,
+    val authorId: String? = null,
+    val pinned: Boolean = false,
 ) {
+    val profileUser
+        get() = XProfileUser(authorId, handle, author, avatar)
+
     val media: List<MixedMedia>
         get() = attachments.ifEmpty {
             pictures.map(MixedMedia::Pic) +
@@ -113,14 +118,17 @@ fun parseXTimeline(json: JsonObject, previousCursor: String? = null): Paged<XPos
     return parseXEntries(instructions, previousCursor)
 }
 
-private fun parseXEntries(instructions: JsonArray, previousCursor: String?): Paged<XPost> {
+internal fun parseXEntries(instructions: JsonArray, previousCursor: String?): Paged<XPost> {
     val posts = mutableListOf<XPost>()
     var cursor: String? = null
-    fun content(value: JsonElement?) {
+    fun content(value: JsonElement?, pinned: Boolean = false) {
         if (value.at("cursorType").string() == "Bottom") cursor = value.at("value").string()
         val item = value.at("itemContent") ?: value
         val result = item.at("tweet_results", "result")
-        if (result != null) parseXPost(result, item.at("promotedMetadata") != null)?.let(posts::add)
+        if (result != null)
+            parseXPost(result, item.at("promotedMetadata") != null)
+                ?.copy(pinned = pinned)
+                ?.let(posts::add)
         (value.at("items") as? JsonArray)?.forEach { child ->
             val nested = child.at("item", "itemContent")
             parseXPost(nested.at("tweet_results", "result"), nested.at("promotedMetadata") != null)
@@ -129,12 +137,16 @@ private fun parseXEntries(instructions: JsonArray, previousCursor: String?): Pag
     }
     for (instruction in instructions) {
         (instruction.at("entries") as? JsonArray)?.forEach { content(it.at("content")) }
-        instruction.at("entry")?.let { content(it.at("content")) }
+        instruction.at("entry")?.let {
+            content(it.at("content"), instruction.at("type").string() == "TimelinePinEntry")
+        }
     }
     // Filter before deduplication so a promoted placement cannot hide an organic copy.
     return Paged(
-        posts.filterNot { it.promoted }.distinctBy { it.id },
-        nextCursor = cursor?.takeIf { it != previousCursor },
+        (posts.filter { it.pinned } + posts.filterNot { it.pinned })
+            .filterNot { it.promoted }
+            .distinctBy { it.id },
+        nextCursor = cursor?.takeIf { it.isNotEmpty() && it != previousCursor },
     )
 }
 
@@ -188,6 +200,7 @@ fun parseXPost(value: JsonElement?, promoted: Boolean = false, depth: Int = 0): 
         replyTo = legacy["in_reply_to_status_id_str"].string(),
         attachments = media,
         replyToHandles = content.replyToHandles,
+        authorId = user.at("rest_id").string(),
         sensitive =
             (legacy["possibly_sensitive"] as? JsonPrimitive)?.booleanOrNull == true ||
                 entries.any { media ->

@@ -25,8 +25,9 @@ final class AppGraph {
     @ObservationIgnored let router: Router
     @ObservationIgnored let accounts: AccountManager
     @ObservationIgnored let xAPI: XWebAPI?
+    @ObservationIgnored let profileRelationships: ProfileRelationships
     @ObservationIgnored private var accountGraphs: [String: (Int, AppGraph)] = [:]
-    @ObservationIgnored lazy var xInteractions = XInteractions(accounts: accounts, api: xAPI)
+    @ObservationIgnored lazy var xInteractions = XInteractions(accounts: accounts, api: xAPI, relationships: profileRelationships)
     @ObservationIgnored lazy var socialFeed = makeSocialFeed()
 
     private func makeSocialFeed() -> SocialFeedController {
@@ -58,6 +59,7 @@ final class AppGraph {
         settings: SettingsController, session: SessionController, api: WeiboAPI,
         webCookies: WebCookies, images: ImageLoader, guestAPI: GuestWeiboAPI? = nil,
         accountStorage: AccountStorage? = nil, sharedAccounts: AccountManager? = nil,
+        sharedProfileRelationships: ProfileRelationships? = nil,
         xAPI: XWebAPI? = nil, router: Router? = nil, sharedToasts: Toasts? = nil, onPostChanged: ((Status, Bool) -> Void)? = nil
     ) {
         self.settings = settings
@@ -67,6 +69,7 @@ final class AppGraph {
         self.images = images
         self.accounts = sharedAccounts ?? AccountManager(storage: accountStorage ?? MemoryAccountStorage(), weibo: session, web: webCookies)
         self.xAPI = xAPI
+        self.profileRelationships = sharedProfileRelationships ?? ProfileRelationships()
         self.router = router ?? Router()
         self.toasts = sharedToasts ?? Toasts()
         // Every request follows a user action: opening the tab, pulling to
@@ -126,7 +129,7 @@ final class AppGraph {
         }
         let scopedSession = session.isolated(account.session, storage: storage)
         let scoped = AppGraph(settings: settings, session: scopedSession, api: scopedSession.apiForSession(),
-            webCookies: webCookies, images: images, sharedAccounts: accounts, xAPI: xAPI, router: router.scoped(key), sharedToasts: toasts, onPostChanged: { [weak self] post, added in
+            webCookies: webCookies, images: images, sharedAccounts: accounts, sharedProfileRelationships: profileRelationships, xAPI: xAPI, router: router.scoped(key), sharedToasts: toasts, onPostChanged: { [weak self] post, added in
                 self?.socialFeed.ownPostChanged(owner: key, post: post, added: added)
             })
         accountGraphs[key] = (account.revision, scoped)

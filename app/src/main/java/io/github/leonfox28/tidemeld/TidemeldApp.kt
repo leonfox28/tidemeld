@@ -151,6 +151,7 @@ private val pages: (Route) -> NavEntry<Route> = entryProvider {
     entry<Route.ProfileByName> { ProfilePage(screenName = it.name) }
     entry<Route.SearchResults> { SearchResultsPage(it.query) }
     entry<Route.Web> { WebPage(it.url) }
+    entry<Route.XProfile> { io.github.leonfox28.tidemeld.ui.x.XProfilePage(it.owner, it.user) }
     entry<Route.XDetail> {
         io.github.leonfox28.tidemeld.ui.x.XDetailPage(it.owner, it.id, it.initial)
     }

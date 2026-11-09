@@ -14,8 +14,6 @@ import io.github.leonfox28.tidemeld.data.model.UserProfile
 import io.github.leonfox28.tidemeld.ui.interactions.OpenLists
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -43,7 +41,10 @@ class ProfileViewModel(
     private val screenName: String?,
     private val api: WeiboApi,
     private val openLists: OpenLists,
+    graph: io.github.leonfox28.tidemeld.AppGraph? = null,
 ) : ViewModel() {
+    val controls = graph?.let(::WeiboProfileControls)
+    private var generation = 0
     private val _profile = MutableStateFlow(ProfileLoad())
     val profile: StateFlow<ProfileLoad> = _profile.asStateFlow()
 
@@ -57,15 +58,24 @@ class ProfileViewModel(
 
     fun reload() {
         _profile.update { it.copy(error = null) }
+        val ticket = ++generation
         viewModelScope.launch {
             try {
-                val profile = api.fetchProfile(uid = uid, screenName = screenName)
-                _profile.value = ProfileLoad(profile)
-                if (statuses == null) startStatuses(profile.user.id)
+                loadProfile(ticket)
             } catch (e: WeiboException) {
-                _profile.update { it.copy(error = e) }
+                if (ticket == generation) _profile.update { it.copy(error = e) }
             }
         }
+    }
+
+    private suspend fun loadProfile(ticket: Int) {
+        val started = controls?.readStamp ?: 0L
+        val result =
+            api.fetchProfile(uid = _profile.value.profile?.user?.id ?: uid, screenName = screenName)
+        if (ticket != generation) return
+        _profile.value = ProfileLoad(result)
+        controls?.ingest(result, started)
+        if (statuses == null) startStatuses(result.user.id)
     }
 
     private fun startStatuses(uid: String) {
@@ -80,15 +90,13 @@ class ProfileViewModel(
      *
      * @throws WeiboException on failure, what was shown staying, for the caller to report.
      */
-    suspend fun refresh() = coroutineScope {
-        listOf(
-                async {
-                    _profile.value =
-                        ProfileLoad(api.fetchProfile(uid = uid, screenName = screenName))
-                },
-                async { statuses?.refresh() },
-            )
-            .awaitAll()
-        Unit
-    }
+    suspend fun refresh() =
+        kotlinx.coroutines.supervisorScope {
+            val ticket = ++generation
+            val details = async { loadProfile(ticket) }
+            val content = async { statuses?.refresh() }
+            val results = listOf(details, content).map { runCatching { it.await() } }
+            results.forEach { it.getOrThrow() }
+            Unit
+        }
 }

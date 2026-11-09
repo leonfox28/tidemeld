@@ -24,6 +24,9 @@ struct XPost: Sendable, Identifiable {
     var replyTo: String? = nil
     var attachments: [MixedMedia] = []
     var replyToHandles: [String] = []
+    var authorID: String? = nil
+    var pinned = false
+    var profileUser: XProfileUser { XProfileUser(id: authorID, handle: handle, name: author, avatar: avatar) }
     var sensitive = false
     var media: [MixedMedia] {
         if !attachments.isEmpty { return attachments }
@@ -68,7 +71,8 @@ func parseXConversation(_ json: JSON, focalID: String, previousCursor: String? =
     }
     var related: Set<String> = [focalID]
     for _ in page.items {
-        for post in page.items where !visited.contains(post.originalID) && post.replyTo.map(related.contains) == true {
+        for post in page.items
+        where !visited.contains(post.originalID) && post.replyTo.map(related.contains) == true {
             related.insert(post.originalID)
         }
     }
@@ -122,6 +126,7 @@ func parseXPost(_ value: JSON?, promoted: Bool = false, depth: Int = 0) -> XPost
             liked: legacy["favorited"]?.bool == true, reposted: legacy["retweeted"]?.bool == true),
         replyTo: legacy["in_reply_to_status_id_str"]?.string, attachments: media,
         replyToHandles: content.replyToHandles,
+        authorID: user?["rest_id"]?.string,
         sensitive: legacy["possibly_sensitive"]?.bool == true
             || entries.contains { media in
                 ["adult_content", "graphic_violence", "other"].contains {
@@ -131,7 +136,9 @@ func parseXPost(_ value: JSON?, promoted: Bool = false, depth: Int = 0) -> XPost
 }
 
 /// Hide only reply addressing and attachments that have another native presentation.
-private func xPostContent(_ legacy: JSON, note: JSON?, media: [JSON]) -> (text: String, replyToHandles: [String]) {
+private func xPostContent(_ legacy: JSON, note: JSON?, media: [JSON]) -> (
+    text: String, replyToHandles: [String]
+) {
     let noteText = note?["text"]?.string
     var text = noteText ?? legacy["full_text"]?.string ?? ""
     var recipients: [String] = []
@@ -162,7 +169,8 @@ private func xPostContent(_ legacy: JSON, note: JSON?, media: [JSON]) -> (text: 
         case .video(let video): visible = video.coverURL != nil || !video.streamURLs.isEmpty
         case nil: visible = false
         }
-        guard visible, let url = entry["url"]?.string, !url.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        guard visible, let url = entry["url"]?.string,
+            !url.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         else { continue }
         // Match the whole attachment token, not every t.co link or a longer URL sharing its prefix.
         let cleaned = text.replacingOccurrences(
@@ -193,15 +201,16 @@ func parseXTimeline(_ json: JSON, previousCursor: String? = nil) throws -> Paged
     return parseXEntries(instructions, previousCursor: previousCursor)
 }
 
-private func parseXEntries(_ instructions: [JSON], previousCursor: String?) -> Paged<XPost> {
+func parseXEntries(_ instructions: [JSON], previousCursor: String?) -> Paged<XPost> {
     var posts: [XPost] = []
     var cursor: String?
-    func item(_ content: JSON?) {
+    func item(_ content: JSON?, pinned: Bool = false) {
         if content?["cursorType"]?.string == "Bottom" { cursor = content?["value"]?.string }
         let candidate = content?["itemContent"] ?? content
-        if let post = parseXPost(
+        if var post = parseXPost(
             candidate?["tweet_results"]?["result"], promoted: candidate?["promotedMetadata"] != nil)
         {
+            post.pinned = pinned
             posts.append(post)
         }
         for child in content?["items"]?.objects ?? [] {
@@ -215,13 +224,17 @@ private func parseXEntries(_ instructions: [JSON], previousCursor: String?) -> P
     }
     for instruction in instructions {
         for entry in instruction["entries"]?.objects ?? [] { item(entry["content"]) }
-        if let entry = instruction["entry"] { item(entry["content"]) }
+        if let entry = instruction["entry"] {
+            item(entry["content"], pinned: instruction["type"]?.string == "TimelinePinEntry")
+        }
     }
     var seen: Set<String> = []
     // Filter before deduplication so a promoted placement cannot hide an organic copy.
     return Paged(
-        items: posts.filter { !$0.promoted && seen.insert($0.id).inserted },
-        nextCursor: cursor == previousCursor ? nil : cursor)
+        items: (posts.filter(\.pinned) + posts.filter { !$0.pinned }).filter {
+            !$0.promoted && seen.insert($0.id).inserted
+        },
+        nextCursor: cursor == previousCursor || cursor?.isEmpty == true ? nil : cursor)
 }
 
 /// The web client's public protocol; no developer API key or aggregation server is involved.
@@ -288,6 +301,120 @@ final class XWebAPI: Sendable {
             throw error
         }
     }
+    func profile(
+        _ stored: StoredSession, user: XProfileUser,
+        onCookies: (@Sendable (Cookies) async -> Void)? = nil
+    ) async throws -> XUserProfile {
+        try await withSession(stored, onCookies: onCookies) { cookies in
+            let operation: String
+            let variables: [String: JSON]
+            if let id = user.id, !id.isEmpty {
+                operation = "UserByRestId"
+                variables = ["userId": .string(id), "withSafetyModeUserFields": .bool(true)]
+            } else if let handle = user.handle,
+                handle.range(of: #"^[A-Za-z0-9_]{1,15}$"#, options: .regularExpression) != nil
+            {
+                operation = "UserByScreenName"
+                variables = ["screen_name": .string(handle), "withSafetyModeUserFields": .bool(true)]
+            } else {
+                throw WeiboError.api("用户地址无效")
+            }
+            return try parseXProfile(await query(operation, variables: .object(variables), cookies: &cookies))
+        }
+    }
+
+    func relationship(
+        _ stored: StoredSession, uid: String,
+        onCookies: (@Sendable (Cookies) async -> Void)? = nil
+    ) async throws -> XUserRelationship {
+        try await withSession(stored, onCookies: onCookies) { cookies in
+            try parseXRelationship(
+                await rest(
+                    "friendships/show", fields: [("source_id", stored.account.uid), ("target_id", uid)],
+                    cookies: &cookies), source: stored.account.uid, target: uid)
+        }
+    }
+
+    func changeRelationship(
+        _ stored: StoredSession, uid: String, action: XUserAction,
+        onCookies: (@Sendable (Cookies) async -> Void)? = nil,
+        isCurrent: @Sendable @escaping () async -> Bool = { true }
+    ) async throws -> XUserRelationship {
+        try await withSession(stored, onCookies: onCookies) { cookies in
+            guard uid != stored.account.uid else { throw WeiboError.api("不能对自己执行此操作") }
+            let endpoint: String
+            var fields: [(String, String)] = [("user_id", uid)]
+            switch action {
+            case .follow(let enabled): endpoint = enabled ? "friendships/create" : "friendships/destroy"
+            case .block(let enabled): endpoint = enabled ? "blocks/create" : "blocks/destroy"
+            case .reposts(let enabled):
+                endpoint = "friendships/update"
+                fields.append(("retweets", enabled ? "true" : "false"))
+            }
+            let ack = try await rest(
+                endpoint, fields: fields, cookies: &cookies, write: true, isCurrent: isCurrent)
+            guard ack["id_str"]?.string == uid || ack["relationship"]?["target"]?["id_str"]?.string == uid
+            else {
+                throw WeiboError.api(Self.writeUncertain)
+            }
+            let result = try parseXRelationship(
+                await rest(
+                    "friendships/show", fields: [("source_id", stored.account.uid), ("target_id", uid)],
+                    cookies: &cookies, isCurrent: isCurrent), source: stored.account.uid, target: uid)
+            let confirmed: Bool
+            switch action {
+            case .follow(let enabled):
+                confirmed =
+                    enabled ? result.following || result.requested : !result.following && !result.requested
+            case .block(let enabled): confirmed = result.blocking == enabled
+            case .reposts(let enabled): confirmed = result.showsReposts == enabled
+            }
+            guard confirmed else { throw WeiboError.api(Self.writeUncertain) }
+            return result
+        }
+    }
+
+    private func rest(
+        _ endpoint: String, fields: [(String, String)], cookies: inout [String: String],
+        write: Bool = false, isCurrent: @Sendable @escaping () async -> Bool = { true }
+    ) async throws -> JSON {
+        let encoded = encodedPairs(fields.map { ($0.0, $0.1 as Any?) })
+        let url = URL(string: "https://api.x.com/1.1/\(endpoint).json" + (write ? "" : "?\(encoded)"))!
+        guard
+            let json = JSON.parse(
+                try await get(
+                    url, cookies: &cookies, api: true, body: write ? encoded : nil,
+                    isCurrent: isCurrent, contentType: "application/x-www-form-urlencoded"))
+        else {
+            throw WeiboError.api(write ? Self.writeUncertain : "X 返回了无法识别的内容")
+        }
+        let errors = json["errors"]?.objects ?? []
+        let code = errors.first?["code"]?.int ?? 0
+        if [32, 89, 215].contains(code) { throw WeiboError.sessionExpired }
+        if code == 88 {
+            await throttle.backOffMore()
+            throw WeiboError.rateLimited(status: 429)
+        }
+        guard errors.isEmpty else { throw WeiboError.api("X 拒绝了关系操作，请在官方网页检查账号状态") }
+        return json
+    }
+
+    func userPosts(
+        _ stored: StoredSession, uid: String, cursor: String?,
+        onCookies: (@Sendable (Cookies) async -> Void)? = nil
+    ) async throws -> Paged<XPost> {
+        try await withSession(stored, onCookies: onCookies) { cookies in
+            var variables: [String: JSON] = [
+                "userId": .string(uid), "count": .int(20), "includePromotedContent": .bool(true),
+                "withQuickPromoteEligibilityTweetFields": .bool(true), "withVoice": .bool(true),
+            ]
+            if let cursor { variables["cursor"] = .string(cursor) }
+            return try parseXUserPosts(
+                await query("UserTweets", variables: .object(variables), cookies: &cookies),
+                previousCursor: cursor)
+        }
+    }
+
     func conversation(
         _ stored: StoredSession, id: String, cursor: String?,
         onCookies: (@Sendable (Cookies) async -> Void)? = nil
@@ -449,7 +576,7 @@ final class XWebAPI: Sendable {
     }
     private func get(
         _ url: URL, cookies: inout [String: String], api: Bool, body: String? = nil,
-        isCurrent: @Sendable @escaping () async -> Bool = { true }
+        isCurrent: @Sendable @escaping () async -> Bool = { true }, contentType: String = "application/json"
     ) async throws -> String {
         guard url.scheme == "https", ["x.com", "api.x.com"].contains(url.host ?? "") else {
             throw WeiboError.api("无效的 X 请求地址")
@@ -473,7 +600,7 @@ final class XWebAPI: Sendable {
         if let body {
             request.httpMethod = "POST"
             request.httpBody = Data(body.utf8)
-            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.setValue(contentType, forHTTPHeaderField: "Content-Type")
         }
         await throttle.acquire()
         defer { Task { await throttle.release() } }
@@ -517,7 +644,7 @@ final class XWebAPI: Sendable {
                 status: http.statusCode)
         }
     }
-    static let writeUncertain = "操作结果未确认，请先刷新帖子检查，避免重复发送"
+    static let writeUncertain = "操作结果未确认，请先刷新页面检查，避免重复发送"
     private static let webBearer =
         "AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA"
 }

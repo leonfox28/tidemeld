@@ -19,6 +19,7 @@ struct ProfilePresentation {
 struct SocialProfileHeader<Badge: View, Details: View>: View {
     let profile: ProfilePresentation
     let onRetry: () -> Void
+    var actions: ProfileActions? = nil
     @ViewBuilder let badge: () -> Badge
     @ViewBuilder let details: () -> Details
     var body: some View {
@@ -34,19 +35,17 @@ struct SocialProfileHeader<Badge: View, Details: View>: View {
                             Text(profile.name ?? " ").font(.title3.weight(.semibold)).lineLimit(1)
                                 .redacted(reason: profile.name == nil && profile.loading ? .placeholder : [])
                             badge()
-                            if let relation = profile.relation { TagLabel(text: relation) }
+                            if actions == nil, let relation = profile.relation { TagLabel(text: relation) }
                         }
-                        HStack(spacing: 16) {
-                            ForEach(profile.counts.indices, id: \.self) { index in
-                                let count = profile.counts[index]
-                                Text(
-                                    "\(Text(formatCount(count.value)).fontWeight(.semibold).foregroundStyle(AppTheme.foreground)) \(count.label)"
-                                )
-                                .foregroundStyle(AppTheme.secondary)
-                            }
-                        }.font(.subheadline).redacted(reason: profile.loading ? .placeholder : [])
-                    }
+                        if actions == nil {
+                            counts
+                        } else if let relation = profile.relation {
+                            TagLabel(text: relation)
+                        }
+                    }.frame(maxWidth: .infinity, alignment: .leading)
+                    if let actions { SocialProfileActions(actions: actions) }
                 }
+                if actions != nil { counts }
                 if let verification = profile.verification {
                     Text(verification).font(.caption).foregroundStyle(AppTheme.secondary)
                 }
@@ -63,4 +62,16 @@ struct SocialProfileHeader<Badge: View, Details: View>: View {
             Divider().overlay(AppTheme.outline)
         }
     }
+    private var counts: some View {
+        HStack(spacing: 16) {
+            ForEach(profile.counts.indices, id: \.self) { index in
+                let count = profile.counts[index]
+                Text(
+                    "\(Text(formatCount(count.value)).fontWeight(.semibold).foregroundStyle(AppTheme.foreground)) \(count.label)"
+                )
+                .foregroundStyle(AppTheme.secondary)
+            }
+        }.font(.subheadline).redacted(reason: profile.loading ? .placeholder : [])
+    }
+
 }

@@ -109,6 +109,34 @@ fun AccountsPage() {
                                     TextButton(onClick = { graph.accounts.useWeibo(account.key) }) {
                                         Text("使用")
                                     }
+                                if (!account.expired)
+                                    TextButton(
+                                        onClick = {
+                                            navigator.push(
+                                                when (platform) {
+                                                    SocialPlatform.Weibo ->
+                                                        Route.ForAccount(
+                                                            account.key,
+                                                            Route.Profile(
+                                                                account.session.account.uid
+                                                            ),
+                                                        )
+                                                    SocialPlatform.X ->
+                                                        Route.XProfile(
+                                                            account.key,
+                                                            io.github.leonfox28.tidemeld.data.x
+                                                                .XProfileUser(
+                                                                    id =
+                                                                        account.session.account.uid,
+                                                                    name = account.name,
+                                                                ),
+                                                        )
+                                                }
+                                            )
+                                        }
+                                    ) {
+                                        Text("主页")
+                                    }
                                 TextButton(onClick = { removing = account }) { Text("移除") }
                             }
                         },

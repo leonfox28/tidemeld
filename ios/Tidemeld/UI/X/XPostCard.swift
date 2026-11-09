@@ -5,6 +5,7 @@ struct XPostCard: View {
     let post: XPost
     let owner: String
     var detail = false
+    var profileHandle: String? = nil
     @Environment(AppGraph.self) private var graph
     var body: some View {
         PostContentFilter(text: post.contentFilterText) { unfilteredContent }
@@ -27,8 +28,9 @@ struct XPostCard: View {
                         metadata: "@\(post.handle)"
                             + (post.createdAt.map { " · \(formatPostTime($0))" } ?? ""),
                         sourceIcon: Image("PlatformX"), sourceLabel: "X",
-                        tags: post.promoted ? ["广告"] : [],
-                        avatar: { PostAvatar(url: post.avatar, label: post.author, size: 40) }, badge: {},
+                        tags: (post.pinned ? ["置顶"] : []) + (post.promoted ? ["广告"] : []),
+                        onAuthor: openAuthor,
+                        avatar: { PostAvatar(url: post.avatar, label: post.author, size: 40, onTap: openAuthor) }, badge: {},
                         menu: {})
                 },
                 content: {
@@ -56,7 +58,7 @@ struct XPostCard: View {
                                 {
                                     PostReplyContext(reference: reference)
                                 }
-                                XPostText(text: quote.text, owner: owner, author: quote.author)
+                                XPostText(text: quote.text, owner: owner, author: quote.author, authorHandle: quote.handle)
                                 XPostMedia(items: quote.media, postID: quote.originalID, owner: owner, sensitive: quote.sensitive)
                             }
                         }
@@ -65,6 +67,10 @@ struct XPostCard: View {
                     }
                 }, footer: { PostInteractionBar(actions: actions) })
         }
+    }
+    private var openAuthor: (() -> Void)? {
+        guard post.handle.lowercased() != profileHandle?.lowercased() else { return {} }
+        return { graph.router.push(.xProfile(owner: owner, user: post.profileUser)) }
     }
     private func open() {
         graph.router.push(.xStatus(owner: owner, id: post.originalID, initial: post))

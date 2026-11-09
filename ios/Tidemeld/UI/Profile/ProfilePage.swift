@@ -12,6 +12,8 @@ final class ProfileModel {
     private(set) var error: WeiboError?
     private(set) var statuses: PagedList<Status>?
     @ObservationIgnored private var graph: AppGraph?
+    @ObservationIgnored private(set) var controls: WeiboProfileControls?
+    @ObservationIgnored private var generation = 0
 
     init(uid: String?, screenName: String?) {
         self.uid = uid
@@ -21,21 +23,30 @@ final class ProfileModel {
     func start(_ graph: AppGraph) {
         guard self.graph == nil else { return }
         self.graph = graph
+        controls = WeiboProfileControls(graph)
         if let uid { startStatuses(uid) }
         reload()
     }
 
     func reload() {
         error = nil
+        generation += 1
+        let ticket = generation
         Task {
-            do {
-                let profile = try await graph!.api.fetchProfile(uid: uid, screenName: screenName)
-                self.profile = profile
-                if statuses == nil { startStatuses(profile.user.id) }
-            } catch {
-                self.error = WeiboError.of(error)
+            do { try await loadProfile(ticket) } catch {
+                if ticket == generation { self.error = WeiboError.of(error) }
             }
         }
+    }
+
+    private func loadProfile(_ ticket: Int) async throws {
+        let started = controls?.readStamp ?? 0
+        let result = try await graph!.api.fetchProfile(uid: profile?.user.id ?? uid, screenName: screenName)
+        guard ticket == generation else { return }
+        self.profile = result
+        controls?.ingest(result, started: started)
+        error = nil
+        if statuses == nil { startStatuses(result.user.id) }
     }
 
     private func startStatuses(_ uid: String) {
@@ -52,9 +63,14 @@ final class ProfileModel {
     /// Loads the profile and the statuses again; throws on failure, what was
     /// shown staying, for the caller to report.
     func refresh() async throws {
-        async let profile = graph!.api.fetchProfile(uid: uid, screenName: screenName)
-        try await statuses?.refresh()
-        self.profile = try await profile
+        generation += 1
+        let ticket = generation
+        async let details: Void = loadProfile(ticket)
+        async let content: Void? = statuses?.refresh()
+        var failure: Error?
+        do { try await details } catch { failure = error }
+        do { _ = try await content } catch { failure = failure ?? error }
+        if let failure { throw failure }
     }
 }
 
@@ -80,30 +96,19 @@ struct ProfilePage: View {
 
     var body: some View {
         let user = model.profile?.user ?? initial
-        Group {
-            if let statuses = model.statuses {
-                SocialContentList(refresh: { try await model.refresh() }) {
-                    ProfileHeader(model: model, initial: initial).readingWidth().plainRow()
-                    PagedRows(list: statuses, emptyText: "还没有微博") { status in
-                        StatusCard(status: status, actions: actions(statuses))
-                            .readingWidth()
-                            .statusRow()
-                    }
-                }
-            } else if let error = model.error {
-                ErrorRetry(error: error) { model.reload() }
-            } else {
-                ProgressView()
-            }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .appBackground()
-        .navigationTitle(user?.screenName ?? screenName ?? "")
-        .navigationBarTitleDisplayMode(.inline)
+        let presentation = WeiboProfilePresentation(model: model, initial: initial)
+        SocialProfilePage(
+            title: user?.screenName ?? screenName ?? "", profile: presentation.profile,
+            posts: model.statuses, failure: model.error.map(AppFailure.of), emptyText: "还没有微博",
+            retry: { model.reload() }, refresh: { try await model.refresh() },
+            actions: model.profile.flatMap { model.controls?.actions($0) },
+            badge: { presentation.badge }, details: { presentation.details },
+            row: { StatusCard(status: $0, actions: actions()) }
+        )
         .onAppear { model.start(graph) }
     }
 
-    private func actions(_ statuses: PagedList<Status>) -> StatusCardActions {
+    private func actions() -> StatusCardActions {
         var actions = graph.statusActions
         let base = actions
         let own = model.profile?.user.id ?? uid
@@ -113,48 +118,46 @@ struct ProfilePage: View {
     }
 }
 
-private struct ProfileHeader: View {
+@MainActor private struct WeiboProfilePresentation {
     let model: ProfileModel
     let initial: WeiboUser?
-    @Environment(\.displayScale) private var scale
 
-    var body: some View {
+    var profile: ProfilePresentation {
         let p = model.profile
         let failed = p == nil && model.error != nil
         let user = p?.user ?? initial
         let relation: String? =
             if let p {
-                p.following && p.followsMe ? "互相关注" : p.following ? "已关注" : p.followsMe ? "关注了你" : nil
+                model.controls?.state(p).value.label
             } else { nil }
         let loading = p == nil && !failed
         let counts = [("关注", p?.friendsCount), ("粉丝", p?.followersCount), ("微博", p?.statusesCount)]
             .compactMap { label, value in
                 (value ?? (loading ? 0 : nil)).map { ProfileCount(label: label, value: $0) }
             }
-        SocialProfileHeader(
-            profile: ProfilePresentation(
-                name: user?.screenName, avatarURL: user?.avatarURL,
-                coverURL: p?.coverURL, counts: counts, relation: relation,
-                verification: p?.verifiedReason.map { "微博认证：\($0)" }, description: p?.description,
-                loading: loading, failure: failed ? "资料加载失败：\(model.error!.message)" : nil),
-            onRetry: { model.reload() },
-            badge: {
-                if let verified = user?.verifiedType, showsVerified(verified) {
-                    VerifiedIcon(verifiedType: verified, size: 18)
+        return ProfilePresentation(
+            name: user?.screenName, avatarURL: user?.avatarURL,
+            coverURL: p?.coverURL, counts: counts, relation: relation,
+            verification: p?.verifiedReason.map { "微博认证：\($0)" }, description: p?.description,
+            loading: loading, failure: failed ? "资料加载失败：\(model.error!.message)" : nil)
+    }
+
+    @ViewBuilder var badge: some View {
+        if let verified = (model.profile?.user ?? initial)?.verifiedType, showsVerified(verified) {
+            VerifiedIcon(verifiedType: verified, size: 18)
+        }
+    }
+
+    @ViewBuilder var details: some View {
+        if let p = model.profile, p.gender != nil || p.location != nil {
+            HStack(spacing: 4) {
+                switch p.gender {
+                case "m": Image(systemName: "figure.stand").foregroundStyle(Color(rgb: 0x42A5F5))
+                case "f": Image(systemName: "figure.stand.dress").foregroundStyle(Color(rgb: 0xF06292))
+                default: EmptyView()
                 }
-            },
-            details: {
-                if let p, p.gender != nil || p.location != nil {
-                    HStack(spacing: 4) {
-                        switch p.gender {
-                        case "m": Image(systemName: "figure.stand").foregroundStyle(Color(rgb: 0x42A5F5))
-                        case "f": Image(systemName: "figure.stand.dress").foregroundStyle(Color(rgb: 0xF06292))
-                        default: EmptyView()
-                        }
-                        if let location = p.location { Text(location).foregroundStyle(AppTheme.secondary) }
-                    }
-                    .font(.caption)
-                }
-            })
+                if let location = p.location { Text(location).foregroundStyle(AppTheme.secondary) }
+            }.font(.caption)
+        }
     }
 }

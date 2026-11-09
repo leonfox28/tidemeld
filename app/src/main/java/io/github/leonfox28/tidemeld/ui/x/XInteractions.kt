@@ -2,7 +2,9 @@ package io.github.leonfox28.tidemeld.ui.x
 
 import io.github.leonfox28.tidemeld.core.accounts.*
 import io.github.leonfox28.tidemeld.core.net.*
+import io.github.leonfox28.tidemeld.data.model.Paged
 import io.github.leonfox28.tidemeld.data.x.*
+import io.github.leonfox28.tidemeld.ui.social.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
@@ -20,7 +22,11 @@ enum class XWrite {
 }
 
 /** State belongs to an account and the original post, including cards showing a repost. */
-class XInteractions(private val accounts: AccountManager, private val api: XWebApi?) {
+class XInteractions(
+    private val accounts: AccountManager,
+    private val api: XWebApi?,
+    val relationships: ProfileRelationships = ProfileRelationships(),
+) {
     private val mutable = MutableStateFlow<Map<String, XInteractionState>>(emptyMap())
     val states = mutable.asStateFlow()
     val drafts = mutableMapOf<String, io.github.leonfox28.tidemeld.ui.interactions.CommentDraft>()
@@ -69,6 +75,81 @@ class XInteractions(private val accounts: AccountManager, private val api: XWebA
             if (accounts.find(owner)?.revision != account.revision) throw SessionExpiredException()
             ingest(account, page.ancestors + listOfNotNull(page.post) + page.replies.items, started)
             return page
+        } catch (error: SessionExpiredException) {
+            if (accounts.find(owner)?.revision == account.revision) accounts.expire(owner)
+            throw error
+        }
+    }
+
+    suspend fun profile(owner: String, user: XProfileUser): XUserProfile =
+        read(owner) { account, api ->
+            api.profile(account.session, user, cookies(account))
+        }
+
+    suspend fun refreshRelationship(owner: String, uid: String, revision: Long? = null) {
+        val account = account(owner)
+        if (revision != null && revision != account.revision) throw SessionExpiredException()
+        if (uid == account.session.account.uid) return
+        val started = relationships.readStamp
+        val result =
+            read(owner) { source, api -> api.relationship(source.session, uid, cookies(source)) }
+        relationships.ingest(key(owner, uid), result.presentation(), started)
+    }
+
+    fun relationshipActions(owner: String, user: XProfileUser, failed: Boolean): ProfileActions? {
+        val uid = user.id ?: return null
+        val account = runCatching { account(owner) }.getOrNull() ?: return null
+        if (uid == account.session.account.uid) return null
+        val key = key(owner, uid)
+        val refresh: suspend () -> Unit = { refreshRelationship(owner, uid, account.revision) }
+        val state =
+            relationships.loadedState(key)
+                ?: return if (failed)
+                    ProfileActions(ProfileAction("refresh", "刷新状态", perform = refresh))
+                else ProfileActions(busy = true)
+        val current = {
+            accounts.find(owner)?.let { it.revision == account.revision && !it.expired } == true
+        }
+        val change: suspend (XUserAction) -> Unit = { action ->
+            relationships.perform(key, state.value, current) {
+                try {
+                    service()
+                        .changeRelationship(account.session, uid, action, cookies(account), current)
+                        .presentation()
+                } catch (error: SessionExpiredException) {
+                    if (current()) accounts.expire(owner)
+                    throw error
+                }
+            }
+        }
+        return profileActions(
+            user.name ?: user.handle ?: "此用户",
+            state,
+            follow = { change(XUserAction.Follow(it)) },
+            block = { change(XUserAction.Block(it)) },
+            reposts = { change(XUserAction.Reposts(it)) },
+            refresh = refresh,
+        )
+    }
+
+    suspend fun userPosts(owner: String, uid: String, cursor: String?): Paged<XPost> {
+        val started = readStamp
+        return read(owner) { account, api ->
+            api.userPosts(account.session, uid, cursor, cookies(account)).also {
+                ingest(account, it.items, started)
+            }
+        }
+    }
+
+    private suspend fun <T> read(owner: String, action: suspend (SocialAccount, XWebApi) -> T): T {
+        val account = account(owner)
+        try {
+            val result = action(account, service())
+            if (
+                accounts.find(owner)?.let { it.revision == account.revision && !it.expired } != true
+            )
+                throw SessionExpiredException()
+            return result
         } catch (error: SessionExpiredException) {
             if (accounts.find(owner)?.revision == account.revision) accounts.expire(owner)
             throw error
@@ -156,3 +237,6 @@ class XInteractions(private val accounts: AccountManager, private val api: XWebA
         }
     }
 }
+
+private fun XUserRelationship.presentation() =
+    ProfileRelationship(following, followsYou, requested, blocking, showsReposts)

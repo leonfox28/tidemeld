@@ -25,10 +25,14 @@ fun XPostCard(
     post: XPost,
     owner: String,
     detail: Boolean = false,
+    profileHandle: String? = null,
 ) {
     if (hideFilteredPost(post.contentFilterText)) return
     val navigator = LocalNavigator.current
     val actions = rememberXPostActions(owner, post)
+    val openAuthor: (() -> Unit)? =
+        if (post.handle.equals(profileHandle, ignoreCase = true)) ({})
+        else ({ navigator.push(Route.XProfile(owner, post.profileUser)) })
     val hasMedia = post.media.isNotEmpty()
     PostCard(
         detail = detail,
@@ -43,8 +47,13 @@ fun XPostCard(
                     "@${post.handle}" + (post.createdAt?.let { " · ${formatPostTime(it)}" } ?: ""),
                 sourceIcon = R.drawable.ic_platform_x,
                 sourceLabel = "X",
-                tags = if (post.promoted) listOf("广告") else emptyList(),
-                avatar = { PostAvatar(post.avatar, post.author, size = 40.dp) },
+                tags =
+                    (if (post.pinned) listOf("置顶") else emptyList()) +
+                        (if (post.promoted) listOf("广告") else emptyList()),
+                onAuthor = openAuthor,
+                avatar = {
+                    PostAvatar(post.avatar, post.author, size = 40.dp, onClick = openAuthor)
+                },
             )
         },
         body = {
@@ -80,6 +89,7 @@ fun XPostCard(
                                     quote.text,
                                     owner,
                                     author = quote.author,
+                                    authorHandle = quote.handle,
                                     style = MaterialTheme.typography.bodyMedium,
                                 )
                                 XMedia(quote, owner)

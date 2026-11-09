@@ -6,7 +6,7 @@ import Foundation
 /// `login`, `compose`, `settings`, `about`, `privacy`, `licenses`,
 /// `tab/<home|search|notifications|settings>`, `reselect/<home|search|notifications>`
 /// (the tab tapped again a few seconds after it opens),
-/// `status/<id>`, `u/<uid>`, `n/<screen name>`, `results/<query>`,
+/// `x-me`, `x-user/<handle>`, `status/<id>`, `u/<uid>`, `n/<screen name>`, `results/<query>`,
 /// `web/<url>` (the in-app browser), and from
 /// the home timeline once loaded, `first/<status|pic|video|user|thread>`.
 @MainActor
@@ -39,6 +39,14 @@ enum DebugLaunch {
             Task {
                 try? await Task.sleep(for: .seconds(4))
                 router.selection.wrappedValue = tab
+            }
+        case "x-user":
+            if let account = graph.accounts.accounts.first(where: { $0.platform == .x && !$0.expired }) {
+                router.push(.xProfile(owner: account.id, user: XProfileUser(handle: rest)))
+            }
+        case "x-me":
+            if let account = graph.accounts.accounts.first(where: { $0.platform == .x && !$0.expired }) {
+                router.push(.xProfile(owner: account.id, user: XProfileUser(id: account.session.account.uid, name: account.name)))
             }
         case "status": router.push(.status(id: rest, initial: nil))
         case "u": router.push(.profile(uid: rest, initial: nil))

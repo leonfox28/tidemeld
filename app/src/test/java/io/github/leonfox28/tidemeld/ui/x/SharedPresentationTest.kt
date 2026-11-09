@@ -48,6 +48,31 @@ class SharedPresentationTest {
     }
 
     @Test
+    @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    fun `X mentions open the source account profile without opening the containing card`() {
+        val navigator = Navigator()
+        var cardOpens = 0
+        compose.setContent {
+            TestHost(navigator = navigator) {
+                Column(Modifier.clickable { cardOpens++ }) { XPostText("@fixture", "x:other") }
+            }
+        }
+        val label = compose.onNodeWithText("@fixture", useUnmergedTree = true)
+        val layouts = mutableListOf<TextLayoutResult>()
+        label.performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
+        label.performTouchInput { click(layouts.single().getBoundingBox(0).center) }
+        compose.waitForIdle()
+        assertEquals(
+            Route.XProfile(
+                "x:other",
+                io.github.leonfox28.tidemeld.data.x.XProfileUser(handle = "fixture"),
+            ),
+            navigator.backStack.last(),
+        )
+        assertEquals(0, cardOpens)
+    }
+
+    @Test
     fun `the shared editor retains an independent platform failure and its draft until retry succeeds`() {
         class OtherFailure : Exception(), UserFacingFailure {
             override val appFailure = AppFailure("合成平台暂时不可用")
