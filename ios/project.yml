@@ -15,7 +15,7 @@ settings:
     ENABLE_USER_SCRIPT_SANDBOXING: YES
     # The version, as in app/build.gradle.kts.
     MARKETING_VERSION: "1.0.0"
-    CURRENT_PROJECT_VERSION: "8"
+    CURRENT_PROJECT_VERSION: "9"
 targets:
   Tidemeld:
     type: application
