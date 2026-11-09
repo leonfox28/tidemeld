@@ -116,6 +116,27 @@ final class WeiboAPI: Sendable {
         return status
     }
 
+    /// The public video page's read-only component request (despite using POST).
+    /// Resolve the linked object, not the status that happens to quote its URL.
+    func fetchLinkedVideo(_ link: WeiboVideoLink) async throws -> VideoInfo {
+        let url = URL.with("https://h5.video.weibo.com/api/component", query: [("page", "/show/\(link.objectID)")])
+        let payload = JSON.object(["Component_Play_Playinfo": .object(["oid": .string(link.objectID)])])
+        let json = try await postForm(url.absoluteString, [("data", payload.text)])
+        guard json["code"]?.string == "100000",
+            let info = json["data"]?["Component_Play_Playinfo"],
+            info["oid"]?.string == link.objectID,
+            info["object_type"]?.string == "video", info["live"]?.bool != true,
+            (info["is_pay_audio"]?.int ?? 0) == 0
+        else { throw WeiboError.api("这段视频暂时无法播放") }
+        let urls = info["urls"]
+        let streams = ["高清 720P", "标清 480P", "流畅 360P"].compactMap { urls?[$0]?.url }
+            + [info["stream_url"]?.url].compactMap { $0 }
+        guard !streams.isEmpty else { throw WeiboError.api("这段视频暂时无法播放") }
+        return VideoInfo(
+            coverURL: info["cover_image"]?.url,
+            duration: info["duration_time"]?.int.map(Int.init), streamURLs: streams.map(https))
+    }
+
     /// A page of the comments on status [statusId] by [authorId], continuing
     /// after [maxId] (a previous page's cursor).
     func fetchComments(statusId: String, authorId: String, order: CommentOrder, maxId: String? = nil)

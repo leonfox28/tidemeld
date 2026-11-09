@@ -21,6 +21,7 @@ enum StatusLink: Sendable, Hashable {
     /// repost along the chain (`查看2张图片`); [pics] are empty when the URL
     /// isn't a picture on Weibo's image hosts.
     case image(URL, [PicInfo])
+    case video(WeiboVideoLink)
     case web(URL)
 }
 
@@ -117,10 +118,14 @@ private func linkOf(_ a: HTMLElement, label: String, urls: [URLEntity]) -> Statu
     if host == "t.cn" {
         for entity in urls {
             guard let long = entity.longURL.flatMap(webURL) else { continue }
-            if sameURL(entity.shortURL, url) { return .web(long) }
+            if sameURL(entity.shortURL, url) { return videoOrWeb(long) }
         }
     }
-    return .web(url)
+    return videoOrWeb(url)
+}
+
+private func videoOrWeb(_ url: URL) -> StatusLink {
+    WeiboVideoLink.from(url).map(StatusLink.video) ?? .web(url)
 }
 
 /// [string] as an http(s) URL, or nil.

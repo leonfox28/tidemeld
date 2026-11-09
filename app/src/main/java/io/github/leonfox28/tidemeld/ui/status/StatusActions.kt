@@ -68,6 +68,8 @@ fun rememberStatusCardActions(): StatusCardActions {
             onLink = { link ->
                 when (link) {
                     is StatusLink.Web -> openExternally(link.url.toString())
+                    is StatusLink.Video ->
+                        navigator.push(Route.Video(weiboVideoRequest(api, link.video)))
                     // Mentions carry only the name.
                     is StatusLink.Mention -> navigator.push(Route.ProfileByName(link.screenName))
                     is StatusLink.Topic -> openSearchResults(navigator, "#${link.topic}#")

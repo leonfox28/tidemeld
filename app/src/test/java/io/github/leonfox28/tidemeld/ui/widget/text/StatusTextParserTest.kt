@@ -5,6 +5,61 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class StatusTextParserTest {
+    @Test
+    fun `video links preserve their label and icon and use the linked object`() {
+        val urls =
+            listOf(
+                "https://h5.video.weibo.com/show/1034:5000000000000001",
+                "//video.weibo.com/show?fid=1034%3A5000000000000001",
+                "https://weibo.com/tv/show/1034:5000000000000001?from=old_pc_videoshow",
+                "https://www.weibo.com/tv/v/Example?fid=1034:5000000000000001",
+            )
+        for (url in urls) {
+            assertEquals(
+                listOf("text:大头小头理论 ", "link:示例用户的微博视频→video:1034:5000000000000001 icon"),
+                describe(
+                    parseStatusText(
+                        "大头小头理论 <a href=\"$url\"><img class=\"icon-link\" src=\"https://h5.sinaimg.cn/video.png\"/>示例用户的微博视频</a>"
+                    )
+                ),
+            )
+        }
+        assertEquals(
+            listOf("link:示例用户的微博视频→video:1034:5000000000000001"),
+            describe(
+                parseStatusText(
+                    "<a href=\"http://t.cn/Video\">示例用户的微博视频</a>",
+                    urls =
+                        listOf(
+                            UrlEntity(
+                                "https://t.cn/Video",
+                                "https://h5.video.weibo.com/show/1034:5000000000000001",
+                            )
+                        ),
+                )
+            ),
+        )
+    }
+
+    @Test
+    fun `unrelated malformed and unresolved links stay web links`() {
+        for (url in
+            listOf(
+                "https://example.com/show/1034:5000000000000001",
+                "https://h5.video.weibo.com.example.com/show/1034:5000000000000001",
+                "https://h5.video.weibo.com/show/not-a-video",
+                "https://h5.video.weibo.com/show/1034:5000000000000001/extra",
+                "https://weibo.com/article?fid=1034:5000000000000001",
+                "https://weibo.com/u/7",
+                "https://t.cn/Unknown",
+            )) {
+            assertEquals(
+                listOf("link:微博视频→web:$url"),
+                describe(parseStatusText("<a href=\"$url\">微博视频</a>")),
+            )
+        }
+    }
+
     /** A compact, comparable rendering of segments. */
     private fun describe(segments: List<TextSegment>) = segments.map { s ->
         when (s) {
@@ -18,6 +73,7 @@ class StatusTextParserTest {
                         is StatusLink.Topic -> "topic:${link.topic}"
                         is StatusLink.Image -> "image:${link.url}"
                         is StatusLink.Web -> "web:${link.url}"
+                        is StatusLink.Video -> "video:${link.video.objectId}"
                     } +
                     if (s.iconUrl == null) "" else " icon"
         }

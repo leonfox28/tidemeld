@@ -64,6 +64,7 @@ extension AppGraph {
     func open(_ link: StatusLink) {
         switch link {
         case .web(let url): openExternally(url)
+        case .video(let video): router.video = weiboVideoRequest(api: api, link: video)
         // Mentions carry only the name.
         case .mention(let name): router.push(.profileByName(name))
         case .topic(let topic): router.openSearch("#\(topic)#")

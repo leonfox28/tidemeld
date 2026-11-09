@@ -16,6 +16,7 @@ import io.github.leonfox28.tidemeld.core.util.readInt
 import io.github.leonfox28.tidemeld.core.util.readMap
 import io.github.leonfox28.tidemeld.core.util.readMaps
 import io.github.leonfox28.tidemeld.core.util.readString
+import io.github.leonfox28.tidemeld.core.util.readUrl
 import io.github.leonfox28.tidemeld.data.model.Account
 import io.github.leonfox28.tidemeld.data.model.Comment
 import io.github.leonfox28.tidemeld.data.model.CommentNotice
@@ -29,6 +30,8 @@ import io.github.leonfox28.tidemeld.data.model.StatusVisibility
 import io.github.leonfox28.tidemeld.data.model.Topic
 import io.github.leonfox28.tidemeld.data.model.UnreadNotices
 import io.github.leonfox28.tidemeld.data.model.UserProfile
+import io.github.leonfox28.tidemeld.data.model.VideoInfo
+import io.github.leonfox28.tidemeld.data.model.WeiboVideoLink
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
@@ -36,6 +39,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.addJsonObject
 import kotlinx.serialization.json.buildJsonArray
+import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import okhttp3.FormBody
 import okhttp3.HttpUrl.Companion.toHttpUrl
@@ -134,6 +138,41 @@ class WeiboApi(
         // endpoint only has it as plain text (PLAN §8).
         val json = getJson("$WEB/ajax/statuses/show", mapOf("id" to id, "isGetLongText" to "true"))
         return Status.tryFromJson(json) ?: throw WeiboApiException("微博不存在或已被删除")
+    }
+
+    /** The public video page's read-only component request (despite using POST). */
+    suspend fun fetchLinkedVideo(link: WeiboVideoLink): VideoInfo {
+        val url =
+            withQuery(
+                "https://h5.video.weibo.com/api/component",
+                mapOf("page" to "/show/${link.objectId}"),
+            )
+        val payload = buildJsonObject {
+            put("Component_Play_Playinfo", buildJsonObject { put("oid", link.objectId) })
+        }
+        val json = postForm(url.toString(), mapOf("data" to payload.toString()))
+        val info = readMap(readMap(json["data"])?.get("Component_Play_Playinfo"))
+        if (
+            readString(json["code"]) != "100000" ||
+                readString(info?.get("oid")) != link.objectId ||
+                readString(info?.get("object_type")) != "video" ||
+                readBool(info?.get("live")) == true ||
+                (readInt(info?.get("is_pay_audio")) ?: 0L) != 0L
+        )
+            throw WeiboApiException("这段视频暂时无法播放")
+        val urls = readMap(info?.get("urls"))
+        val streams =
+            listOf("高清 720P", "标清 480P", "流畅 360P").mapNotNull { readUrl(urls?.get(it)) } +
+                listOfNotNull(readUrl(info?.get("stream_url")))
+        if (streams.isEmpty()) throw WeiboApiException("这段视频暂时无法播放")
+        return VideoInfo(
+            coverUrl = readUrl(info?.get("cover_image")),
+            duration = readInt(info?.get("duration_time"))?.toInt(),
+            streamUrls =
+                streams.map {
+                    if (it.startsWith("http://")) "https://" + it.removePrefix("http://") else it
+                },
+        )
     }
 
     /**

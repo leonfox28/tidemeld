@@ -7,15 +7,38 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import io.github.leonfox28.tidemeld.support.TestHost
+import io.github.leonfox28.tidemeld.ui.navigation.Navigator
+import io.github.leonfox28.tidemeld.ui.navigation.Route
+import io.github.leonfox28.tidemeld.ui.status.rememberStatusCardActions
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.GraphicsMode
 
 @RunWith(RobolectricTestRunner::class)
 class StatusTextTapTest {
     @get:Rule val compose = createComposeRule()
+
+    @Test
+    @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    fun `tapping an inline video opens the shared player`() {
+        val navigator = Navigator()
+        compose.setContent {
+            TestHost(navigator = navigator) {
+                val actions = rememberStatusCardActions()
+                StatusText(
+                    "<a href=\"https://h5.video.weibo.com/show/1034:5000000000000001\">示例用户的微博视频</a>",
+                    onLink = actions.onLink,
+                )
+            }
+        }
+        compose.onNodeWithText("示例用户的微博视频").performClick()
+        assertTrue(navigator.backStack.last() is Route.Video)
+    }
 
     @Test
     fun `a tap just below a link is not the link's`() {

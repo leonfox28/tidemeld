@@ -319,6 +319,8 @@ app/src/androidTest/            # 设备测试（读 WebView 的 HttpOnly Cookie
 
 ## 11. 进度与交接（更新于 2026-10-30，换成 Kotlin 之后；iOS 版另见 IOS.md）
 
+**2026-11-09 正文里的微博视频链接**：Android / iOS 保留现有文字、视频小图标和转发框，只把点击目标接入共享播放器。识别 `h5.video.weibo.com/show/<oid>`、`video.weibo.com/show?fid=`、`weibo.com/tv/show/<oid>` 和旧版 `tv/v/?fid=`，`url_struct` 解析出的短链同样适用；普通网页和无法解析的短链仍按原路径打开。点击后才由来源账号的 API 请求 `https://h5.video.weibo.com/api/component?page=/show/<oid>`，表单 `data={"Component_Play_Playinfo":{"oid":"…"}}`；这是视频网页使用的只读 POST，成功码 `100000`，播放地址在 `data.Component_Play_Playinfo.urls` / `stream_url`。验证返回的 `oid`，按 720P / 480P / 360P 选择并升级 HTTPS，重试仍请求同一视频对象，不拿所在转发帖的附件代替。接口形态核对自微博公开网页脚本（`js.t.sinajs.cn/t1/star-pc/assets/js/chunk-common.e5a3027e.js`）；用户提供的视频在无 Cookie 请求中返回正常，CDN 返回 206 MP4，iOS 回归模拟器内已播放并观察到画面和进度推进。回归与构建结果见 IOS.md 本日记录。
+
 **2026-11-07 图片表情行高修复**：用户确认构建 8 已解决原评论文字裁切，但图片表情仍撑高楼中楼行框。合成位图复现默认回复行高从 18 点升至约 25.3 点；共用 `PostText` 改用原生 `TextRenderer` 在字体行框内绘图并保留图片宽度，修复后与普通文本高度一致。三种字号、两种字体样式、连续表情和链接图标回归通过，栅格检查确认完整绘制，完整 136 项 iOS 测试通过。截图和日志在 `ios/build/inline-image-height-fix/`；此后续修复尚未发布 TestFlight。
 
 **2026-11-07 TestFlight 文字布局修复**：共用 `PostText` 保留完整行高，针对楼中楼文字裁切；新增六组字号/宽度布局场景，完整 135 项 iOS 测试通过。按用户要求发布为 `1.0.0 (8)`，内部测试群组确认“正在测试”；归档、校验与发布凭据在 `ios/build/testflight-1.0.0-8/`。与上一版相比应用源码仅该布局修复，原页面真机效果待更新复核。

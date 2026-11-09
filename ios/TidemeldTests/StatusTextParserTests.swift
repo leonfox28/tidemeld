@@ -18,6 +18,7 @@ private func describe(_ segments: [TextSegment]) -> [String] {
                     case .topic(let topic): "topic:\(topic)"
                     case .image(let url, _): "image:\(url.absoluteString)"
                     case .web(let url): "web:\(url.absoluteString)"
+                    case .video(let video): "video:\(video.objectID)"
                     }
                 }() + (icon == nil ? "" : " icon")
         }
@@ -25,6 +26,41 @@ private func describe(_ segments: [TextSegment]) -> [String] {
 }
 
 struct StatusTextParserTests {
+    @Test(arguments: [
+        "https://h5.video.weibo.com/show/1034:5000000000000001",
+        "//video.weibo.com/show?fid=1034%3A5000000000000001",
+        "https://weibo.com/tv/show/1034:5000000000000001?from=old_pc_videoshow",
+        "https://www.weibo.com/tv/v/Example?fid=1034:5000000000000001",
+    ])
+    func videoLinksKeepTheirTextAndIconButTargetThePlayer(_ url: String) {
+        let html = "大头小头理论 <a href=\"\(url)\"><img class=\"icon-link\" src=\"https://h5.sinaimg.cn/video.png\"/>示例用户的微博视频</a>"
+        #expect(describe(parseStatusText(html)) == ["text:大头小头理论 ", "link:示例用户的微博视频→video:1034:5000000000000001 icon"])
+    }
+
+    @Test func videoShortLinksInRepostsUseTheLinkedObject() throws {
+        let status = try #require(Status.from(json(#"""
+            {"id":"2","text":"转发 <a href=\"http://t.cn/Video\">示例用户的微博视频</a>",
+             "url_struct":[{"short_url":"https://t.cn/Video","long_url":"https://h5.video.weibo.com/show/1034:5000000000000001"}],
+             "retweeted_status":{"id":"1","text":"原文 <a href=\"https://t.cn/Video\">视频</a>"}}
+            """#)))
+        #expect(status.video == nil)
+        #expect(describe(parseStatusText(status.text, urls: status.urls)).last == "link:示例用户的微博视频→video:1034:5000000000000001")
+        let quote = try #require(status.retweeted)
+        #expect(describe(parseStatusText(quote.text, urls: quote.urls)).last == "link:视频→video:1034:5000000000000001")
+    }
+
+    @Test(arguments: [
+        "https://example.com/show/1034:5000000000000001",
+        "https://h5.video.weibo.com.example.com/show/1034:5000000000000001",
+        "https://h5.video.weibo.com/show/not-a-video",
+        "https://h5.video.weibo.com/show/1034:5000000000000001/extra",
+        "https://weibo.com/article?fid=1034:5000000000000001",
+        "https://weibo.com/u/7", "https://t.cn/Unknown",
+    ])
+    func unrelatedAndUnresolvedLinksStillOpenAsWebPages(_ url: String) {
+        #expect(parseStatusText("<a href=\"\(url)\">微博视频</a>") == [.link("微博视频", .web(URL(string: url)!))])
+    }
+
     @Test func plainTextWithLineBreaksAndEntities() {
         #expect(describe(parseStatusText("第一行<br />第二行 &amp; &lt;b&gt;")) == ["text:第一行\n第二行 & <b>"])
     }

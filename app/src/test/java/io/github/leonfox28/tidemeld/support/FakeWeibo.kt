@@ -49,6 +49,7 @@ class FakeWeibo : Closeable {
             .addSubjectAlternativeName("api.x.com")
             .addSubjectAlternativeName("weibo.com")
             .addSubjectAlternativeName("*.weibo.com")
+            .addSubjectAlternativeName("h5.video.weibo.com")
             .addSubjectAlternativeName("*.api.weibo.com")
             .addSubjectAlternativeName("weibo.cn")
             .addSubjectAlternativeName("*.weibo.cn")

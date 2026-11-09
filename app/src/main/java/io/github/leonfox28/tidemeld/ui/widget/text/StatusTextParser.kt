@@ -3,6 +3,7 @@ package io.github.leonfox28.tidemeld.ui.widget.text
 import io.github.leonfox28.tidemeld.core.util.readUrl
 import io.github.leonfox28.tidemeld.data.model.PicInfo
 import io.github.leonfox28.tidemeld.data.model.UrlEntity
+import io.github.leonfox28.tidemeld.data.model.WeiboVideoLink
 import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import org.jsoup.Jsoup
@@ -37,6 +38,8 @@ sealed interface StatusLink {
      * (`查看2张图片`); [pics] are empty when [url] isn't a picture on Weibo's image hosts.
      */
     data class Image(val url: HttpUrl, val pics: List<PicInfo>) : StatusLink
+
+    data class Video(val video: WeiboVideoLink) : StatusLink
 
     data class Web(val url: HttpUrl) : StatusLink
 }
@@ -153,11 +156,14 @@ private fun linkOf(a: Element, label: String, urls: List<UrlEntity>): StatusLink
     if (url.host == "t.cn") {
         for (entity in urls) {
             val long = entity.longUrl?.toHttpUrlOrNull() ?: continue
-            if (sameUrl(entity.shortUrl, url)) return StatusLink.Web(long)
+            if (sameUrl(entity.shortUrl, url)) return videoOrWeb(long)
         }
     }
-    return StatusLink.Web(url)
+    return videoOrWeb(url)
 }
+
+private fun videoOrWeb(url: HttpUrl): StatusLink =
+    WeiboVideoLink.from(url)?.let(StatusLink::Video) ?: StatusLink.Web(url)
 
 // A link to several pictures names them all in `data-pids` but links to the
 // first; one to a single picture may name it in `data-pid`. The url_struct
