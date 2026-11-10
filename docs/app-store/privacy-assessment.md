@@ -1,8 +1,18 @@
 # App privacy and age-rating assessment
 
-Checked 2026-11-06. The build-3 questionnaire record below is historical and includes assumptions that were subsequently found insufficiently supported. It must not be treated as a verified endpoint-level assessment or an Apple review decision.
+Updated 2026-11-10; see the current correction below. The build-3 questionnaire record below is historical and includes assumptions that were subsequently found insufficiently supported. It must not be treated as a verified endpoint-level assessment or an Apple review decision.
 
-Submission update: the maintainer selected the affirmative third-party content-rights declaration and explicitly requested submission. That choice was saved, and build 1.0.0 (4) entered Waiting for Review on 2026-11-06 at 09:45 Asia/Shanghai (submission `89a7b8ad-e7bc-4e0d-8ad2-53f943a2a37e`). The existing privacy label was unchanged. This records the maintainer's declaration and Apple's receipt of the submission, not independent verification of rights or approval of the privacy disclosures.
+Historical November 6 submission update: the maintainer selected the affirmative third-party content-rights declaration and explicitly requested submission. That choice was saved, and build 1.0.0 (4) entered Waiting for Review on 2026-11-06 at 09:45 Asia/Shanghai (submission `89a7b8ad-e7bc-4e0d-8ad2-53f943a2a37e`). The existing privacy label was unchanged. This records the maintainer's declaration and Apple's receipt of the submission, not independent verification of rights or approval of the privacy disclosures.
+
+## 2026-11-10 correction after rejection
+
+The maintainer reviewed the choices individually and published four data types: Photos or Videos, Other User Content, Search History and User ID. On 2026-11-10 the search-history identity answer was corrected from unlinked to linked because native searches carry the signed-in platform session. App Store Connect then showed all four types as App Functionality and linked to identity, with no tracking category in its preview. Product Interaction was removed at the maintainer's request. This is the current declared label, not an Apple approval or a full audit of remote webpage processing.
+
+The code audit found no maintainer backend, analytics/crash/advertising SDK, IDFA/IDFV/UDID access or native device-location collection. Platform profile display names and profile location text are not proof that the app collects users' real names or device geolocation. Local settings, filters and drafts remain local. Native uploads go to Weibo; text, search terms, account identifiers and authenticated requests go directly to the selected service. The absence of developer telemetry does not mean user interactions never reach the platform: likes, replies and feed requests still do.
+
+Limits: login, visitor-session setup, session renewal and service-specific WebKit pages execute remote platform code. Cookie import is not restricted to an authentication-only allowlist. A limited unauthenticated HTTP check is not a logged-in WebKit traffic audit and does not establish the purposes of every platform cookie. Selected photo bytes are not actively stripped of metadata. The removed broad categories were unsupported assumptions, not evidence that every possible embedded-page flow has been proven collection-free. Do not describe the revised label as proof of zero remote platform tracking.
+
+Evidence: the published preview and four per-type summaries are captured in local `ios/build/app-store-1.0.0-10/privacy-published.png`. The public/bundled policy still describes direct platform requests, local storage and third-party webpages; it was not rewritten to promise control over those platforms.
 
 ## Flare comparison and build 4 correction
 
@@ -36,7 +46,7 @@ The initial build-4 Add for Review attempt returned one required-field error: co
 - [X adult-content policy](https://help.x.com/en/rules-and-policies/adult-content): permits labeled adult content and applies age-related restrictions. Tidemeld must preserve appropriate restrictions rather than assume the official app's rating applies.
 - [Apple age-rating definitions](https://developer.apple.com/help/app-store-connect/reference/app-information/age-ratings-values-and-definitions/): graphic sexual content and prolonged graphic/sadistic violence can make an app unrated. A higher age override is not a substitute for accurate questionnaire answers.
 
-## Historical published privacy label (still unchanged in App Store Connect)
+## Historical published privacy label (superseded on 2026-11-10)
 
 App Store Connect now has a published label with these 12 data types. All purpose, identity-linkage and tracking questions were completed in the follow-up below; the UI confirmed publication by the account holder on 2026-11-06.
 
