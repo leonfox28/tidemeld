@@ -1,12 +1,14 @@
-# Response draft — November 11 rejection
+# Response sent — November 11 rejection
 
-Local draft, not sent. The revised build has not been uploaded. Update its build number and validate review access before using this response. Video recording is deferred; no recording is attached.
+Sent through App Store Connect on November 12 at 11:09 Asia/Shanghai for build 11. The message count increased from 3 to 4. Build 11 entered Waiting for Review at 11:10. Video recording remains deferred; no recording is attached.
 
 ---
 
-Thank you for reviewing Tidemeld.
+Thank you for reviewing Tidemeld. We are submitting version 1.0.0, build 11, for reconsideration.
 
-For guideline 1.2, the revised app requires explicit agreement to the bundled Terms of Use before browsing or connecting a platform account. The terms state that objectionable content and abusive behavior are not tolerated. They remain available under Settings → About → Terms of Use.
+To locate the controls: the Report button is in the ⋯ menu at the TOP RIGHT of each post, to the right of the platform icon. In post details, LONG-PRESS a comment to find Report. Content filtering options are in 设置 (Settings) → 内容过滤 (Content Filtering), including local keyword settings and an explanation of default sensitive-media hiding.
+
+For guideline 1.2, build 11 requires explicit agreement to the bundled Terms of Use before browsing or connecting a platform account. The terms state that objectionable content and abusive behavior are not tolerated. They remain available under Settings → About → Terms of Use.
 
 Posts and profiles offer Report in their more-actions menus. Comments offer Report in their long-press menus. Weibo opens its official complaint form with the selected item. X opens the original post or profile with instructions to choose Report in the platform menu and complete its reporting flow. Users submit their reports directly to the respective service; simply opening the page does not submit a report.
 
