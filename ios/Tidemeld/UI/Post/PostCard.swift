@@ -90,10 +90,10 @@ struct PostHeader<Avatar: View, Badge: View, Menu: View>: View {
             }
             Spacer(minLength: 0)
             ForEach(tags, id: \.self) { TagLabel(text: $0) }
-            menu()
             sourceIcon.resizable().scaledToFit().frame(width: 16, height: 16)
                 .foregroundStyle(AppTheme.secondary).frame(width: 32, height: 32)
                 .accessibilityLabel("来源：\(sourceLabel)")
+            menu()
         }
     }
 }

@@ -4,6 +4,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.leonfox28.tidemeld.LocalAppGraph
@@ -16,10 +18,11 @@ import io.github.leonfox28.tidemeld.ui.interactions.LikeTarget
 import io.github.leonfox28.tidemeld.ui.interactions.rememberLike
 import io.github.leonfox28.tidemeld.ui.navigation.LocalNavigator
 import io.github.leonfox28.tidemeld.ui.post.*
-import io.github.leonfox28.tidemeld.ui.social.SocialProfileActions
+import io.github.leonfox28.tidemeld.ui.social.*
 import io.github.leonfox28.tidemeld.ui.widget.UserAvatar
 import io.github.leonfox28.tidemeld.ui.widget.status.StatusCardActions
 import io.github.leonfox28.tidemeld.ui.widget.text.StatusText
+import io.github.leonfox28.tidemeld.ui.widget.text.plainStatusText
 
 /** Weibo fills the shared comment row without changing its links, likes or thread actions. */
 @Composable
@@ -30,7 +33,7 @@ fun CommentTile(
     actions: StatusCardActions = StatusCardActions(),
     onThread: (() -> Unit)? = null,
     onClick: (() -> Unit)? = null,
-    onLongClick: (() -> Unit)? = null,
+    onDelete: (() -> Unit)? = null,
     below: (@Composable () -> Unit)? = null,
 ) {
     if (hideFilteredPost(comment.contentFilterText, authors = comment.contentAuthorIds)) return
@@ -43,73 +46,80 @@ fun CommentTile(
     val meta =
         listOfNotNull(comment.createdAt?.let { formatPostTime(it) }, comment.source)
             .joinToString("  ")
-    PostComment(
-        author = user?.screenName ?: "微博用户",
-        metadata = meta,
-        modifier = modifier,
-        isAuthor = user != null && user.id == authorId,
-        onReply = onClick,
-        onLongClick = onLongClick,
-        menu = {
-            SocialProfileActions(
-                LocalAppGraph.current.weiboSafetyActions(
-                    LocalNavigator.current,
-                    comment.id,
-                    WeiboReportKind.Comment,
-                    user,
-                ),
-                menuLabel = "更多评论操作",
+    val graph = LocalAppGraph.current
+    val navigator = LocalNavigator.current
+    val clipboard = LocalClipboardManager.current
+    val safety = graph.weiboSafetyActions(navigator, comment.id, WeiboReportKind.Comment, user)
+    val menuActions = buildList {
+        onClick?.let { add(ProfileAction("reply", "回复", perform = { it() })) }
+        add(
+            ProfileAction(
+                "copy",
+                "复制",
+                perform = { clipboard.setText(AnnotatedString(plainStatusText(comment.text))) },
             )
-        },
-        avatar = { UserAvatar(user, size = 32.dp, onClick = actions.onUser) },
-        content = {
-            if (comment.text.isNotEmpty()) {
-                StatusText(
-                    comment.text,
-                    Modifier.padding(top = 4.dp),
-                    urls = comment.urls,
-                    hiddenPictures = comment.pics.map { it.id },
-                    style =
-                        MaterialTheme.typography.bodyMedium.copy(
-                            fontSize = 15.sp,
-                            lineHeight = (15 * 1.45).sp,
-                        ),
-                    onLink = actions.onLink,
-                )
-            }
-            if (comment.pics.isNotEmpty()) {
-                PostCommentMedia(
-                    comment.pics.map(MixedMedia::Pic),
-                    actions.onPicture?.let { open ->
-                        { index -> open(comment.pics, index, null) }
-                    },
-                )
-            }
-        },
-        like = {
-            PostCommentLike(shown.like.count, shown.like.liked, shown.onToggle, shown.pending)
-        },
-        replies =
-            if (onThread != null && comment.replyCount > 0)
-                ({
-                    PostCommentThread(comment.replyCount, onThread) {
-                        val style =
-                            MaterialTheme.typography.bodyMedium.let {
-                                it.copy(lineHeight = it.fontSize * 1.4f)
+        )
+        onDelete?.let { add(ProfileAction("delete", "删除", destructive = true, perform = { it() })) }
+        addAll(safety.more)
+    }
+    SocialContextMenu(ProfileActions(more = menuActions)) { openMenu ->
+        PostComment(
+            author = user?.screenName ?: "微博用户",
+            metadata = meta,
+            modifier = modifier,
+            isAuthor = user != null && user.id == authorId,
+            onReply = onClick,
+            onLongClick = openMenu,
+            avatar = { UserAvatar(user, size = 32.dp, onClick = actions.onUser) },
+            content = {
+                if (comment.text.isNotEmpty()) {
+                    StatusText(
+                        comment.text,
+                        Modifier.padding(top = 4.dp),
+                        urls = comment.urls,
+                        hiddenPictures = comment.pics.map { it.id },
+                        style =
+                            MaterialTheme.typography.bodyMedium.copy(
+                                fontSize = 15.sp,
+                                lineHeight = (15 * 1.45).sp,
+                            ),
+                        onLink = actions.onLink,
+                    )
+                }
+                if (comment.pics.isNotEmpty()) {
+                    PostCommentMedia(
+                        comment.pics.map(MixedMedia::Pic),
+                        actions.onPicture?.let { open ->
+                            { index -> open(comment.pics, index, null) }
+                        },
+                    )
+                }
+            },
+            like = {
+                PostCommentLike(shown.like.count, shown.like.liked, shown.onToggle, shown.pending)
+            },
+            replies =
+                if (onThread != null && comment.replyCount > 0)
+                    ({
+                        PostCommentThread(comment.replyCount, onThread) {
+                            val style =
+                                MaterialTheme.typography.bodyMedium.let {
+                                    it.copy(lineHeight = it.fontSize * 1.4f)
+                                }
+                            for (reply in comment.replies) {
+                                StatusText(
+                                    reply.text,
+                                    Modifier.padding(bottom = 4.dp),
+                                    urls = reply.urls,
+                                    author = reply.user?.screenName,
+                                    style = style,
+                                    onLink = actions.onLink,
+                                )
                             }
-                        for (reply in comment.replies) {
-                            StatusText(
-                                reply.text,
-                                Modifier.padding(bottom = 4.dp),
-                                urls = reply.urls,
-                                author = reply.user?.screenName,
-                                style = style,
-                                onLink = actions.onLink,
-                            )
                         }
-                    }
-                })
-            else null,
-        below = below,
-    )
+                    })
+                else null,
+            below = below,
+        )
+    }
 }

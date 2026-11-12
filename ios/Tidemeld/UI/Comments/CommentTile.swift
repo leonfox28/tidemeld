@@ -24,7 +24,6 @@ struct CommentTile<Below: View>: View {
             isAuthor: user != nil && user?.id == authorId,
             onAuthor: user.flatMap { user in actions.onUser.map { action in { action(user) } } },
             onReply: onTap,
-            menuActions: graph.weiboSafetyActions(id: comment.id, kind: .comment, user: comment.user),
             avatar: { UserAvatar(user: user, size: 32, onTap: actions.onUser) },
             content: {
                 if !comment.text.isEmpty {
@@ -52,11 +51,11 @@ struct CommentTile<Below: View>: View {
                 }
             }, below: below
         )
-        .contextMenu {
+        .modifier(SocialContextMenu(actions: graph.weiboSafetyActions(id: comment.id, kind: .comment, user: comment.user)) {
             if let onTap { Button("回复", systemImage: "arrowshape.turn.up.left", action: onTap) }
             Button("复制", systemImage: "doc.on.doc") { UIPasteboard.general.string = plainStatusText(comment.text) }
             if let onDelete { Button("删除", systemImage: "trash", role: .destructive, action: onDelete) }
-        }
+        })
     }
 }
 

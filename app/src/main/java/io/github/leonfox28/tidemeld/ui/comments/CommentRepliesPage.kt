@@ -102,7 +102,8 @@ fun CommentRepliesPage(thread: CommentThread) {
     }
 
     fun delete(reply: Comment) = scope.launch {
-        if (!overlays.confirmDelete() || !model.deleting.add(reply.id)) return@launch
+        if (!overlays.confirmDelete(offerChoice = false) || !model.deleting.add(reply.id))
+            return@launch
         try {
             graph.api.deleteComment(reply.id)
             replies.remove(reply.id)
@@ -180,7 +181,7 @@ fun CommentRepliesPage(thread: CommentThread) {
                         authorId = thread.authorId,
                         actions = actions,
                         onClick = if (item.canReply) ({ reply(item) }) else null,
-                        onLongClick =
+                        onDelete =
                             if (me != null && item.user?.id == me) ({ delete(item) }) else null,
                     )
                 }

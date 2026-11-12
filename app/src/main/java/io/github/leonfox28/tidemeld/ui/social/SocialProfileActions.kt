@@ -30,11 +30,101 @@ data class ProfileActions(
 
 @Composable
 fun SocialProfileActions(actions: ProfileActions, menuLabel: String = "更多用户操作") {
+    var menu by remember { mutableStateOf(false) }
+    SocialActionHost(actions.busy) { disabled, select ->
+        Row {
+            if (actions.busy)
+                Box(
+                    Modifier.width(80.dp).height(40.dp),
+                    contentAlignment = androidx.compose.ui.Alignment.Center,
+                ) {
+                    CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                }
+            else
+                actions.primary?.let { action ->
+                    OutlinedButton(
+                        onClick = { select(action) },
+                        enabled = !disabled,
+                        contentPadding = PaddingValues(horizontal = 12.dp),
+                    ) {
+                        Text(action.title, maxLines = 1)
+                    }
+                }
+            if (actions.more.isNotEmpty())
+                Box {
+                    IconButton(
+                        onClick = { menu = true },
+                        enabled = !disabled,
+                        modifier = Modifier.size(40.dp),
+                    ) {
+                        Icon(Icons.Default.MoreHoriz, menuLabel)
+                    }
+                    DropdownMenu(menu, onDismissRequest = { menu = false }) {
+                        SocialActionMenuItems(actions.more, disabled) {
+                            menu = false
+                            select(it)
+                        }
+                    }
+                }
+        }
+    }
+}
+
+/** Long-press menus reuse confirmation and account-bound action execution. */
+@Composable
+fun SocialContextMenu(
+    actions: ProfileActions,
+    content: @Composable (openMenu: () -> Unit) -> Unit,
+) {
+    var menu by remember { mutableStateOf(false) }
+    SocialActionHost(actions.busy) { disabled, select ->
+        Box {
+            content { if (!disabled) menu = true }
+            DropdownMenu(menu, onDismissRequest = { menu = false }) {
+                SocialActionMenuItems(actions.more, disabled) {
+                    menu = false
+                    select(it)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SocialActionMenuItems(
+    actions: List<ProfileAction>,
+    disabled: Boolean,
+    select: (ProfileAction) -> Unit,
+) {
+    KeepTextSize {
+        Column {
+            actions.forEach { action ->
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            action.title,
+                            color =
+                                if (action.destructive) MaterialTheme.colorScheme.error
+                                else MaterialTheme.colorScheme.onSurface,
+                        )
+                    },
+                    enabled = !disabled,
+                    onClick = { select(action) },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SocialActionHost(
+    busy: Boolean,
+    content: @Composable (disabled: Boolean, select: (ProfileAction) -> Unit) -> Unit,
+) {
     val graph = LocalAppGraph.current
     val navigator = LocalNavigator.current
     val snackbars = LocalSnackbars.current
     var running by remember { mutableStateOf(false) }
-    var menu by remember { mutableStateOf(false) }
     var confirming by remember { mutableStateOf<ProfileAction?>(null) }
     fun run(action: ProfileAction) {
         confirming = null
@@ -51,58 +141,10 @@ fun SocialProfileActions(actions: ProfileActions, menuLabel: String = "更多用
             }
         }
     }
-    fun select(action: ProfileAction) {
-        menu = false
-        if (actions.busy || running) return
-        if (action.confirmation != null) confirming = action else run(action)
-    }
-    Row {
-        if (actions.busy)
-            Box(
-                Modifier.width(80.dp).height(40.dp),
-                contentAlignment = androidx.compose.ui.Alignment.Center,
-            ) {
-                CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
-            }
-        else
-            actions.primary?.let { action ->
-                OutlinedButton(
-                    onClick = { select(action) },
-                    contentPadding = PaddingValues(horizontal = 12.dp),
-                ) {
-                    Text(action.title, maxLines = 1)
-                }
-            }
-        if (actions.more.isNotEmpty())
-            Box {
-                IconButton(
-                    onClick = { menu = true },
-                    enabled = !actions.busy && !running,
-                    modifier = Modifier.size(40.dp),
-                ) {
-                    Icon(Icons.Default.MoreHoriz, menuLabel)
-                }
-                DropdownMenu(menu, onDismissRequest = { menu = false }) {
-                    KeepTextSize {
-                        Column {
-                            actions.more.forEach { action ->
-                                DropdownMenuItem(
-                                    text = {
-                                        Text(
-                                            action.title,
-                                            color =
-                                                if (action.destructive)
-                                                    MaterialTheme.colorScheme.error
-                                                else MaterialTheme.colorScheme.onSurface,
-                                        )
-                                    },
-                                    onClick = { select(action) },
-                                )
-                            }
-                        }
-                    }
-                }
-            }
+    content(busy || running) { action ->
+        if (!busy && !running) {
+            if (action.confirmation != null) confirming = action else run(action)
+        }
     }
     confirming?.let { action ->
         AppAlertDialog(

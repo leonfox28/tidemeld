@@ -23,7 +23,6 @@ struct XCommentTile: View {
                 isAuthor: authorHandle != nil && post.handle.lowercased() == authorHandle?.lowercased(),
                 onAuthor: openAuthor,
                 onReply: { showingReply = true },
-                menuActions: graph.xSafetyActions(post: post, owner: owner),
                 avatar: { PostAvatar(url: post.avatar, label: post.author, size: 32, onTap: openAuthor) },
                 content: {
                     if !post.text.isEmpty {
@@ -69,14 +68,14 @@ struct XCommentTile: View {
                     }
                 }, below: {}
             )
-            .contextMenu {
+            .modifier(SocialContextMenu(actions: graph.xSafetyActions(post: post, owner: owner)) {
                 Button("回复", systemImage: "arrowshape.turn.up.left") { showingReply = true }
                 Button("查看对话", systemImage: "bubble.left.and.bubble.right", action: openThread)
                 if let repost = actions.onRepost {
                     Button("转发", systemImage: "arrow.2.squarepath", action: repost)
                 }
                 Button("复制", systemImage: "doc.on.doc") { UIPasteboard.general.string = post.text }
-            }
+            })
         }
         .sheet(isPresented: $showingReply) { XComposer(owner: owner, post: post, onSent: onSent) }
     }

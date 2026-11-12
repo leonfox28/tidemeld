@@ -7,7 +7,6 @@ struct PostComment<Avatar: View, Content: View, Like: View, Replies: View, Below
     var isAuthor = false
     var onAuthor: (() -> Void)?
     var onReply: (() -> Void)?
-    var menuActions: ProfileActions? = nil
     @ViewBuilder let avatar: () -> Avatar
     @ViewBuilder let content: () -> Content
     @ViewBuilder let like: () -> Like
@@ -29,7 +28,6 @@ struct PostComment<Avatar: View, Content: View, Like: View, Replies: View, Below
                             .background(AppTheme.primaryContainer, in: RoundedRectangle(cornerRadius: 3))
                     }
                     Spacer(minLength: 0)
-                    if let menuActions { SocialProfileActions(actions: menuActions, menuLabel: "更多评论操作") }
                 }
                 content()
                 HStack {

@@ -13,8 +13,7 @@ import io.github.leonfox28.tidemeld.core.util.formatPostTime
 import io.github.leonfox28.tidemeld.data.x.XPost
 import io.github.leonfox28.tidemeld.ui.navigation.*
 import io.github.leonfox28.tidemeld.ui.post.*
-import io.github.leonfox28.tidemeld.ui.social.SocialProfileActions
-import io.github.leonfox28.tidemeld.ui.theme.KeepTextSize
+import io.github.leonfox28.tidemeld.ui.social.*
 import io.github.leonfox28.tidemeld.ui.widget.LocalOverlays
 import kotlinx.coroutines.launch
 
@@ -41,7 +40,6 @@ fun XCommentTile(
     val scope = rememberCoroutineScope()
     val overlays = LocalOverlays.current
     val clipboard = LocalClipboardManager.current
-    var menu by remember { mutableStateOf(false) }
     fun reply() {
         scope.launch {
             if (overlays.show<Boolean> { XComposer(owner, post, false, it) } == true) onSent()
@@ -51,7 +49,17 @@ fun XCommentTile(
         navigator.push(Route.XDetail(owner, post.originalId, post))
     }
     val actions = rememberXPostActions(owner, post, ::reply)
-    Box {
+    val safety = LocalAppGraph.current.xSafetyActions(navigator, owner, post)
+    val menuActions = buildList {
+        add(ProfileAction("reply", "回复", perform = { reply() }))
+        add(ProfileAction("thread", "查看对话", perform = { thread() }))
+        actions.onRepost?.let { add(ProfileAction("repost", "转发", perform = { it() })) }
+        add(
+            ProfileAction("copy", "复制", perform = { clipboard.setText(AnnotatedString(post.text)) })
+        )
+        addAll(safety.more)
+    }
+    SocialContextMenu(ProfileActions(more = menuActions)) { openMenu ->
         PostComment(
             author = post.author,
             metadata =
@@ -60,13 +68,7 @@ fun XCommentTile(
             isAuthor = authorHandle != null && post.handle.equals(authorHandle, ignoreCase = true),
             onAuthor = { navigator.push(Route.XProfile(owner, post.profileUser)) },
             onReply = ::reply,
-            onLongClick = { menu = true },
-            menu = {
-                SocialProfileActions(
-                    LocalAppGraph.current.xSafetyActions(navigator, owner, post),
-                    menuLabel = "更多评论操作",
-                )
-            },
+            onLongClick = openMenu,
             avatar = {
                 PostAvatar(
                     post.avatar,
@@ -127,41 +129,5 @@ fun XCommentTile(
                     })
                 else null,
         )
-        DropdownMenu(menu, onDismissRequest = { menu = false }) {
-            KeepTextSize {
-                Column {
-                    DropdownMenuItem(
-                        text = { Text("回复") },
-                        onClick = {
-                            menu = false
-                            reply()
-                        },
-                    )
-                    DropdownMenuItem(
-                        text = { Text("查看对话") },
-                        onClick = {
-                            menu = false
-                            thread()
-                        },
-                    )
-                    actions.onRepost?.let { repost ->
-                        DropdownMenuItem(
-                            text = { Text("转发") },
-                            onClick = {
-                                menu = false
-                                repost()
-                            },
-                        )
-                    }
-                    DropdownMenuItem(
-                        text = { Text("复制") },
-                        onClick = {
-                            menu = false
-                            clipboard.setText(AnnotatedString(post.text))
-                        },
-                    )
-                }
-            }
-        }
     }
 }

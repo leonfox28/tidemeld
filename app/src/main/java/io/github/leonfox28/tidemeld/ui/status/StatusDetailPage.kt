@@ -169,7 +169,8 @@ private fun Detail(
     }
 
     fun delete(comment: Comment) = scope.launch {
-        if (!overlays.confirmDelete() || !model.deleting.add(comment.id)) return@launch
+        if (!overlays.confirmDelete(offerChoice = false) || !model.deleting.add(comment.id))
+            return@launch
         try {
             graph.api.deleteComment(comment.id)
             model.count(status, comments = -1)
@@ -245,7 +246,7 @@ private fun Detail(
                             )
                         },
                         onClick = if (comment.canReply) ({ reply(comment) }) else null,
-                        onLongClick =
+                        onDelete =
                             if (me != null && comment.user?.id == me) {
                                 { delete(comment) }
                             } else null,

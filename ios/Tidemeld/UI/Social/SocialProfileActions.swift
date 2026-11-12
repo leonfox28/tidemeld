@@ -19,36 +19,72 @@ struct ProfileActions {
 struct SocialProfileActions: View {
     let actions: ProfileActions
     var menuLabel = "更多用户操作"
+
+    var body: some View {
+        SocialActionHost(busy: actions.busy) { disabled, select in
+            HStack(spacing: 4) {
+                if actions.busy {
+                    ProgressView().controlSize(.small).frame(minWidth: 72, minHeight: 36)
+                        .accessibilityLabel("正在更新关系")
+                } else if let action = actions.primary {
+                    Button(action.title) { select(action) }
+                        .font(.subheadline).buttonStyle(.bordered).controlSize(.small)
+                        .fixedSize(horizontal: true, vertical: false)
+                        .disabled(disabled)
+                }
+                if !actions.more.isEmpty {
+                    Menu {
+                        SocialActionMenuItems(actions: actions.more, disabled: disabled, select: select)
+                    } label: {
+                        Image(systemName: "ellipsis").frame(width: 36, height: 36).contentShape(Rectangle())
+                    }
+                    .accessibilityLabel(menuLabel)
+                    .disabled(disabled)
+                }
+            }
+        }
+    }
+}
+
+/// Long-press menus share the same confirmation and account-bound action execution.
+struct SocialContextMenu<Extra: View>: ViewModifier {
+    let actions: ProfileActions
+    @ViewBuilder let extra: () -> Extra
+
+    func body(content: Content) -> some View {
+        SocialActionHost(busy: actions.busy) { disabled, select in
+            content.contextMenu {
+                extra()
+                SocialActionMenuItems(actions: actions.more, disabled: disabled, select: select)
+            }
+        }
+    }
+}
+
+private struct SocialActionMenuItems: View {
+    let actions: [ProfileAction]
+    let disabled: Bool
+    let select: (ProfileAction) -> Void
+
+    var body: some View {
+        ForEach(actions) { action in
+            Button(role: action.destructive ? .destructive : nil) { select(action) } label: {
+                Label(action.title, systemImage: action.symbol)
+            }
+            .disabled(disabled)
+        }
+    }
+}
+
+private struct SocialActionHost<Content: View>: View {
+    let busy: Bool
+    @ViewBuilder let content: (Bool, @escaping (ProfileAction) -> Void) -> Content
     @Environment(AppGraph.self) private var graph
     @State private var confirming: ProfileAction?
     @State private var running = false
 
     var body: some View {
-        HStack(spacing: 4) {
-            if actions.busy {
-                ProgressView().controlSize(.small).frame(minWidth: 72, minHeight: 36)
-                    .accessibilityLabel("正在更新关系")
-            } else if let action = actions.primary {
-                Button(action.title) { select(action) }
-                    .font(.subheadline).buttonStyle(.bordered).controlSize(.small)
-                    .fixedSize(horizontal: true, vertical: false)
-            }
-            if !actions.more.isEmpty {
-                Menu {
-                    ForEach(actions.more) { action in
-                        Button(role: action.destructive ? .destructive : nil) {
-                            select(action)
-                        } label: {
-                            Label(action.title, systemImage: action.symbol)
-                        }
-                    }
-                } label: {
-                    Image(systemName: "ellipsis").frame(width: 36, height: 36).contentShape(Rectangle())
-                }
-                .accessibilityLabel(menuLabel)
-                .disabled(actions.busy || running)
-            }
-        }
+        content(busy || running, select)
         .confirmationDialog(
             confirming?.title ?? "",
             isPresented: Binding(get: { confirming != nil }, set: { if !$0 { confirming = nil } }),
@@ -62,7 +98,7 @@ struct SocialProfileActions: View {
     }
 
     private func select(_ action: ProfileAction) {
-        guard !actions.busy && !running else { return }
+        guard !busy && !running else { return }
         if action.confirmation != nil { confirming = action } else { run(action) }
     }
     private func run(_ action: ProfileAction) {

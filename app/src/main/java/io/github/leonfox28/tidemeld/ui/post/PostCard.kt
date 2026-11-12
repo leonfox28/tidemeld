@@ -140,7 +140,6 @@ fun PostHeader(
             if (i > 0) Spacer(Modifier.width(4.dp))
             TagLabel(tag)
         }
-        menu()
         Box(Modifier.size(32.dp), contentAlignment = Alignment.Center) {
             Icon(
                 painterResource(sourceIcon),
@@ -149,6 +148,7 @@ fun PostHeader(
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+        menu()
     }
 }
 

@@ -218,8 +218,11 @@ class StatusDetailWritesTest {
             json(obj("ok" to 1, "data" to commentJson()).toString())
         }
 
-        // Others' comments only offer a reply.
+        // Long press offers safety actions; deletion remains limited to our own comments.
         text("最热的评论").performTouchInput { longClick() }
+        waitFor("举报")
+        assertFalse(shows("删除"))
+        compose.onNodeWithText("回复").performClick()
         waitFor("回复 @评论者")
         assertFalse(shows("删除"))
         compose.closeSheet()

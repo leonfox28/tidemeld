@@ -45,7 +45,6 @@ fun PostComment(
     replies: (@Composable () -> Unit)? = null,
     below: (@Composable () -> Unit)? = null,
     onAuthor: (() -> Unit)? = null,
-    menu: (@Composable () -> Unit)? = null,
 ) {
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
     Row(
@@ -88,10 +87,6 @@ fun PostComment(
                         lineHeight = 14.sp,
                         color = MaterialTheme.colorScheme.onPrimaryContainer,
                     )
-                }
-                if (menu != null) {
-                    Spacer(Modifier.weight(1f))
-                    menu()
                 }
             }
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) { content() }

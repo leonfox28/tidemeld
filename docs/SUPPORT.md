@@ -26,7 +26,7 @@ X 接入仍在完善，iOS 已实测真实账号登录、原生信息流和评�
 
 从“设置 → 内容过滤”可以添加本地关键词，每行一个，不区分大小写。命中原生帖子或评论的正文、作者、引用或回复预览时折叠整条内容；规则只保存在本机，不改变平台设置或网页内容。X 标记为敏感的媒体默认不加载，可逐条选择显示或重新隐藏。未标记的内容不代表已经过叠澜审核。
 
-帖子、评论和用户主页的“⋯ → 举报”会使用来源账号打开平台官方页面：微博直接进入对应对象的投诉表单；X 打开原帖或主页后，在网页的“⋯”菜单选择 Report 并提交。打开页面不表示举报已提交，处理结果由对应平台通知。
+帖子和用户主页右上角的“⋯ → 举报”，以及长按评论后出现的“举报”，会使用来源账号打开平台官方页面：微博直接进入对应对象的投诉表单；X 打开原帖或主页后，在网页的“⋯”菜单选择 Report 并提交。打开页面不表示举报已提交，处理结果由对应平台通知。
 
 “⋯ → 拉黑此用户”会请求对应平台拉黑。平台确认后，当前来源账号下该用户的原生帖子、引用和评论立即隐藏；其他账号保持各自关系。可从该用户主页取消拉黑。操作失败时会显示错误，不会提示成功或自动重发。
 
@@ -48,6 +48,6 @@ For support or privacy questions, [open a GitHub issue](https://github.com/leonf
 
 Settings → 内容过滤 (Content Filtering) manages device-local keywords for native posts and comments, including quotes and reply previews. These rules do not change platform settings or web content. X media marked sensitive is hidden and not loaded by default; each item can be revealed or hidden separately. Unmarked content has not necessarily been reviewed by Tidemeld.
 
-On first use or a terms update, explicitly accept the [Terms of Use](TERMS.md) before browsing or connecting existing platform accounts. Post, comment and profile menus offer Report: Weibo opens the relevant complaint form; X opens the original post/profile, where its menu offers Report. Complete the platform flow to submit; opening the page alone does not submit anything.
+On first use or a terms update, explicitly accept the [Terms of Use](TERMS.md) before browsing or connecting existing platform accounts. Post and profile ⋯ menus, and comment long-press menus, offer Report: Weibo opens the relevant complaint form; X opens the original post/profile, where its menu offers Report. Complete the platform flow to submit; opening the page alone does not submit anything.
 
 Block requests go to the originating platform account. After platform confirmation, Tidemeld immediately hides that user’s native content for that source account. Other accounts remain independent. Unblock from the user profile. Failed operations show an error and are not automatically retried. See the [privacy policy](PRIVACY.md) for local storage and platform requests.

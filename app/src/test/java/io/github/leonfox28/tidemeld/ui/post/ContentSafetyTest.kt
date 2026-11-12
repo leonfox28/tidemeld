@@ -25,6 +25,49 @@ class ContentSafetyTest {
     @get:Rule val compose = createComposeRule()
 
     @Test
+    fun `Weibo comment report opens from long press with the source account`() {
+        val graph = testGraph(restored = signedIn)
+        val navigator = Navigator()
+        val comment =
+            io.github.leonfox28.tidemeld.data.model.Comment.tryFromJson(
+                commentJson(id = 42, text = "合成评论")
+            )!!
+        compose.setContent {
+            TestHost(graph, navigator) {
+                io.github.leonfox28.tidemeld.ui.comments.CommentTile(comment)
+            }
+        }
+        compose.onNodeWithContentDescription("更多评论操作").assertDoesNotExist()
+        compose.onNodeWithText("举报").assertDoesNotExist()
+        compose.onNodeWithText("合成评论").performTouchInput { longClick() }
+        compose.onNodeWithText("举报").performClick()
+        val route = navigator.backStack.last() as Route.Report
+        assertEquals("weibo:7", route.report.owner)
+        assertEquals("42", Uri.parse(route.report.url).getQueryParameter("rid"))
+        assertEquals("2", Uri.parse(route.report.url).getQueryParameter("type"))
+    }
+
+    @Test
+    fun `X comment report opens from long press with its original post and account`() {
+        val graph = testGraph()
+        runBlocking { graph.accounts.add(SocialPlatform.X, xProfileSession("8")) }
+        val navigator = Navigator()
+        val post = XPost("42", "合成作者", "fixture", null, "合成回复", null, originalId = "41")
+        compose.setContent {
+            TestHost(graph, navigator) {
+                io.github.leonfox28.tidemeld.ui.x.XCommentTile(post, "x:8")
+            }
+        }
+        compose.onNodeWithContentDescription("更多评论操作").assertDoesNotExist()
+        compose.onNodeWithText("举报").assertDoesNotExist()
+        compose.onNodeWithText("合成回复").performTouchInput { longClick() }
+        compose.onNodeWithText("举报").performClick()
+        val route = navigator.backStack.last() as Route.Report
+        assertEquals("x:8", route.report.owner)
+        assertEquals("https://x.com/fixture/status/41", route.report.url)
+    }
+
+    @Test
     fun `consent gates account access and persists explicit acceptance`() {
         FakeWeibo().use { web ->
             val graph = testGraph(settings = AppSettings(), web = web)

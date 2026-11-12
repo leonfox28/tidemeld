@@ -139,7 +139,7 @@ class CommentTileTest {
 
         text("图片回复 ").assertExists()
         text("查看图片", substring = true).assertDoesNotExist()
-        compose.onAllNodesWithTag("media").assertCountEquals(1)
+        compose.onAllNodesWithTag("media", useUnmergedTree = true).assertCountEquals(1)
 
         // The thread preview shows no pictures, so it keeps the link.
         show(commentJson(replyCount = 1, replies = listOf(reply)), onThread = {})
