@@ -8,7 +8,7 @@ struct XPostCard: View {
     var profileHandle: String? = nil
     @Environment(AppGraph.self) private var graph
     var body: some View {
-        PostContentFilter(text: post.contentFilterText) { unfilteredContent }
+        PostContentFilter(text: post.contentFilterText, owner: owner, authors: post.contentAuthorIDs) { unfilteredContent }
     }
 
     @ViewBuilder private var unfilteredContent: some View {
@@ -31,7 +31,7 @@ struct XPostCard: View {
                         tags: (post.pinned ? ["置顶"] : []) + (post.promoted ? ["广告"] : []),
                         onAuthor: openAuthor,
                         avatar: { PostAvatar(url: post.avatar, label: post.author, size: 40, onTap: openAuthor) }, badge: {},
-                        menu: {})
+                        menu: { SocialProfileActions(actions: graph.xSafetyActions(post: post, owner: owner), menuLabel: "更多帖子操作") })
                 },
                 content: {
                     VStack(alignment: .leading, spacing: 8) {

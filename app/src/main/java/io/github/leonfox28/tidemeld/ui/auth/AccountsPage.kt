@@ -25,13 +25,18 @@ import kotlinx.coroutines.launch
 fun PlatformPickerPage() {
     val navigator = LocalNavigator.current
     Scaffold(
-        topBar = { TopAppBar(title = { Text("选择登录平台") }, navigationIcon = { CloseButton() }) }
+        topBar = { TopAppBar(title = { Text("添加内容来源账号") }, navigationIcon = { CloseButton() }) }
     ) { padding ->
         Column(Modifier.padding(padding)) {
+            Text(
+                "叠澜没有独立账号。连接哪个平台，就用该平台的已有账号访问内容。",
+                Modifier.padding(16.dp),
+                style = MaterialTheme.typography.bodySmall,
+            )
             for (platform in SocialPlatform.entries) {
                 ListItem(
                     headlineContent = { Text(platform.label) },
-                    supportingContent = { Text("使用官方网页登录，可添加多个账号") },
+                    supportingContent = { Text("连接已有${platform.label}账号，读取该平台内容") },
                     leadingContent = { Icon(Icons.Outlined.Person, null) },
                     modifier = Modifier.clickable { navigator.push(Route.PlatformLogin(platform)) },
                 )
@@ -66,7 +71,7 @@ fun AccountsPage() {
         LazyColumn(Modifier.fillMaxSize(), contentPadding = padding) {
             item {
                 Text(
-                    "已登录账号的信息流会一起显示。移除账号仅清除本机登录状态。",
+                    "此处管理微博和 X 的内容来源账号，不会创建叠澜账号。已连接账号的信息流会一起显示；移除仅清除本机登录状态。",
                     Modifier.padding(16.dp),
                     style = MaterialTheme.typography.bodySmall,
                 )

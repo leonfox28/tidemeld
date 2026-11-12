@@ -78,8 +78,10 @@ func testGraph(
     let images = ImageLoader(
         directory: FileManager.default.temporaryDirectory.appendingPathComponent("test-images-\(UUID())"),
         limitMB: 1, configuration: offline())
+    let settingsStorage = FakeSettingsStorage()
+    settingsStorage.settings.acceptedTermsVersion = ContentTerms.version
     return AppGraph(
-        settings: SettingsController(storage: FakeSettingsStorage()), session: session, api: api,
+        settings: SettingsController(storage: settingsStorage), session: session, api: api,
         webCookies: FakeWebCookies(), images: images, xAPI: xAPI)
 }
 

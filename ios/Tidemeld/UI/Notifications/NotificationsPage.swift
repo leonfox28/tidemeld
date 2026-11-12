@@ -336,6 +336,10 @@ private struct LikeNoticeTile: View {
     @Environment(AppGraph.self) private var graph
 
     var body: some View {
+        PostContentFilter(text: notice.user?.screenName ?? "", authors: [notice.user?.id].compactMap { $0 }) { unfilteredContent }
+    }
+
+    @ViewBuilder private var unfilteredContent: some View {
         let actions = graph.statusActions
         let status = notice.status
         let open: (() -> Void)? =
@@ -363,6 +367,10 @@ private struct CommentQuote: View {
     let comment: Comment
 
     var body: some View {
+        PostContentFilter(text: comment.contentFilterText, authors: comment.contentAuthorIDs) { unfilteredContent }
+    }
+
+    @ViewBuilder private var unfilteredContent: some View {
         let name = comment.user.map { "\($0.screenName)：" } ?? ""
         Text("\(Text(name).fontWeight(.medium))\(plainStatusText(comment.text))")
             .font(.caption)
@@ -385,6 +393,10 @@ private struct StatusQuote: View {
     @Environment(\.displayScale) private var scale
 
     var body: some View {
+        PostContentFilter(text: status.contentFilterText, authors: status.contentAuthorIDs) { unfilteredContent }
+    }
+
+    @ViewBuilder private var unfilteredContent: some View {
         let quality = graph.settings.settings.imageQuality
         let thumb =
             status.pics.first?.variant(for: quality.listPixels(48, scale: scale)).url

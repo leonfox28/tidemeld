@@ -6,6 +6,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import io.github.leonfox28.tidemeld.LocalAppGraph
 import io.github.leonfox28.tidemeld.core.util.formatPostTime
 import io.github.leonfox28.tidemeld.data.model.Comment
 import io.github.leonfox28.tidemeld.data.model.MixedMedia
@@ -13,7 +14,9 @@ import io.github.leonfox28.tidemeld.ui.interactions.LikeKind
 import io.github.leonfox28.tidemeld.ui.interactions.LikeState
 import io.github.leonfox28.tidemeld.ui.interactions.LikeTarget
 import io.github.leonfox28.tidemeld.ui.interactions.rememberLike
+import io.github.leonfox28.tidemeld.ui.navigation.LocalNavigator
 import io.github.leonfox28.tidemeld.ui.post.*
+import io.github.leonfox28.tidemeld.ui.social.SocialProfileActions
 import io.github.leonfox28.tidemeld.ui.widget.UserAvatar
 import io.github.leonfox28.tidemeld.ui.widget.status.StatusCardActions
 import io.github.leonfox28.tidemeld.ui.widget.text.StatusText
@@ -30,7 +33,7 @@ fun CommentTile(
     onLongClick: (() -> Unit)? = null,
     below: (@Composable () -> Unit)? = null,
 ) {
-    if (hideFilteredPost(comment.contentFilterText)) return
+    if (hideFilteredPost(comment.contentFilterText, authors = comment.contentAuthorIds)) return
     val user = comment.user
     val shown =
         rememberLike(
@@ -47,6 +50,17 @@ fun CommentTile(
         isAuthor = user != null && user.id == authorId,
         onReply = onClick,
         onLongClick = onLongClick,
+        menu = {
+            SocialProfileActions(
+                LocalAppGraph.current.weiboSafetyActions(
+                    LocalNavigator.current,
+                    comment.id,
+                    WeiboReportKind.Comment,
+                    user,
+                ),
+                menuLabel = "更多评论操作",
+            )
+        },
         avatar = { UserAvatar(user, size = 32.dp, onClick = actions.onUser) },
         content = {
             if (comment.text.isNotEmpty()) {

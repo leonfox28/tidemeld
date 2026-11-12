@@ -107,6 +107,9 @@ struct AppSettings: Sendable, Equatable {
     /// are deleted.
     var imageCacheLimitMB = 300
     var filterKeywords = ""
+    var acceptedTermsVersion = ""
+    /// Platform-confirmed blocks, scoped by source account and target user.
+    var blockedUsers: Set<String> = []
 
     static let imageCacheLimitChoices = [100, 300, 500, 1024]
 }
@@ -131,6 +134,8 @@ final class DefaultsSettingsStorage: SettingsStorage {
         if let v = d.string(forKey: "imageQuality").flatMap(ImageQuality.init) { settings.imageQuality = v }
         settings.autoplayLivePhotos = d.bool(forKey: "autoplayLivePhotos")
         settings.filterKeywords = d.string(forKey: "filterKeywords") ?? ""
+        settings.acceptedTermsVersion = d.string(forKey: "acceptedTermsVersion") ?? ""
+        settings.blockedUsers = Set(d.stringArray(forKey: "blockedUsers") ?? [])
         let limit = d.integer(forKey: "imageCacheLimitMB")
         if AppSettings.imageCacheLimitChoices.contains(limit) { settings.imageCacheLimitMB = limit }
         return settings
@@ -145,6 +150,8 @@ final class DefaultsSettingsStorage: SettingsStorage {
         d.set(settings.autoplayLivePhotos, forKey: "autoplayLivePhotos")
         d.set(settings.imageCacheLimitMB, forKey: "imageCacheLimitMB")
         d.set(settings.filterKeywords, forKey: "filterKeywords")
+        d.set(settings.acceptedTermsVersion, forKey: "acceptedTermsVersion")
+        d.set(Array(settings.blockedUsers).sorted(), forKey: "blockedUsers")
     }
 }
 

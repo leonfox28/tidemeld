@@ -32,6 +32,7 @@ import io.github.leonfox28.tidemeld.ui.interactions.LikesController
 import io.github.leonfox28.tidemeld.ui.interactions.OpenLists
 import io.github.leonfox28.tidemeld.ui.interactions.RepostDrafts
 import io.github.leonfox28.tidemeld.ui.notifications.UnreadNoticesController
+import io.github.leonfox28.tidemeld.ui.post.recordBlock
 import io.github.leonfox28.tidemeld.ui.timeline.GuestTimelineController
 import io.github.leonfox28.tidemeld.ui.timeline.SocialFeedController
 import io.github.leonfox28.tidemeld.ui.timeline.TimelineController
@@ -128,7 +129,12 @@ class AppGraph(
     }
 
     val xInteractions by lazy {
-        io.github.leonfox28.tidemeld.ui.x.XInteractions(accounts, xApi, profileRelationships)
+        io.github.leonfox28.tidemeld.ui.x.XInteractions(accounts, xApi, profileRelationships) {
+            owner,
+            user,
+            blocked ->
+            settings.recordBlock(owner, user, blocked)
+        }
     }
 
     val socialFeed by lazy {

@@ -17,7 +17,10 @@ enum XWrite { case like, repost, reply, quote }
     @ObservationIgnored let drafts = CommentDrafts()
     @ObservationIgnored private(set) var readStamp = 0
     let relationships: ProfileRelationships
-    init(accounts: AccountManager, api: XWebAPI?, relationships: ProfileRelationships? = nil) {
+    private let onBlockChanged: (String, String, Bool) -> Void
+    init(accounts: AccountManager, api: XWebAPI?, relationships: ProfileRelationships? = nil,
+         onBlockChanged: @escaping (String, String, Bool) -> Void = { _, _, _ in }) {
+        self.onBlockChanged = onBlockChanged
         self.relationships = relationships ?? ProfileRelationships()
         self.accounts = accounts
         self.api = api
@@ -97,6 +100,24 @@ enum XWrite { case like, repost, reply, quote }
             try await api.relationship(account.session, uid: uid, onCookies: self.cookies(account))
         }
         relationships.ingest(key(owner, uid), value: result.presentation, started: started)
+        syncBlock(owner, uid: uid)
+    }
+
+    private func syncBlock(_ owner: String, uid: String) {
+        if let blocked = relationships.loadedState(key(owner, uid))?.value.blocking {
+            onBlockChanged(owner, uid, blocked)
+        }
+    }
+
+    func blockUser(_ owner: String, user: XProfileUser, revision: Int) async throws {
+        guard let uid = user.id else { throw AppFailure(message: "用户资料不可用") }
+        try await refreshRelationship(owner, uid: uid, revision: revision)
+        guard try account(owner).revision == revision else { throw WeiboError.sessionExpired }
+        if relationships.loadedState(key(owner, uid))?.value.blocking == true { return }
+        guard let action = relationshipActions(owner, user: user, failed: false)?.more.first(where: { $0.id == "block" }) else {
+            throw AppFailure(message: "关系状态已变化，请重新打开用户主页")
+        }
+        try await action.perform()
     }
 
     func relationshipActions(_ owner: String, user: XProfileUser, failed: Bool) -> ProfileActions? {
@@ -130,6 +151,7 @@ enum XWrite { case like, repost, reply, quote }
                     throw error
                 }
             }
+            self.syncBlock(owner, uid: uid)
         }
         return profileActions(
             name: user.name ?? user.handle ?? "此用户", state: state,

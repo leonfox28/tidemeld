@@ -48,7 +48,38 @@ import Testing
         var settings = storage.load()
         settings.themeMode = .dark
         settings.filterKeywords = "合成词\nExample"
+        settings.acceptedTermsVersion = ContentTerms.version
+        settings.blockedUsers = [ContentBlock.key(owner: "weibo:7", user: "42")]
         storage.save(settings)
         #expect(storage.load() == settings)
     }
+    @Test func blocksCoverNestedAuthorsAndRemainAccountScoped() {
+        let blocked: Set<String> = [ContentBlock.key(owner: "weibo:7", user: "42")]
+        let quoted = Status(id: "2", user: WeiboUser(id: "42", screenName: "合成作者"))
+        let post = Status(id: "1", user: WeiboUser(id: "9", screenName: "另一作者"), retweeted: quoted)
+        #expect(ContentBlock.hides(post.contentAuthorIDs, owner: "weibo:7", blocked: blocked))
+        #expect(!ContentBlock.hides(post.contentAuthorIDs, owner: "weibo:8", blocked: blocked))
+        #expect(!ContentBlock.hides(post.contentAuthorIDs, owner: "x:7", blocked: blocked))
+        #expect(!ContentBlock.hides(post.contentAuthorIDs, owner: nil, blocked: blocked))
+        let comment = Comment(id: "3", replies: [Comment(id: "4", user: quoted.user)])
+        #expect(ContentBlock.hides(comment.contentAuthorIDs, owner: "weibo:7", blocked: blocked))
+    }
+
+    @MainActor @Test func consentStartsUnacceptedAndTermsAreBundled() throws {
+        #expect(AppSettings().acceptedTermsVersion.isEmpty)
+        let text = try #require(ContentTerms.text)
+        #expect(text.contains(ContentTerms.version))
+        #expect(text.contains("不容忍不当内容或滥用行为"))
+    }
+
+    @Test func reportDestinationsKeepFullIdentifiersAndObjectTypes() throws {
+        for (kind, expected) in [(WeiboReportKind.post, "1"), (.comment, "2"), (.user, "3")] {
+            let url = weiboReportURL(id: "9007199254740993123", kind: kind)
+            let parts = try #require(URLComponents(url: url, resolvingAgainstBaseURL: false))
+            #expect(parts.host == "service.account.weibo.com")
+            #expect(parts.queryItems?.first { $0.name == "rid" }?.value == "9007199254740993123")
+            #expect(parts.queryItems?.first { $0.name == "type" }?.value == expected)
+        }
+    }
+
 }

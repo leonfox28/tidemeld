@@ -89,8 +89,24 @@ fun TidemeldApp(
     ) {
         // Out here, where it stays for as long as the app: under a page pushed
         // over the tabs, they leave the composition.
-        UnreadChecks()
         TidemeldTheme(dark = dark) {
+            if (
+                settings.acceptedTermsVersion !=
+                    io.github.leonfox28.tidemeld.ui.settings.ContentTerms.version
+            ) {
+                io.github.leonfox28.tidemeld.ui.settings.TermsPage(
+                    onAccept = {
+                        graph.settings.update {
+                            it.copy(
+                                acceptedTermsVersion =
+                                    io.github.leonfox28.tidemeld.ui.settings.ContentTerms.version
+                            )
+                        }
+                    }
+                )
+                return@TidemeldTheme
+            }
+            UnreadChecks()
             PageStack(
                 backStack = navigator.backStack,
                 onBack = navigator::pop,
@@ -160,6 +176,8 @@ private val pages: (Route) -> NavEntry<Route> = entryProvider {
     }
     entry<Route.TextSize> { TextSizePage() }
     entry<Route.About> { AboutPage() }
+    entry<Route.Terms> { io.github.leonfox28.tidemeld.ui.settings.TermsPage() }
+    entry<Route.Report> { io.github.leonfox28.tidemeld.ui.post.PlatformReportPage(it.report) }
     entry<Route.Licenses> { LicensesPage() }
     entry<Route.Compose> { ComposePage() }
     entry<Route.Diagnostics> { if (BuildConfig.DEBUG) DiagnosticsPage() }

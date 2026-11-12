@@ -15,6 +15,28 @@ val keyProperties =
         if (file.exists()) file.inputStream().use { load(it) }
     }
 
+abstract class PrepareContentTerms : DefaultTask() {
+    @get:InputFile abstract val termsFile: RegularFileProperty
+    @get:OutputDirectory abstract val outputDirectory: DirectoryProperty
+
+    @TaskAction
+    fun copyTerms() {
+        val directory = outputDirectory.get().asFile
+        directory.mkdirs()
+        termsFile.get().asFile.copyTo(directory.resolve("TERMS.md"), overwrite = true)
+    }
+}
+
+androidComponents.onVariants { variant ->
+    val terms =
+        tasks.register<PrepareContentTerms>(
+            "prepare${variant.name.replaceFirstChar { it.uppercase() }}ContentTerms"
+        ) {
+            termsFile.set(rootProject.layout.projectDirectory.file("docs/TERMS.md"))
+        }
+    variant.sources.assets?.addGeneratedSourceDirectory(terms, PrepareContentTerms::outputDirectory)
+}
+
 android {
     sourceSets.getByName("main").assets.srcDir("../protocol")
     namespace = "io.github.leonfox28.tidemeld"

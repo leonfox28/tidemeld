@@ -113,7 +113,7 @@ struct XProfilePage: View {
             posts: model.posts, failure: model.error,
             emptyText: p?.protected == true ? "暂无可查看的帖子" : "还没有帖子",
             retry: { model.reload() }, refresh: { try await model.refresh() },
-            actions: graph.xInteractions.relationshipActions(
+            actions: graph.xProfileActions(
                 owner, user: user, failed: model.relationshipFailed),
             badge: {
                 if p?.verified == true {

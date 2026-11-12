@@ -70,6 +70,10 @@ sealed interface Route {
 
     data object About : Route
 
+    data object Terms : Route
+
+    data class Report(val report: io.github.leonfox28.tidemeld.ui.post.PlatformReport) : Route
+
     /** The libraries tidemeld is built on, and their licences. */
     data object Licenses : Route
 

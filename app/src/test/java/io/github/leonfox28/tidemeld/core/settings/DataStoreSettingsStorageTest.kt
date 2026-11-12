@@ -34,6 +34,8 @@ class DataStoreSettingsStorageTest {
                 autoplayLivePhotos = true,
                 imageCacheLimitMb = 1024,
                 filterKeywords = "合成词\nExample",
+                acceptedTermsVersion = "2026-11-12",
+                blockedUsers = setOf("weibo:7/42", "x:8/42"),
             )
         storage.save(settings)
         assertEquals(settings, storage.load())

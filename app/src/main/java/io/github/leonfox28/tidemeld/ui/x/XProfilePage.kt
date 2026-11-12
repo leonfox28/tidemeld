@@ -14,6 +14,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.leonfox28.tidemeld.LocalAppGraph
 import io.github.leonfox28.tidemeld.core.paging.PagedController
 import io.github.leonfox28.tidemeld.data.x.*
+import io.github.leonfox28.tidemeld.ui.post.*
 import io.github.leonfox28.tidemeld.ui.social.*
 import io.github.leonfox28.tidemeld.ui.widget.loadErrorMessage
 import kotlinx.coroutines.*
@@ -100,6 +101,7 @@ class XProfileModel(
 @Composable
 fun XProfilePage(owner: String, user: XProfileUser) {
     val graph = LocalAppGraph.current
+    val navigator = io.github.leonfox28.tidemeld.ui.navigation.LocalNavigator.current
     val model = viewModel { XProfileModel(user, owner, graph.xInteractions) }
     val p = model.profile
     val current = p?.user ?: user
@@ -140,7 +142,13 @@ fun XProfilePage(owner: String, user: XProfileUser) {
         onRetryPosts = { model.posts?.reload() },
         onRefresh = { model.refresh() },
         onLoadMore = { model.posts?.loadMore() },
-        actions = graph.xInteractions.relationshipActions(owner, current, model.relationshipFailed),
+        actions =
+            graph.xInteractions.relationshipActions(owner, current, model.relationshipFailed).let {
+                actions ->
+                current.handle?.let {
+                    actions.withReport(graph.xReportAction(navigator, owner, "https://x.com/$it"))
+                } ?: actions
+            },
         badge = {
             if (p?.verified == true) {
                 Spacer(Modifier.width(4.dp))

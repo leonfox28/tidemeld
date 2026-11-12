@@ -16,11 +16,15 @@ struct LoginFlowPage: View {
                         } label: {
                             VStack(alignment: .leading, spacing: 6) {
                                 Text(platform.label).font(.headline)
-                                Text("使用官方网页登录，可添加多个账号").font(.footnote).foregroundStyle(AppTheme.secondary)
+                                Text("连接已有\(platform.label)账号，读取该平台内容").font(.footnote).foregroundStyle(AppTheme.secondary)
                             }.padding(.vertical, 8)
                         }
                     }
-                    .navigationTitle("选择登录平台")
+                    .safeAreaInset(edge: .top) {
+                        Text("叠澜没有独立账号。连接哪个平台，就用该平台的已有账号访问内容。")
+                            .font(.footnote).foregroundStyle(AppTheme.secondary).padding(16)
+                    }
+                    .navigationTitle("添加内容来源账号")
                     .navigationBarTitleDisplayMode(.inline)
                     .toolbar {
                         ToolbarItem(placement: .cancellationAction) { Button(role: .close) { dismiss() } }
@@ -40,7 +44,7 @@ struct AccountsPage: View {
     var body: some View {
         List {
             Section {
-                Text("已登录账号的信息流会一起显示。移除账号仅清除本机登录状态。")
+                Text("此处管理微博和 X 的内容来源账号，不会创建叠澜账号。已连接账号的信息流会一起显示；移除仅清除本机登录状态。")
                     .font(.footnote).foregroundStyle(AppTheme.secondary)
                 if let error { Text(error).foregroundStyle(.red) }
             }

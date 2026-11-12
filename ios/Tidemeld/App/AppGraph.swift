@@ -27,7 +27,8 @@ final class AppGraph {
     @ObservationIgnored let xAPI: XWebAPI?
     @ObservationIgnored let profileRelationships: ProfileRelationships
     @ObservationIgnored private var accountGraphs: [String: (Int, AppGraph)] = [:]
-    @ObservationIgnored lazy var xInteractions = XInteractions(accounts: accounts, api: xAPI, relationships: profileRelationships)
+    @ObservationIgnored lazy var xInteractions = XInteractions(accounts: accounts, api: xAPI, relationships: profileRelationships,
+        onBlockChanged: { [settings] owner, user, blocked in settings.recordBlock(owner: owner, user: user, blocked: blocked) })
     @ObservationIgnored lazy var socialFeed = makeSocialFeed()
 
     private func makeSocialFeed() -> SocialFeedController {

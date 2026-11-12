@@ -12,8 +12,20 @@ struct RootView: View {
     @State private var away = false
 
     var body: some View {
+        if graph.settings.settings.acceptedTermsVersion != ContentTerms.version {
+            NavigationStack {
+                TermsPage { graph.settings.update { $0.acceptedTermsVersion = ContentTerms.version } }
+            }
+            .tint(AppTheme.accent)
+            .preferredColorScheme(graph.settings.settings.themeMode.colorScheme)
+        } else {
+            acceptedContent
+        }
+    }
+
+    private var acceptedContent: some View {
         let settings = graph.settings.settings
-        AppNavigation { HomeTabs() }
+        return AppNavigation { HomeTabs() }
             .overlay { ToastHost() }
             .modifier(Presentations(media: media))
             .environment(graph.toasts)
@@ -204,6 +216,8 @@ struct RouteView: View {
         case .textSize: TextSizePage()
         case .about: AboutPage()
         case .privacy: PrivacyPage()
+        case .terms: TermsPage()
+        case .report(let report): PlatformReportPage(report: report)
         case .licenses: LicensesPage()
         case .diagnostics: DiagnosticsPage()
         }

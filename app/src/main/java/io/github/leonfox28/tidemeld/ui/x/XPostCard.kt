@@ -16,6 +16,7 @@ import io.github.leonfox28.tidemeld.data.model.MixedMedia
 import io.github.leonfox28.tidemeld.data.x.XPost
 import io.github.leonfox28.tidemeld.ui.navigation.*
 import io.github.leonfox28.tidemeld.ui.post.*
+import io.github.leonfox28.tidemeld.ui.social.SocialProfileActions
 import io.github.leonfox28.tidemeld.ui.widget.*
 import kotlinx.coroutines.launch
 
@@ -27,7 +28,7 @@ fun XPostCard(
     detail: Boolean = false,
     profileHandle: String? = null,
 ) {
-    if (hideFilteredPost(post.contentFilterText)) return
+    if (hideFilteredPost(post.contentFilterText, owner, post.contentAuthorIds)) return
     val navigator = LocalNavigator.current
     val actions = rememberXPostActions(owner, post)
     val openAuthor: (() -> Unit)? =
@@ -53,6 +54,12 @@ fun XPostCard(
                 onAuthor = openAuthor,
                 avatar = {
                     PostAvatar(post.avatar, post.author, size = 40.dp, onClick = openAuthor)
+                },
+                menu = {
+                    SocialProfileActions(
+                        LocalAppGraph.current.xSafetyActions(navigator, owner, post),
+                        menuLabel = "更多帖子操作",
+                    )
                 },
             )
         },

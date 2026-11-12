@@ -6,6 +6,7 @@ import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isSelectable
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -70,7 +71,7 @@ class AppFlowsTest {
         app.start()
         app.waitFor("我的微博")
 
-        compose.onNodeWithContentDescription("更多").performClick()
+        compose.onAllNodesWithContentDescription("更多帖子操作")[1].performClick()
         compose.waitForIdle()
         tap("删除")
         app.waitFor("确定删除这条微博吗？")

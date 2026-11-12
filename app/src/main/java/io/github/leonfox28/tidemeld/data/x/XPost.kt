@@ -23,6 +23,7 @@ data class XPost(
     val videoUrl: String? = null,
     val quote: XPost? = null,
     val repostedBy: String? = null,
+    val repostedById: String? = null,
     val promoted: Boolean = false,
     val originalId: String = id,
     val metrics: XMetrics = XMetrics(),
@@ -168,6 +169,7 @@ fun parseXPost(value: JsonElement?, promoted: Boolean = false, depth: Int = 0): 
             ?.copy(
                 id = id,
                 repostedBy = author,
+                repostedById = user.at("rest_id").string(),
                 createdAt = parseWeiboDate(legacy["created_at"].string()),
             )
     val note = root.at("note_tweet", "note_tweet_results", "result")

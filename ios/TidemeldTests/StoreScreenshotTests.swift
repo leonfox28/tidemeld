@@ -11,6 +11,35 @@ import UIKit
 @MainActor
 @Suite(.serialized, .enabled(if: ProcessInfo.processInfo.environment["TIDEMELD_STORE_SCREENSHOTS"] == "1"))
 struct StoreScreenshotTests {
+    @Test func renderTermsAndBlockingScreenshots() async throws {
+        let output = try #require(ProcessInfo.processInfo.environment["TIDEMELD_SCREENSHOT_DIRECTORY"])
+        let directory = URL(fileURLWithPath: output, isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let scene = try #require(UIApplication.shared.connectedScenes.first as? UIWindowScene)
+        let previousWindow = scene.keyWindow
+        let window = UIWindow(windowScene: scene)
+        defer { window.isHidden = true; previousWindow?.makeKeyAndVisible() }
+        let graph = testGraph()
+        graph.settings.update { $0.acceptedTermsVersion = "" }
+        window.rootViewController = UIHostingController(rootView: RootView().environment(graph))
+        window.makeKeyAndVisible()
+        try await capture(window, directory: directory, name: "terms")
+        func scrollViews(_ view: UIView) -> [UIScrollView] {
+            (view as? UIScrollView).map { [$0] } ?? view.subviews.flatMap(scrollViews)
+        }
+        if let scroll = scrollViews(window).first {
+            scroll.setContentOffset(CGPoint(x: 0, y: max(0, scroll.contentSize.height - scroll.bounds.height + scroll.adjustedContentInset.bottom)), animated: false)
+        }
+        try await capture(window, directory: directory, name: "terms-acceptance")
+        let post = Status(id: "synthetic-post", user: WeiboUser(id: "42", screenName: "示例作者"), text: "合成数据：拉黑后这条内容会立即消失。")
+        window.rootViewController = UIHostingController(rootView: NavigationStack {
+            ScrollView { StatusCard(status: post) }.navigationTitle("拉黑检查 · 示例")
+        }.environment(graph))
+        try await capture(window, directory: directory, name: "before-block")
+        graph.settings.recordBlock(owner: "weibo:7", user: "42", blocked: true)
+        try await capture(window, directory: directory, name: "after-block")
+    }
+
     @Test func renderContentSafetyScreenshots() async throws {
         let output = try #require(ProcessInfo.processInfo.environment["TIDEMELD_SCREENSHOT_DIRECTORY"])
         let directory = URL(fileURLWithPath: output, isDirectory: true)

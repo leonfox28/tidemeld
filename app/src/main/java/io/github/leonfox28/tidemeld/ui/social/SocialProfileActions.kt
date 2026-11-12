@@ -29,26 +29,31 @@ data class ProfileActions(
 )
 
 @Composable
-fun SocialProfileActions(actions: ProfileActions) {
+fun SocialProfileActions(actions: ProfileActions, menuLabel: String = "更多用户操作") {
     val graph = LocalAppGraph.current
     val navigator = LocalNavigator.current
     val snackbars = LocalSnackbars.current
+    var running by remember { mutableStateOf(false) }
     var menu by remember { mutableStateOf(false) }
     var confirming by remember { mutableStateOf<ProfileAction?>(null) }
     fun run(action: ProfileAction) {
         confirming = null
+        if (running) return
+        running = true
         graph.appScope.launch {
             try {
                 action.perform()
             } catch (error: Exception) {
                 if (error is CancellationException) throw error
                 snackbars.showError(error, navigator)
+            } finally {
+                running = false
             }
         }
     }
     fun select(action: ProfileAction) {
         menu = false
-        if (actions.busy) return
+        if (actions.busy || running) return
         if (action.confirmation != null) confirming = action else run(action)
     }
     Row {
@@ -72,10 +77,10 @@ fun SocialProfileActions(actions: ProfileActions) {
             Box {
                 IconButton(
                     onClick = { menu = true },
-                    enabled = !actions.busy,
+                    enabled = !actions.busy && !running,
                     modifier = Modifier.size(40.dp),
                 ) {
-                    Icon(Icons.Default.MoreHoriz, "更多用户操作")
+                    Icon(Icons.Default.MoreHoriz, menuLabel)
                 }
                 DropdownMenu(menu, onDismissRequest = { menu = false }) {
                     KeepTextSize {

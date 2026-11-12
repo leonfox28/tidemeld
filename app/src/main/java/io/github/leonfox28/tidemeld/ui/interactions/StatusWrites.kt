@@ -116,7 +116,7 @@ class StatusWrites(
     fun delete(status: Status, onDeleted: () -> Unit = {}) {
         if (status.id in deleting) return
         scope.launch {
-            if (!overlays.confirmDelete("确定删除这条微博吗？")) return@launch
+            if (!overlays.confirmDelete("确定删除这条微博吗？", offerChoice = false)) return@launch
             if (!deleting.add(status.id)) return@launch
             try {
                 graph.api.deleteStatus(status.id)

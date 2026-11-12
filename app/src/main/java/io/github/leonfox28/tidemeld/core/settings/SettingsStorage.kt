@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import kotlinx.coroutines.flow.first
 
 interface SettingsStorage {
@@ -34,6 +35,8 @@ class DataStoreSettingsStorage(private val store: DataStore<Preferences>) : Sett
                 ),
             autoplayLivePhotos = prefs[autoplayLive] ?: defaults.autoplayLivePhotos,
             filterKeywords = prefs[filterKeywords].orEmpty(),
+            acceptedTermsVersion = prefs[terms].orEmpty(),
+            blockedUsers = prefs[blocked].orEmpty(),
             imageCacheLimitMb =
                 if (limit in AppSettings.imageCacheLimitChoices) limit!!
                 else defaults.imageCacheLimitMb,
@@ -49,6 +52,8 @@ class DataStoreSettingsStorage(private val store: DataStore<Preferences>) : Sett
             it[autoplayLive] = settings.autoplayLivePhotos
             it[cacheLimit] = settings.imageCacheLimitMb
             it[filterKeywords] = settings.filterKeywords
+            it[terms] = settings.acceptedTermsVersion
+            it[blocked] = settings.blockedUsers
         }
     }
 
@@ -56,6 +61,8 @@ class DataStoreSettingsStorage(private val store: DataStore<Preferences>) : Sett
         firstOrNull { keyOf(it) == key } ?: fallback
 
     private companion object {
+        val terms = stringPreferencesKey("settings.acceptedTermsVersion")
+        val blocked = stringSetPreferencesKey("settings.blockedUsers")
         val feed = stringPreferencesKey("settings.feedSelection")
         val filterKeywords = stringPreferencesKey("settings.filterKeywords")
         val theme = stringPreferencesKey("settings.theme")

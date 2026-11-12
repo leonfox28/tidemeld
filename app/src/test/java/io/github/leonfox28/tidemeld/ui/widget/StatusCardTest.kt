@@ -142,15 +142,22 @@ class StatusCardTest {
     }
 
     @Test
-    fun `offers to delete the signed-in user's posts only`() {
+    fun `others posts offer reporting but no deletion`() {
+        show(statusJson(id = 2, user = userJson(id = 8)), StatusCardActions(onDelete = {}))
+        compose.onNodeWithContentDescription("更多帖子操作").performClick()
+        text("举报").assertExists()
+        text("删除").assertDoesNotExist()
+    }
+
+    @Test
+    fun `own post menu routes deletion to its post`() {
         val deleted = mutableListOf<String>()
-        val actions = StatusCardActions(onDelete = { deleted += it.id })
-
-        show(statusJson(id = 2, user = userJson(id = 8)), actions)
-        compose.onNodeWithContentDescription("更多").assertDoesNotExist()
-
-        show(statusJson(id = 3, user = userJson(id = 7)), actions)
-        compose.onNodeWithContentDescription("更多").performClick()
+        show(
+            statusJson(id = 3, user = userJson(id = 7)),
+            StatusCardActions(onDelete = { deleted += it.id }),
+        )
+        compose.onNodeWithContentDescription("更多帖子操作").performClick()
+        text("删除").performClick()
         assertEquals(listOf("3"), deleted)
     }
 

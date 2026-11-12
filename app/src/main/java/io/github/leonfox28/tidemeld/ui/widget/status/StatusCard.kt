@@ -10,10 +10,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.MoreHoriz
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -24,11 +20,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.leonfox28.tidemeld.LocalAppGraph
 import io.github.leonfox28.tidemeld.R
 import io.github.leonfox28.tidemeld.core.media.WeiboImage
-import io.github.leonfox28.tidemeld.core.session.SessionState
 import io.github.leonfox28.tidemeld.core.util.formatPostTime
 import io.github.leonfox28.tidemeld.data.model.MixedMedia
 import io.github.leonfox28.tidemeld.data.model.PageCard
@@ -40,7 +34,9 @@ import io.github.leonfox28.tidemeld.ui.interactions.LikeKind
 import io.github.leonfox28.tidemeld.ui.interactions.LikeTarget
 import io.github.leonfox28.tidemeld.ui.interactions.like
 import io.github.leonfox28.tidemeld.ui.interactions.rememberLike
+import io.github.leonfox28.tidemeld.ui.navigation.LocalNavigator
 import io.github.leonfox28.tidemeld.ui.post.*
+import io.github.leonfox28.tidemeld.ui.social.*
 import io.github.leonfox28.tidemeld.ui.widget.UserAvatar
 import io.github.leonfox28.tidemeld.ui.widget.VerifiedIcon
 import io.github.leonfox28.tidemeld.ui.widget.WideCardFrom
@@ -92,7 +88,7 @@ fun StatusCard(
     actions: StatusCardActions = StatusCardActions(),
     detail: Boolean = false,
 ) {
-    if (hideFilteredPost(status.contentFilterText)) return
+    if (hideFilteredPost(status.contentFilterText, authors = status.contentAuthorIds)) return
     PostCard(
         modifier = modifier,
         detail = detail,
@@ -155,19 +151,26 @@ private fun Header(status: Status, actions: StatusCardActions) {
             }
         },
         menu = {
-            if (onDelete != null && user != null) OwnStatusMenu(user.id) { onDelete(status) }
+            val graph = LocalAppGraph.current
+            val navigator = LocalNavigator.current
+            var menuActions =
+                graph.weiboSafetyActions(navigator, status.id, WeiboReportKind.Post, user)
+            if (onDelete != null && user != null && graph.weiboContentOwner == "weibo:${user.id}") {
+                menuActions =
+                    menuActions.copy(
+                        more =
+                            menuActions.more +
+                                ProfileAction(
+                                    "delete",
+                                    "删除",
+                                    destructive = true,
+                                    perform = { onDelete(status) },
+                                )
+                    )
+            }
+            SocialProfileActions(menuActions, menuLabel = "更多帖子操作")
         },
     )
-}
-
-/** A menu for the signed-in user's own posts; nothing on others'. */
-@Composable
-private fun OwnStatusMenu(authorId: String, onDelete: () -> Unit) {
-    val session by LocalAppGraph.current.session.state.collectAsStateWithLifecycle()
-    if ((session as? SessionState.SignedIn)?.account?.uid != authorId) return
-    IconButton(onClick = onDelete, modifier = Modifier.size(40.dp)) {
-        Icon(Icons.Filled.MoreHoriz, contentDescription = "更多")
-    }
 }
 
 /** The pictures, video or linked page of a status, if it has any. */

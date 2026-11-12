@@ -29,6 +29,8 @@ targets:
         buildPhase: resources
       - path: ../docs/PRIVACY.md
         buildPhase: resources
+      - path: ../docs/TERMS.md
+        buildPhase: resources
     settings:
       base:
         # The App Store record is recreated under the Tidemeld identity.

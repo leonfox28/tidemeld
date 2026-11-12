@@ -237,10 +237,12 @@ class StatusDetailWritesTest {
     }
 
     @Test
-    fun `others' statuses offer no menu`() {
+    fun `others' statuses offer reporting but no deletion`() {
         open()
 
-        compose.onNodeWithContentDescription("更多").assertDoesNotExist()
+        compose.onNodeWithContentDescription("更多帖子操作").performClick()
+        compose.onNodeWithText("举报").assertExists()
+        compose.onNodeWithText("删除").assertDoesNotExist()
     }
 
     @Test
@@ -250,7 +252,7 @@ class StatusDetailWritesTest {
             json(obj("ok" to 1, "data" to statusJson(id = 1)).toString())
         }
 
-        compose.onNodeWithContentDescription("更多").performClick()
+        compose.onNodeWithContentDescription("更多帖子操作").performClick()
         compose.waitForIdle()
         compose.onNodeWithText("删除").performClick()
         waitFor("确定删除这条微博吗？")

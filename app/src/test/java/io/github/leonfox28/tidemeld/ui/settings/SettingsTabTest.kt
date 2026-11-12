@@ -95,6 +95,6 @@ class SettingsTabTest {
         compose.onNodeWithText("下方是微博官方登录页面。", substring = true).assertExists()
         compose.onNodeWithText("隐私政策").assertExists()
         compose.onNodeWithContentDescription("关闭").performClick()
-        compose.onNodeWithText("选择登录平台").assertExists()
+        compose.onNodeWithText("添加内容来源账号").assertExists()
     }
 }

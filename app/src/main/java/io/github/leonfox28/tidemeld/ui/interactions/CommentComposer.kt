@@ -163,24 +163,33 @@ fun SendError(error: Throwable, onVerify: (url: String) -> Unit) {
  * Offers to delete something the user wrote, and asks [question] before it goes. Returns true when
  * they confirmed.
  */
-suspend fun Overlays.confirmDelete(question: String = "确定删除这条评论吗？"): Boolean {
+suspend fun Overlays.confirmDelete(
+    question: String = "确定删除这条评论吗？",
+    offerChoice: Boolean = true,
+): Boolean {
     val chosen =
-        show<Boolean> { close ->
-            OverlaySheet(close) { dismiss ->
-                Column(Modifier.navigationBarsPadding()) {
-                    ListItem(
-                        headlineContent = { Text("删除") },
-                        leadingContent = { Icon(Icons.Outlined.Delete, contentDescription = null) },
-                        modifier = Modifier.clickable { dismiss(true) },
-                    )
-                    ListItem(
-                        headlineContent = { Text("取消") },
-                        leadingContent = { Icon(Icons.Filled.Close, contentDescription = null) },
-                        modifier = Modifier.clickable { dismiss(false) },
-                    )
+        if (!offerChoice) true
+        else
+            show<Boolean> { close ->
+                OverlaySheet(close) { dismiss ->
+                    Column(Modifier.navigationBarsPadding()) {
+                        ListItem(
+                            headlineContent = { Text("删除") },
+                            leadingContent = {
+                                Icon(Icons.Outlined.Delete, contentDescription = null)
+                            },
+                            modifier = Modifier.clickable { dismiss(true) },
+                        )
+                        ListItem(
+                            headlineContent = { Text("取消") },
+                            leadingContent = {
+                                Icon(Icons.Filled.Close, contentDescription = null)
+                            },
+                            modifier = Modifier.clickable { dismiss(false) },
+                        )
+                    }
                 }
             }
-        }
     if (chosen != true) return false
     return show<Boolean> { close ->
         AppAlertDialog(

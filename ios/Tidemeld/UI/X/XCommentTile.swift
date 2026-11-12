@@ -11,7 +11,7 @@ struct XCommentTile: View {
     @State private var showingReply = false
 
     var body: some View {
-        PostContentFilter(text: ([post.contentFilterText] + preview.map(\.contentFilterText)).joined(separator: "\n")) { unfilteredContent }
+        PostContentFilter(text: ([post.contentFilterText] + preview.map(\.contentFilterText)).joined(separator: "\n"), owner: owner, authors: post.contentAuthorIDs + preview.flatMap(\.contentAuthorIDs)) { unfilteredContent }
     }
 
     @ViewBuilder private var unfilteredContent: some View {
@@ -23,6 +23,7 @@ struct XCommentTile: View {
                 isAuthor: authorHandle != nil && post.handle.lowercased() == authorHandle?.lowercased(),
                 onAuthor: openAuthor,
                 onReply: { showingReply = true },
+                menuActions: graph.xSafetyActions(post: post, owner: owner),
                 avatar: { PostAvatar(url: post.avatar, label: post.author, size: 32, onTap: openAuthor) },
                 content: {
                     if !post.text.isEmpty {

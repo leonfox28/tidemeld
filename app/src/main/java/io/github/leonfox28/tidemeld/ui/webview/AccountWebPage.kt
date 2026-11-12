@@ -14,7 +14,7 @@ import kotlinx.coroutines.CancellationException
 /** No request is made until the browser holds this card's account. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AccountWebPage(owner: String, url: String) {
+fun AccountWebPage(owner: String, url: String, header: (@Composable () -> Unit)? = null) {
     val graph = LocalAppGraph.current
     val navigator = LocalNavigator.current
     var ready by remember(owner) { mutableStateOf(false) }
@@ -29,7 +29,7 @@ fun AccountWebPage(owner: String, url: String) {
             error = "账号不可用，请返回账号管理重新登录"
         }
     }
-    if (ready) WebPage(url)
+    if (ready) WebPage(url, header)
     else
         Scaffold(
             topBar = {

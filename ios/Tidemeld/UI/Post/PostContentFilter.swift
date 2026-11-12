@@ -3,11 +3,15 @@ import SwiftUI
 /// No hidden content is mounted, so its images, actions and accessibility text stay hidden too.
 struct PostContentFilter<Content: View>: View {
     let text: String
+    var owner: String? = nil
+    var authors: [String] = []
     @ViewBuilder let content: () -> Content
     @Environment(AppGraph.self) private var graph
 
     var body: some View {
-        if ContentFilter.matches(text, keywords: graph.settings.settings.filterKeywords) {
+        if ContentBlock.hides(authors, owner: owner ?? graph.weiboContentOwner, blocked: graph.settings.settings.blockedUsers) {
+            EmptyView()
+        } else if ContentFilter.matches(text, keywords: graph.settings.settings.filterKeywords) {
             Label("已按本地关键词过滤", systemImage: "line.3.horizontal.decrease.circle")
                 .font(.footnote).foregroundStyle(AppTheme.secondary)
                 .padding(16).frame(maxWidth: .infinity, alignment: .leading)

@@ -29,6 +29,8 @@ enum Route: Hashable {
     case textSize
     case about
     case privacy
+    case terms
+    case report(PlatformReport)
     case licenses
     /// Debug builds only.
     case diagnostics
@@ -49,6 +51,8 @@ enum Route: Hashable {
         case .textSize: "textSize"
         case .about: "about"
         case .privacy: "privacy"
+        case .terms: "terms"
+        case .report(let report): "report:\(report.owner):\(report.url.absoluteString)"
         case .licenses: "licenses"
         case .diagnostics: "diagnostics"
         }

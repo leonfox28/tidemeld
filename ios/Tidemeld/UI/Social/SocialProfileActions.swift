@@ -18,8 +18,10 @@ struct ProfileActions {
 /// Buttons and confirmation UI are shared; action semantics and requests belong to adapters.
 struct SocialProfileActions: View {
     let actions: ProfileActions
+    var menuLabel = "更多用户操作"
     @Environment(AppGraph.self) private var graph
     @State private var confirming: ProfileAction?
+    @State private var running = false
 
     var body: some View {
         HStack(spacing: 4) {
@@ -43,8 +45,8 @@ struct SocialProfileActions: View {
                 } label: {
                     Image(systemName: "ellipsis").frame(width: 36, height: 36).contentShape(Rectangle())
                 }
-                .accessibilityLabel("更多用户操作")
-                .disabled(actions.busy)
+                .accessibilityLabel(menuLabel)
+                .disabled(actions.busy || running)
             }
         }
         .confirmationDialog(
@@ -60,12 +62,15 @@ struct SocialProfileActions: View {
     }
 
     private func select(_ action: ProfileAction) {
-        guard !actions.busy else { return }
+        guard !actions.busy && !running else { return }
         if action.confirmation != nil { confirming = action } else { run(action) }
     }
     private func run(_ action: ProfileAction) {
         confirming = nil
+        guard !running else { return }
+        running = true
         Task {
+            defer { running = false }
             do { try await action.perform() } catch { graph.toasts.showError(error, router: graph.router) }
         }
     }

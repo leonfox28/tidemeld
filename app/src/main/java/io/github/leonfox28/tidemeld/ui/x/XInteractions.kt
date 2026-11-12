@@ -26,6 +26,7 @@ class XInteractions(
     private val accounts: AccountManager,
     private val api: XWebApi?,
     val relationships: ProfileRelationships = ProfileRelationships(),
+    private val onBlockChanged: (String, String, Boolean) -> Unit = { _, _, _ -> },
 ) {
     private val mutable = MutableStateFlow<Map<String, XInteractionState>>(emptyMap())
     val states = mutable.asStateFlow()
@@ -94,6 +95,24 @@ class XInteractions(
         val result =
             read(owner) { source, api -> api.relationship(source.session, uid, cookies(source)) }
         relationships.ingest(key(owner, uid), result.presentation(), started)
+        syncBlock(owner, uid)
+    }
+
+    private fun syncBlock(owner: String, uid: String) {
+        relationships.loadedState(key(owner, uid))?.value?.blocking?.let {
+            onBlockChanged(owner, uid, it)
+        }
+    }
+
+    suspend fun blockUser(owner: String, user: XProfileUser, revision: Long) {
+        val uid = user.id ?: throw WeiboApiException("用户资料不可用")
+        refreshRelationship(owner, uid, revision)
+        if (account(owner).revision != revision) throw SessionExpiredException()
+        if (relationships.loadedState(key(owner, uid))?.value?.blocking == true) return
+        val action =
+            relationshipActions(owner, user, false)?.more?.firstOrNull { it.id == "block" }
+                ?: throw WeiboApiException("关系状态已变化，请重新打开用户主页")
+        action.perform()
     }
 
     fun relationshipActions(owner: String, user: XProfileUser, failed: Boolean): ProfileActions? {
@@ -121,6 +140,7 @@ class XInteractions(
                     throw error
                 }
             }
+            syncBlock(owner, uid)
         }
         return profileActions(
             user.name ?: user.handle ?: "此用户",

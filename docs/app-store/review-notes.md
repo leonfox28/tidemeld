@@ -1,6 +1,6 @@
 # Review notes — version 1.0.0 (10)
 
-Saved to App Store Connect on 2026-11-10 for build 10 after the build-4 rejection. Build 10 entered Waiting for Review at 11:11 Asia/Shanghai. Actual upload/review status is recorded in [APP_STORE.md](../APP_STORE.md). Contact details remain only in App Store Connect. The maintainer continues to submit without test credentials; guest access does not cover authenticated functions and has not been accepted by Apple as a substitute.
+Saved to App Store Connect on 2026-11-10 for build 10 after the build-4 rejection. Build 10 entered Waiting for Review at 11:11 Asia/Shanghai. Build 10 was rejected on November 11. This file preserves the notes actually submitted with that build; the next submission must use updated notes. Actual upload/review status is recorded in [APP_STORE.md](../APP_STORE.md). Contact details remain only in App Store Connect. The maintainer continues to submit without test credentials; guest access does not cover authenticated functions and has not been accepted by Apple as a substitute.
 
 ---
 

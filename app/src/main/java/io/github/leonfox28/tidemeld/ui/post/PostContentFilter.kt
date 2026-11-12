@@ -18,8 +18,21 @@ import io.github.leonfox28.tidemeld.ui.widget.text.plainStatusText
 
 /** Return before mounting media, actions or accessibility content for a matching post. */
 @Composable
-fun hideFilteredPost(text: String): Boolean {
+fun hideFilteredPost(
+    text: String,
+    owner: String? = null,
+    authors: List<String> = emptyList(),
+): Boolean {
     val settings by LocalAppGraph.current.settings.settings.collectAsStateWithLifecycle()
+    val graph = LocalAppGraph.current
+    val session by graph.session.state.collectAsStateWithLifecycle()
+    val source =
+        owner
+            ?: (session as? io.github.leonfox28.tidemeld.core.session.SessionState.SignedIn)
+                ?.account
+                ?.uid
+                ?.let { "weibo:$it" }
+    if (ContentBlock.hides(authors, source, settings.blockedUsers)) return true
     val hidden = ContentFilter.matches(text, settings.filterKeywords)
     if (hidden)
         Text(

@@ -90,6 +90,11 @@ fun AboutPage() {
                     Spacer(Modifier.height(8.dp))
                     Text("开源、非商业的社交阅读客户端")
                 }
+                item {
+                    Link(Icons.Outlined.Description, "使用条款", "内容与行为规则") {
+                        navigator.push(Route.Terms)
+                    }
+                }
                 item { Section("声明", disclaimer) }
                 item { Section("隐私", privacy) }
                 item { HorizontalDivider(Modifier.padding(vertical = 16.dp)) }

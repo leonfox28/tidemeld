@@ -42,6 +42,7 @@ struct AboutPage: View {
             bullets("隐私", privacy)
             Section {
                 NavigationLink("隐私政策", value: Route.privacy)
+                NavigationLink("使用条款", value: Route.terms)
                 Button("使用帮助与支持") { graph.openExternally(supportURL) }
                 Button {
                     graph.openExternally(repoURL)

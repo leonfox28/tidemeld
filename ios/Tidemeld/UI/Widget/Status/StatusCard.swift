@@ -33,7 +33,7 @@ struct StatusCard: View {
     var detail = false
 
     var body: some View {
-        PostContentFilter(text: status.contentFilterText) { unfilteredContent }
+        PostContentFilter(text: status.contentFilterText, authors: status.contentAuthorIDs) { unfilteredContent }
     }
 
     @ViewBuilder private var unfilteredContent: some View {
@@ -85,17 +85,16 @@ struct StatusHeader: View {
                     VerifiedIcon(verifiedType: verified)
                 }
             },
-            menu: {
-                if let onDelete = actions.onDelete, let user, user.id == graph.session.state.uid {
-                    Menu {
-                        Button("删除", systemImage: "trash", role: .destructive) { onDelete(status) }
-                    } label: {
-                        Image(systemName: "ellipsis").font(.body).foregroundStyle(
-                            AppTheme.secondary
-                        ).frame(width: 32, height: 32).contentShape(Rectangle())
-                    }.accessibilityLabel("更多")
-                }
-            })
+            menu: { SocialProfileActions(actions: menuActions, menuLabel: "更多帖子操作") })
+    }
+
+    private var menuActions: ProfileActions {
+        var result = graph.weiboSafetyActions(id: status.id, kind: .post, user: status.user)
+        if let onDelete = actions.onDelete, status.user?.id == graph.session.state.uid {
+            result.more.append(ProfileAction(id: "delete", title: "删除", symbol: "trash", destructive: true,
+                perform: { onDelete(status) }))
+        }
+        return result
     }
 }
 

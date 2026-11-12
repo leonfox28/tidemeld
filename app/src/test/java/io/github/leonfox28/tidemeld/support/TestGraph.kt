@@ -39,7 +39,10 @@ val signedIn = StoredSession(Account(uid = "7"), mapOf(WeiboCookieJar.WEB to map
  * [restored] says otherwise, with requests going to [web], or failing as if offline without one.
  */
 fun testGraph(
-    settings: AppSettings = AppSettings(),
+    settings: AppSettings =
+        AppSettings(
+            acceptedTermsVersion = io.github.leonfox28.tidemeld.ui.settings.ContentTerms.version
+        ),
     settingsStorage: InMemorySettingsStorage = InMemorySettingsStorage(settings),
     restored: StoredSession? = null,
     sessionStorage: InMemorySessionStorage = InMemorySessionStorage(restored),

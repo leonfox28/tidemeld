@@ -75,6 +75,7 @@ import io.github.leonfox28.tidemeld.ui.auth.LoginPrompt
 import io.github.leonfox28.tidemeld.ui.comments.CommentTile
 import io.github.leonfox28.tidemeld.ui.navigation.LocalNavigator
 import io.github.leonfox28.tidemeld.ui.navigation.Route
+import io.github.leonfox28.tidemeld.ui.post.*
 import io.github.leonfox28.tidemeld.ui.shell.LocalTabReselect
 import io.github.leonfox28.tidemeld.ui.social.*
 import io.github.leonfox28.tidemeld.ui.status.rememberStatusCardActions
@@ -393,6 +394,13 @@ private fun CommentNoticeTile(notice: CommentNotice, actions: StatusCardActions)
 /** Who liked what, and when. Tapping it opens the post. */
 @Composable
 private fun LikeNoticeTile(notice: LikeNotice, actions: StatusCardActions) {
+    if (
+        hideFilteredPost(
+            notice.user?.screenName.orEmpty(),
+            authors = listOfNotNull(notice.user?.id),
+        )
+    )
+        return
     val navigator = LocalNavigator.current
     val status = notice.status
     val comment = notice.comment
@@ -420,6 +428,7 @@ private fun LikeNoticeTile(notice: LikeNotice, actions: StatusCardActions) {
 /** A comment cited in a notification: its author and the start of its text. */
 @Composable
 private fun CommentQuote(comment: Comment) {
+    if (hideFilteredPost(comment.contentFilterText, authors = comment.contentAuthorIds)) return
     val colors = MaterialTheme.colorScheme
     Text(
         buildAnnotatedString {
@@ -451,6 +460,7 @@ private val Thumb = 48.dp
 /** The post a notification is about, as a small card: a picture, its author and its text. */
 @Composable
 private fun StatusQuote(status: Status, onClick: (() -> Unit)?) {
+    if (hideFilteredPost(status.contentFilterText, authors = status.contentAuthorIds)) return
     val settings by LocalAppGraph.current.settings.settings.collectAsStateWithLifecycle()
     val density = LocalDensity.current.density
     val user = status.user

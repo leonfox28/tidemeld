@@ -23,6 +23,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.leonfox28.tidemeld.LocalAppGraph
 import io.github.leonfox28.tidemeld.data.model.WeiboUser
+import io.github.leonfox28.tidemeld.ui.post.*
 import io.github.leonfox28.tidemeld.ui.social.*
 import io.github.leonfox28.tidemeld.ui.status.rememberStatusCardActions
 import io.github.leonfox28.tidemeld.ui.widget.VerifiedIcon
@@ -39,6 +40,7 @@ import io.github.leonfox28.tidemeld.ui.widget.status.StatusCard
 @Composable
 fun ProfilePage(uid: String? = null, screenName: String? = null, initial: WeiboUser? = null) {
     val graph = LocalAppGraph.current
+    val navigator = io.github.leonfox28.tidemeld.ui.navigation.LocalNavigator.current
     val model = viewModel { ProfileViewModel(uid, screenName, graph.api, graph.openLists, graph) }
     val load by model.profile.collectAsStateWithLifecycle()
     val user = load.profile?.user ?: initial
@@ -83,7 +85,14 @@ fun ProfilePage(uid: String? = null, screenName: String? = null, initial: WeiboU
                 loading,
                 if (failed) "资料加载失败：${loadErrorMessage(load.error)}" else null,
             ),
-        actions = p?.let { model.controls?.actions(it) },
+        actions =
+            p?.let {
+                model.controls
+                    ?.actions(it)
+                    .withReport(
+                        graph.weiboReportAction(navigator, it.user.id, WeiboReportKind.User)
+                    )
+            },
         badge = {
             if (showsVerified(verified)) {
                 Spacer(Modifier.width(4.dp))

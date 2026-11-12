@@ -82,6 +82,8 @@ data class AppSettings(
     /** How large the picture disk cache may grow before the oldest pictures are deleted. */
     val imageCacheLimitMb: Int = 300,
     val filterKeywords: String = "",
+    val acceptedTermsVersion: String = "",
+    val blockedUsers: Set<String> = emptySet(),
 ) {
     companion object {
         val imageCacheLimitChoices = listOf(100, 300, 500, 1024)

@@ -8,10 +8,12 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import io.github.leonfox28.tidemeld.LocalAppGraph
 import io.github.leonfox28.tidemeld.core.util.formatPostTime
 import io.github.leonfox28.tidemeld.data.x.XPost
 import io.github.leonfox28.tidemeld.ui.navigation.*
 import io.github.leonfox28.tidemeld.ui.post.*
+import io.github.leonfox28.tidemeld.ui.social.SocialProfileActions
 import io.github.leonfox28.tidemeld.ui.theme.KeepTextSize
 import io.github.leonfox28.tidemeld.ui.widget.LocalOverlays
 import kotlinx.coroutines.launch
@@ -29,7 +31,9 @@ fun XCommentTile(
         hideFilteredPost(
             (listOf(post.contentFilterText) + preview.map { it.contentFilterText }).joinToString(
                 "\n"
-            )
+            ),
+            owner = owner,
+            authors = post.contentAuthorIds + preview.flatMap { it.contentAuthorIds },
         )
     )
         return
@@ -57,6 +61,12 @@ fun XCommentTile(
             onAuthor = { navigator.push(Route.XProfile(owner, post.profileUser)) },
             onReply = ::reply,
             onLongClick = { menu = true },
+            menu = {
+                SocialProfileActions(
+                    LocalAppGraph.current.xSafetyActions(navigator, owner, post),
+                    menuLabel = "更多评论操作",
+                )
+            },
             avatar = {
                 PostAvatar(
                     post.avatar,

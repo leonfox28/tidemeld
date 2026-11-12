@@ -69,7 +69,7 @@ fun weiboSearchUrl(query: String): String {
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun WebPage(url: String) {
+fun WebPage(url: String, header: (@Composable () -> Unit)? = null) {
     val navigator = LocalNavigator.current
     val context = LocalContext.current
     val snackbars = LocalSnackbars.current
@@ -129,6 +129,7 @@ fun WebPage(url: String) {
                         }
                     },
                 )
+                header?.invoke()
                 if (progress < 100) {
                     LinearProgressIndicator(
                         progress = { progress / 100f },

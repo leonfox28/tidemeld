@@ -9,10 +9,11 @@ struct CommentTile<Below: View>: View {
     var onTap: (() -> Void)? = nil
     var onDelete: (() -> Void)? = nil
     @ViewBuilder var below: () -> Below
+    @Environment(AppGraph.self) private var graph
     @State private var source = UUID().uuidString
 
     var body: some View {
-        PostContentFilter(text: comment.contentFilterText) { unfilteredContent }
+        PostContentFilter(text: comment.contentFilterText, authors: comment.contentAuthorIDs) { unfilteredContent }
     }
 
     @ViewBuilder private var unfilteredContent: some View {
@@ -23,6 +24,7 @@ struct CommentTile<Below: View>: View {
             isAuthor: user != nil && user?.id == authorId,
             onAuthor: user.flatMap { user in actions.onUser.map { action in { action(user) } } },
             onReply: onTap,
+            menuActions: graph.weiboSafetyActions(id: comment.id, kind: .comment, user: comment.user),
             avatar: { UserAvatar(user: user, size: 32, onTap: actions.onUser) },
             content: {
                 if !comment.text.isEmpty {

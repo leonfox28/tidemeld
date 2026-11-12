@@ -20,9 +20,26 @@ import Foundation
     func ingest(_ profile: UserProfile, started: Int) {
         guard isCurrent else { return }
         graph.profileRelationships.ingest(key(profile.user.id), value: profile.relationship, started: started)
+        syncBlock(profile.user.id)
     }
     func state(_ profile: UserProfile) -> ProfileRelationshipState {
         graph.profileRelationships.state(key(profile.user.id), fallback: profile.relationship)
+    }
+    private func syncBlock(_ uid: String) {
+        guard isCurrent, let account, let blocked = graph.profileRelationships.loadedState(key(uid))?.value.blocking else { return }
+        graph.settings.recordBlock(owner: account.id, user: uid, blocked: blocked)
+    }
+    func blockUser(_ uid: String) async throws {
+        guard isCurrent else { throw WeiboError.sessionExpired }
+        let started = readStamp
+        let profile = try await graph.api.fetchProfile(uid: uid)
+        guard isCurrent else { throw WeiboError.sessionExpired }
+        ingest(profile, started: started)
+        if state(profile).value.blocking == true { return }
+        guard let action = actions(profile)?.more.first(where: { $0.id == "block" }) else {
+            throw AppFailure(message: "关系状态已变化，请重新打开用户主页")
+        }
+        try await action.perform()
     }
     func actions(_ profile: UserProfile) -> ProfileActions? {
         guard isCurrent, profile.user.id != account?.session.account.uid else { return nil }
@@ -37,8 +54,9 @@ import Foundation
                     uid: uid, following: following, blocking: blocking, isCurrent: current
                 ).relationship
             }
+            self.syncBlock(uid)
         }
-        return profileActions(
+        var result = profileActions(
             name: profile.user.screenName, state: state,
             follow: { try await change($0, nil) }, block: { try await change(nil, $0) }, reposts: nil,
             refresh: {
@@ -48,6 +66,8 @@ import Foundation
                 guard self.isCurrent else { throw WeiboError.sessionExpired }
                 self.ingest(profile, started: started)
             })
+        result.more.append(graph.weiboReportAction(id: uid, kind: .user))
+        return result
     }
 }
 

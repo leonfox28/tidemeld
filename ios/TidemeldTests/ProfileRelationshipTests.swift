@@ -40,6 +40,54 @@ private func relationForm(_ request: URLRequest) -> [String: String] {
 
 extension FakeWeiboTests {
     @MainActor @Suite struct ProfileRelationshipTests {
+        @Test func confirmedBlocksPersistAndUnblocksRestoreContentOnlyForSourceAccount() async throws {
+            FakeWeibo.reset { _ in .init(body: relationshipJSON(blocking: false)) }
+            let graph = testGraph(xAPI: relationAPI())
+            try graph.accounts.add(.x, session: relationSession())
+            let store = graph.xInteractions
+            let user = XProfileUser(id: "42", name: "合成用户")
+            try await store.refreshRelationship("x:8", uid: "42")
+            for blocked in [true, false] {
+                FakeWeibo.reset { request in
+                    .init(body: request.httpMethod == "POST" ? #"{"id_str":"42"}"# : relationshipJSON(blocking: blocked))
+                }
+                let action = try #require(store.relationshipActions("x:8", user: user, failed: false)?.more.first { $0.id == "block" })
+                try await action.perform()
+                #expect(ContentBlock.hides(["42"], owner: "x:8", blocked: graph.settings.settings.blockedUsers) == blocked)
+                #expect(!ContentBlock.hides(["42"], owner: "x:9", blocked: graph.settings.settings.blockedUsers))
+                #expect(!ContentBlock.hides(["42"], owner: "weibo:8", blocked: graph.settings.settings.blockedUsers))
+            }
+            FakeWeibo.reset { request in .init(body: request.httpMethod == "POST" ? "{}" : relationshipJSON()) }
+            let rejected = try #require(store.relationshipActions("x:8", user: user, failed: false)?.more.first { $0.id == "block" })
+            await #expect(throws: (any Error).self) { try await rejected.perform() }
+            #expect(graph.settings.settings.blockedUsers.isEmpty)
+        }
+
+        @Test func weiboConfirmedBlocksUpdateLocalVisibilityAndStaleActionsDoNotWrite() async throws {
+            FakeWeibo.reset { _ in .init(body: #"{"ok":1,"data":{"block":false,"user":{"idstr":"42","screen_name":"合成用户","following":false}}}"#) }
+            let graph = testGraph(configuration: FakeWeibo.configuration)
+            let controls = WeiboProfileControls(graph)
+            let profile = try await graph.api.fetchProfile(uid: "42")
+            controls.ingest(profile, started: controls.readStamp)
+            for blocked in [true, false] {
+                FakeWeibo.reset { request in
+                    .init(body: request.httpMethod == "POST" ? #"{"ok":1}"# : """
+                        {"ok":1,"data":{"block":\(blocked),"user":{"idstr":"42","screen_name":"合成用户","following":false}}}
+                        """)
+                }
+                let action = try #require(controls.actions(profile)?.more.first { $0.id == "block" })
+                try await action.perform()
+                #expect(ContentBlock.hides(["42"], owner: "weibo:7", blocked: graph.settings.settings.blockedUsers) == blocked)
+                #expect(!ContentBlock.hides(["42"], owner: "weibo:8", blocked: graph.settings.settings.blockedUsers))
+            }
+            let stale = try #require(controls.actions(profile)?.more.first { $0.id == "block" })
+            try graph.accounts.add(.weibo, session: signedIn)
+            FakeWeibo.reset()
+            await #expect(throws: (any Error).self) { try await stale.perform() }
+            #expect(FakeWeibo.requests.isEmpty)
+            #expect(graph.settings.settings.blockedUsers.isEmpty)
+        }
+
         @Test func xFormsVerifyTargetAccountAndAcknowledgedState() async throws {
             let cases: [(XUserAction, String, [String: String], String)] = [
                 (

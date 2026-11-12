@@ -18,6 +18,7 @@ struct XPost: Sendable, Identifiable {
     let videoURL: String?
     let quote: XQuote?
     var repostedBy: String? = nil
+    var repostedByID: String? = nil
     var promoted: Bool = false
     let originalID: String
     var metrics = XMetrics()
@@ -100,6 +101,7 @@ func parseXPost(_ value: JSON?, promoted: Bool = false, depth: Int = 0) -> XPost
     {
         post.id = id
         post.repostedBy = author
+        post.repostedByID = user?["rest_id"]?.string
         post.createdAt = parseWeiboDate(legacy["created_at"]?.string)
         return post
     }
